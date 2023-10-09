@@ -14,4 +14,4 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@3d1b5e078a85df99db0cb2441cd4309b09d86253
         with:
           commit_message: update
-          file_pattern: content/releases
+          file_pattern: dist
