@@ -27,3 +27,4 @@ rm -rf dist
 mkdir dist
 cp -r .tmp/release-$VERSION/* dist
 echo "hello world" > dist/index.html
+cp _headers _redirects dist
