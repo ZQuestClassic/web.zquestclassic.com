@@ -6,7 +6,8 @@ mkdir -p .tmp
 
 # cp _headers _site
 
-curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/latest > .tmp/latest.json
+# curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/latest > .tmp/latest.json
+curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/nightly-2023-10-10 > .tmp/latest.json
 VERSION=$(jq -r '.tag_name' .tmp/latest.json)
 
 if [ ! -d .tmp/release-$VERSION ]; then
