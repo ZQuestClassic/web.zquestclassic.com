@@ -4,8 +4,8 @@ set -ex
 
 mkdir -p .tmp
 
-# cp _headers _site
-
+# TODO restore
+exit 0
 # curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/latest > .tmp/latest.json
 curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/nightly-2023-10-12 > .tmp/latest.json
 VERSION=$(jq -r '.tag_name' .tmp/latest.json)
