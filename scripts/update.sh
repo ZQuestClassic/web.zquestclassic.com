@@ -16,9 +16,9 @@ if [ ! -d .tmp/release-$VERSION ]; then
     unzip .tmp/web.zip -d .tmp
 
     rm .tmp/dist/index.html
-    sed -i 's@/zc/@/@g' .tmp/dist/create/index.html || (sed 's@/zc/@/@g' .tmp/dist/create/index.html > out.html && mv out.html .tmp/dist/create/index.html)
-    sed -i 's@/zc/@/@g' .tmp/dist/play/index.html || (sed 's@/zc/@/@g' .tmp/dist/play/index.html > out.html && mv out.html .tmp/dist/play/index.html)
-    npx --yes json -I -f .tmp/dist/manifest.json -e "this.scope='https://web.zquestclassic.com'"
+    # sed -i 's@/zc/@/@g' .tmp/dist/create/index.html || (sed 's@/zc/@/@g' .tmp/dist/create/index.html > out.html && mv out.html .tmp/dist/create/index.html)
+    # sed -i 's@/zc/@/@g' .tmp/dist/play/index.html || (sed 's@/zc/@/@g' .tmp/dist/play/index.html > out.html && mv out.html .tmp/dist/play/index.html)
+    # npx --yes json -I -f .tmp/dist/manifest.json -e "this.scope='https://web.zquestclassic.com'"
     mv .tmp/dist .tmp/release-$VERSION
 fi
 
