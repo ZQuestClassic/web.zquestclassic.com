@@ -35,23 +35,13 @@
       "name": "Player",
       "description": "Play ZC",
       "url": "play/?utm_source=homescreen-shortcut",
-      "icons": [
-        {
-          "src": "android-chrome-maskable-192x192.png",
-          "sizes": "192x192"
-        }
-      ]
+      "icons": [{ "src": "android-chrome-maskable-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "Editor",
       "description": "Open the ZC Editor",
       "url": "create/?utm_source=homescreen-shortcut",
-      "icons": [
-        {
-          "src": "android-chrome-maskable-192x192.png",
-          "sizes": "192x192"
-        }
-      ]
+      "icons": [{ "src": "android-chrome-maskable-192x192.png", "sizes": "192x192" }]
     }
   ]
 }

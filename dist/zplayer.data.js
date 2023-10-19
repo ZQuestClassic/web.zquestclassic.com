@@ -18,7 +18,7 @@
         // web worker
         PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = '/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data';
+      var PACKAGE_NAME = '/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data';
       var REMOTE_PACKAGE_BASE = 'zplayer.data';
       if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
         Module['locateFile'] = Module['locateFilePackage'];
@@ -295,10 +295,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
+          }          Module['removeRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data');
 
       };
-      Module['addRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
+      Module['addRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data');
 
       if (!Module.preloadResults) Module.preloadResults = {};
 
