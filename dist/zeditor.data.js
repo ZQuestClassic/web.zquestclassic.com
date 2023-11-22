@@ -85,6 +85,8 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
       function assert(check, msg) {
         if (!check) throw msg + new Error().stack;
       }
+Module['FS_createPath']("/", "assets", true, true);
+Module['FS_createPath']("/assets", "zc", true, true);
 Module['FS_createPath']("/", "docs", true, true);
 Module['FS_createPath']("/", "modules", true, true);
 Module['FS_createPath']("/modules", "classic", true, true);
@@ -340,6 +342,6 @@ Module['FS_createPath']("/modules", "classic", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/docs/zquest.txt", "start": 0, "end": 189510}, {"filename": "/docs/zstrings.txt", "start": 189510, "end": 197100}, {"filename": "/modules/classic/classic_zquest.dat", "start": 197100, "end": 273392}], "remote_package_size": 273392, "package_uuid": "sha256-beb470dda9986f5b6bae01b80a9e20a2dda015126ea9774e9ea1567c2f714069"});
+    loadPackage({"files": [{"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 0, "end": 8012}, {"filename": "/docs/zquest.txt", "start": 8012, "end": 197522}, {"filename": "/docs/zstrings.txt", "start": 197522, "end": 205112}, {"filename": "/modules/classic/classic_zquest.dat", "start": 205112, "end": 281404}], "remote_package_size": 281404, "package_uuid": "sha256-8f021bd952f2ea314ee3a2d0b37b2969b7a46f3a73af628ef3a1139e78dd241e"});
 
   })();
