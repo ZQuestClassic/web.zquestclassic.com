@@ -342,6 +342,6 @@ Module['FS_createPath']("/modules", "classic", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 0, "end": 8012}, {"filename": "/docs/zquest.txt", "start": 8012, "end": 197522}, {"filename": "/docs/zstrings.txt", "start": 197522, "end": 205112}, {"filename": "/modules/classic/classic_zquest.dat", "start": 205112, "end": 281404}], "remote_package_size": 281404, "package_uuid": "sha256-8f021bd952f2ea314ee3a2d0b37b2969b7a46f3a73af628ef3a1139e78dd241e"});
+    loadPackage({"files": [{"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 0, "end": 8012}, {"filename": "/docs/zquest.txt", "start": 8012, "end": 197522}, {"filename": "/docs/zstrings.txt", "start": 197522, "end": 205308}, {"filename": "/modules/classic/classic_zquest.dat", "start": 205308, "end": 281600}], "remote_package_size": 281600, "package_uuid": "sha256-9e35e12dd3b94d454c9d7e93990f6bc254b2acfea5c7377afbaade8b3ab10d6e"});
 
   })();
