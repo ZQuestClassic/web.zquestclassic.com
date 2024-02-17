@@ -5,9 +5,9 @@ set -ex
 mkdir -p .tmp
 
 # TODO restore
-exit 0
+# exit 0
 # curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/latest > .tmp/latest.json
-curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/3.0.0-prerelease.32+2024-01-24 > .tmp/latest.json
+curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/3.0.0-prerelease.41+2024-02-17 > .tmp/latest.json
 VERSION=$(jq -r '.tag_name' .tmp/latest.json)
 
 if [ ! -d ".tmp/release-$VERSION" ]; then
@@ -15,6 +15,7 @@ if [ ! -d ".tmp/release-$VERSION" ]; then
     wget $URL -O .tmp/web.zip
     mkdir -p ".tmp/release-$VERSION"
     unzip .tmp/web.zip -d ".tmp/release-$VERSION"
+    rm ".tmp/release-$VERSION/index.html"
 fi
 
 rm -rf .tmp/web.zip .tmp/latest.json
