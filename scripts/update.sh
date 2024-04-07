@@ -5,9 +5,9 @@ set -ex
 mkdir -p .tmp
 
 # TODO restore
-# exit 0
+exit 0
 # curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/latest > .tmp/latest.json
-curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/3.0.0-prerelease.41+2024-02-17 > .tmp/latest.json
+curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/3.0.0-prerelease.49+2024-04-06 > .tmp/latest.json
 VERSION=$(jq -r '.tag_name' .tmp/latest.json)
 
 if [ ! -d ".tmp/release-$VERSION" ]; then
