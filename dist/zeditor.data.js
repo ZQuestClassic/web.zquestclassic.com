@@ -1,15 +1,17 @@
 
-  var Module = typeof Module !== 'undefined' ? Module : {};
+  var Module = typeof Module != 'undefined' ? Module : {};
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
   }
 
   Module.expectedDataFileDownloads++;
-  (function() {
+  (() => {
     // Do not attempt to redownload the virtual filesystem data when in a pthread or a Wasm Worker context.
-    if (Module['ENVIRONMENT_IS_PTHREAD'] || Module['$ww']) return;
-    var loadPackage = function(metadata) {
+    var isPthread = typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD;
+    var isWasmWorker = typeof ENVIRONMENT_IS_WASM_WORKER != 'undefined' && ENVIRONMENT_IS_WASM_WORKER;
+    if (isPthread || isWasmWorker) return;
+    function loadPackage(metadata) {
 
       var PACKAGE_PATH = '';
       if (typeof window === 'object') {
@@ -18,7 +20,7 @@
         // web worker
         PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = '/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data';
+      var PACKAGE_NAME = '/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zeditor.data';
       var REMOTE_PACKAGE_BASE = 'zeditor.data';
       if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
         Module['locateFile'] = Module['locateFilePackage'];
@@ -57,9 +59,9 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
               num++;
             }
             total = Math.ceil(total * Module.expectedDataFileDownloads/num);
-            if (Module['setStatus']) Module['setStatus'](`Downloading data... (${loaded}/${total})`);
+            Module['setStatus']?.(`Downloading data... (${loaded}/${total})`);
           } else if (!Module.dataFileDownloads) {
-            if (Module['setStatus']) Module['setStatus']('Downloading data...');
+            Module['setStatus']?.('Downloading data...');
           }
         };
         xhr.onerror = function(event) {
@@ -80,7 +82,7 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
         console.error('package error:', error);
       };
 
-    function runWithFS() {
+    function runWithFS(Module) {
 
       function assert(check, msg) {
         if (!check) throw msg + new Error().stack;
@@ -253,6 +255,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
           for (var chunkId = 0; chunkId < chunkCount; chunkId++) {
             var getRequest = packages.get(`package/${packageName}/${chunkId}`);
             getRequest.onsuccess = function(event) {
+              if (!event.target.result) {
+                errback(new Error(`CachedPackageNotFound for: ${packageName}`));
+                return;
+              }
               // If there's only 1 chunk, there's nothing to concatenate it with so we can just return it now
               if (chunkCount == 1) {
                 callback(event.target.result);
@@ -295,10 +301,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data');
+          }          Module['removeRunDependency']('datafile_/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zeditor.data');
 
       };
-      Module['addRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data');
+      Module['addRunDependency']('datafile_/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zeditor.data');
 
       if (!Module.preloadResults) Module.preloadResults = {};
 
@@ -331,11 +337,11 @@ Module['FS_createPath']("/modules", "classic", true, true);
           }
         , preloadFallback);
 
-        if (Module['setStatus']) Module['setStatus']('Downloading...');
+        Module['setStatus']?.('Downloading...');
 
     }
     if (Module['calledRun']) {
-      runWithFS();
+      runWithFS(Module);
     } else {
       if (!Module['preRun']) Module['preRun'] = [];
       Module["preRun"].push(runWithFS); // FS is not initialized yet, wait for it

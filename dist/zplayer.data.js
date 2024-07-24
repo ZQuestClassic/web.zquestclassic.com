@@ -1,15 +1,17 @@
 
-  var Module = typeof Module !== 'undefined' ? Module : {};
+  var Module = typeof Module != 'undefined' ? Module : {};
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
   }
 
   Module.expectedDataFileDownloads++;
-  (function() {
+  (() => {
     // Do not attempt to redownload the virtual filesystem data when in a pthread or a Wasm Worker context.
-    if (Module['ENVIRONMENT_IS_PTHREAD'] || Module['$ww']) return;
-    var loadPackage = function(metadata) {
+    var isPthread = typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD;
+    var isWasmWorker = typeof ENVIRONMENT_IS_WASM_WORKER != 'undefined' && ENVIRONMENT_IS_WASM_WORKER;
+    if (isPthread || isWasmWorker) return;
+    function loadPackage(metadata) {
 
       var PACKAGE_PATH = '';
       if (typeof window === 'object') {
@@ -18,7 +20,7 @@
         // web worker
         PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = '/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data';
+      var PACKAGE_NAME = '/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zplayer.data';
       var REMOTE_PACKAGE_BASE = 'zplayer.data';
       if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
         Module['locateFile'] = Module['locateFilePackage'];
@@ -57,9 +59,9 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
               num++;
             }
             total = Math.ceil(total * Module.expectedDataFileDownloads/num);
-            if (Module['setStatus']) Module['setStatus'](`Downloading data... (${loaded}/${total})`);
+            Module['setStatus']?.(`Downloading data... (${loaded}/${total})`);
           } else if (!Module.dataFileDownloads) {
-            if (Module['setStatus']) Module['setStatus']('Downloading data...');
+            Module['setStatus']?.('Downloading data...');
           }
         };
         xhr.onerror = function(event) {
@@ -80,7 +82,7 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
         console.error('package error:', error);
       };
 
-    function runWithFS() {
+    function runWithFS(Module) {
 
       function assert(check, msg) {
         if (!check) throw msg + new Error().stack;
@@ -254,6 +256,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
           for (var chunkId = 0; chunkId < chunkCount; chunkId++) {
             var getRequest = packages.get(`package/${packageName}/${chunkId}`);
             getRequest.onsuccess = function(event) {
+              if (!event.target.result) {
+                errback(new Error(`CachedPackageNotFound for: ${packageName}`));
+                return;
+              }
               // If there's only 1 chunk, there's nothing to concatenate it with so we can just return it now
               if (chunkCount == 1) {
                 callback(event.target.result);
@@ -296,10 +302,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data');
+          }          Module['removeRunDependency']('datafile_/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zplayer.data');
 
       };
-      Module['addRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data');
+      Module['addRunDependency']('datafile_/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zplayer.data');
 
       if (!Module.preloadResults) Module.preloadResults = {};
 
@@ -332,17 +338,17 @@ Module['FS_createPath']("/modules", "classic", true, true);
           }
         , preloadFallback);
 
-        if (Module['setStatus']) Module['setStatus']('Downloading...');
+        Module['setStatus']?.('Downloading...');
 
     }
     if (Module['calledRun']) {
-      runWithFS();
+      runWithFS(Module);
     } else {
       if (!Module['preRun']) Module['preRun'] = [];
       Module["preRun"].push(runWithFS); // FS is not initialized yet, wait for it
     }
 
     }
-    loadPackage({"files": [{"filename": "/Classic.nsf", "start": 0, "end": 61568}, {"filename": "/allegro5.cfg", "start": 61568, "end": 69226}, {"filename": "/assets/cursor.bmp", "start": 69226, "end": 70560}, {"filename": "/assets/dungeon.mid", "start": 70560, "end": 73066}, {"filename": "/assets/ending.mid", "start": 73066, "end": 85139}, {"filename": "/assets/gameover.mid", "start": 85139, "end": 85824}, {"filename": "/assets/gui_pal.bmp", "start": 85824, "end": 87158}, {"filename": "/assets/level9.mid", "start": 87158, "end": 90515}, {"filename": "/assets/overworld.mid", "start": 90515, "end": 98919}, {"filename": "/assets/title.mid", "start": 98919, "end": 107520}, {"filename": "/assets/triforce.mid", "start": 107520, "end": 108178}, {"filename": "/assets/zc/ZC_Forever_HD.mp3", "start": 108178, "end": 4097515, "audio": 1}, {"filename": "/assets/zc/ZC_Icon_Medium_Player.png", "start": 4097515, "end": 4105522}, {"filename": "/assets/zc/ZC_Logo.png", "start": 4105522, "end": 4132713}, {"filename": "/base_config/zc.cfg", "start": 4132713, "end": 4136695}, {"filename": "/base_config/zcl.cfg", "start": 4136695, "end": 4137334}, {"filename": "/base_config/zquest.cfg", "start": 4137334, "end": 4140908}, {"filename": "/base_config/zscript.cfg", "start": 4140908, "end": 4141160}, {"filename": "/etc/2MGM.cfg", "start": 4141160, "end": 4148596}, {"filename": "/etc/freepats.cfg", "start": 4148596, "end": 4153117}, {"filename": "/etc/oot.cfg", "start": 4153117, "end": 4155362}, {"filename": "/etc/ppl160.cfg", "start": 4155362, "end": 4159530}, {"filename": "/etc/ultra.cfg", "start": 4159530, "end": 4163953}, {"filename": "/etc/zc.cfg", "start": 4163953, "end": 4169477}, {"filename": "/modules/classic.zmod", "start": 4169477, "end": 4184316}, {"filename": "/modules/classic/classic_fonts.dat", "start": 4184316, "end": 4287081}, {"filename": "/modules/classic/default.qst", "start": 4287081, "end": 7432538}, {"filename": "/modules/classic/title_gfx.dat", "start": 7432538, "end": 7571594}, {"filename": "/modules/classic/zelda.nsf", "start": 7571594, "end": 7576526}, {"filename": "/sfx.dat", "start": 7576526, "end": 8825659}, {"filename": "/zc.png", "start": 8825659, "end": 8854544}, {"filename": "/zc_web.cfg", "start": 8854544, "end": 8854900}, {"filename": "/zquest_web.cfg", "start": 8854900, "end": 8854954}], "remote_package_size": 8854954, "package_uuid": "sha256-bccffb46d65c5cd5ea05e575114645cb1fee858fd5693d8f03c79199e929d9a8"});
+    loadPackage({"files": [{"filename": "/Classic.nsf", "start": 0, "end": 61568}, {"filename": "/allegro5.cfg", "start": 61568, "end": 69226}, {"filename": "/assets/cursor.bmp", "start": 69226, "end": 70560}, {"filename": "/assets/dungeon.mid", "start": 70560, "end": 73066}, {"filename": "/assets/ending.mid", "start": 73066, "end": 85139}, {"filename": "/assets/gameover.mid", "start": 85139, "end": 85824}, {"filename": "/assets/gui_pal.bmp", "start": 85824, "end": 87158}, {"filename": "/assets/level9.mid", "start": 87158, "end": 90515}, {"filename": "/assets/overworld.mid", "start": 90515, "end": 98919}, {"filename": "/assets/title.mid", "start": 98919, "end": 107520}, {"filename": "/assets/triforce.mid", "start": 107520, "end": 108178}, {"filename": "/assets/zc/ZC_Forever_HD.mp3", "start": 108178, "end": 4097515, "audio": 1}, {"filename": "/assets/zc/ZC_Icon_Medium_Player.png", "start": 4097515, "end": 4105522}, {"filename": "/assets/zc/ZC_Logo.png", "start": 4105522, "end": 4132713}, {"filename": "/base_config/zc.cfg", "start": 4132713, "end": 4136807}, {"filename": "/base_config/zcl.cfg", "start": 4136807, "end": 4137476}, {"filename": "/base_config/zquest.cfg", "start": 4137476, "end": 4141064}, {"filename": "/base_config/zscript.cfg", "start": 4141064, "end": 4141316}, {"filename": "/etc/2MGM.cfg", "start": 4141316, "end": 4148752}, {"filename": "/etc/freepats.cfg", "start": 4148752, "end": 4153273}, {"filename": "/etc/oot.cfg", "start": 4153273, "end": 4155518}, {"filename": "/etc/ppl160.cfg", "start": 4155518, "end": 4159686}, {"filename": "/etc/ultra.cfg", "start": 4159686, "end": 4164109}, {"filename": "/etc/zc.cfg", "start": 4164109, "end": 4169633}, {"filename": "/modules/classic.zmod", "start": 4169633, "end": 4184472}, {"filename": "/modules/classic/classic_fonts.dat", "start": 4184472, "end": 4287237}, {"filename": "/modules/classic/default.qst", "start": 4287237, "end": 7432703}, {"filename": "/modules/classic/title_gfx.dat", "start": 7432703, "end": 7571759}, {"filename": "/modules/classic/zelda.nsf", "start": 7571759, "end": 7576691}, {"filename": "/sfx.dat", "start": 7576691, "end": 8825824}, {"filename": "/zc.png", "start": 8825824, "end": 8854709}, {"filename": "/zc_web.cfg", "start": 8854709, "end": 8855065}, {"filename": "/zquest_web.cfg", "start": 8855065, "end": 8855119}], "remote_package_size": 8855119, "package_uuid": "sha256-d3692d361235ecb52e5b6c64c92a133b2e9cd11e018544f4440a3e49488e0e4b"});
 
   })();

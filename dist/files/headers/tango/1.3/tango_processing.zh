@@ -26,7 +26,7 @@ const int __TANGO_SPEED_SUPER = 2;
 
 void __Tango_CheckScreenChange()
 {
-    int screen=(Game->GetCurDMap()<<8)+Game->GetCurDMapScreen();
+    int screen=(Game->CurDMap<<8)+Game->CurDMapScreen;
     
     if(__Tango_Data[__TDIDX_PREV_SCREEN]!=screen)
     {
@@ -358,7 +358,7 @@ void __Tango_Process(int speed)
     int position=Tango_GetSlotVar(slot, __TSDIDX_POSITION);
     int character=__Tango_Buffer[position];
     int defStart=slot*__TANGO_SIZEOF_SLOTDEF;
-    int font=__Tango_Styles[styleStart+TANGO_STYLE_TEXT_FONT];
+    int[] font=__Tango_Styles[styleStart+TANGO_STYLE_TEXT_FONT];
     int left;
     int right;
     bool newLine;
@@ -393,7 +393,7 @@ void __Tango_Process(int speed)
             __Tango_PrintNextChar(dataStart, character, font);
             if((character>' ' || __TANGO_SFX_ON_SPACE!=0) &&
                !isMenu && speed!=__TANGO_SPEED_SUPER && !lineByLine)
-                Game->PlaySound(__Tango_GetCurrentSFX());
+                Audio->PlaySound(__Tango_GetCurrentSFX());
             position++;
         }
         
@@ -481,7 +481,7 @@ void __Tango_Process(int speed)
         {
             __Tango_TransferCenteredLine(dataStart, isMenu);
             __Tango_SlotData[dataStart+__TSDIDX_STATE]=__TANGO_STATE_FINISHED;
-            Game->PlaySound(__Tango_Styles[styleStart+TANGO_STYLE_TEXT_END_SFX]);
+            Audio->PlaySound(__Tango_Styles[styleStart+TANGO_STYLE_TEXT_END_SFX]);
             if((__Tango_Styles[styleStart+TANGO_STYLE_FLAGS]&TANGO_FLAG_AUTO_ADVANCE)!=0 &&
                speed!=__TANGO_SPEED_SUPER)
                 __Tango_SlotData[dataStart+__TSDIDX_COUNTER]=__TANGO_AUTO_ADVANCE_TIME;
@@ -560,13 +560,13 @@ void __Tango_Process(int speed)
     
     // Only play the sound once per line.
     if(lineByLine)
-        Game->PlaySound(__Tango_GetCurrentSFX());
+        Audio->PlaySound(__Tango_GetCurrentSFX());
     
     __Tango_SlotData[dataStart+__TSDIDX_POSITION]=position;
 }
 
 // Draws the next character and advances the text position accordingly.
-void __Tango_PrintNextChar(int dataStart, int character, int font)
+void __Tango_PrintNextChar(int dataStart, char32 character, int[] font)
 {
     int flags=__Tango_GetCurrStyleData(TANGO_STYLE_FLAGS);
     int y;
@@ -598,7 +598,7 @@ bool __Tango_NeedsNewLine(int slot, int pos)
     int dataStart=__Tango_Data[__TCS_DATA_START];
     int defStart=__Tango_Data[__TCS_DEF_START];
     int styleStart=__Tango_Data[__TCS_STYLE_START];
-    int font=__Tango_Data[__TCS_FONT];
+    int[] font=__Tango_Data[__TCS_FONT];
     
     int left=__Tango_SlotData[dataStart+__TSDIDX_CHAR_X];
     int right=__Tango_SlotDefs[defStart+__TSDEF_X]+

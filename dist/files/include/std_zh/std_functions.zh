@@ -1,8 +1,3 @@
-// std_functions.zh
-// 10th Jun, 2022 for ZC 2.55 Alpha 107
-
-//A
-
 //Returns if Link is above an npc.
 bool Above(npc n){ return Link->Y < n->Y; }
 
@@ -518,7 +513,7 @@ bool Collision(combodata f)
 {
 	int ax = Link->X + Link->HitXOffset;
 	int ay = Link->Y + Link->HitYOffset;
-	return RectCollision(f->PosX(), f->PosY(), f->PosX()+15, f->PosY()+15, ax, ay, ax+Link->HitWidth-1, ay+Link->HitHeight-1);
+	return RectCollision(f->X, f->Y, f->X+15, f->Y+15, ax, ay, ax+Link->HitWidth-1, ay+Link->HitHeight-1);
 }
 
 //Finds the location of a combo, given its (x,y) coordinates on the screen
@@ -603,7 +598,8 @@ int RegionRelativeScreenX(int scr)
 {
 	if (Region->ID)
 	{
-		return scr%16 - Region->OriginScreen%16;
+		int origin_screen_index = Region->OriginScreenIndex * 10000;
+		return scr%16 - origin_screen_index%16;
 	}
 	else
 	{
@@ -616,7 +612,8 @@ int RegionRelativeScreenY(int scr)
 {
 	if (Region->ID)
 	{
-		return Floor(scr/16) - Floor(Region->OriginScreen/16);
+		int origin_screen_index = Region->OriginScreenIndex * 10000;
+		return Floor(scr/16) - Floor(origin_screen_index/16);
 	}
 	else
 	{
@@ -676,38 +673,11 @@ int RegionGetFFCId(int scr, int index)
 	return offset + index;
 }
 
-//Returns a if cond is true, else b. Overloaded.
-float Cond(bool cond, float a, float b)
+// Returns a if cond is true, else b. Overloaded.
+// @deprecated Consider using a ternary expression instead: `cond ? a : b`
+T Cond<T>(bool cond, T a, T b)
 {
-	return ( cond ? a : b );
-}
-bool Cond(bool cond, bool a, bool b)
-{
-	return ( cond ? a : b );
-}
-npc Cond(bool cond, npc a, npc b)
-{
-	return ( cond ? a : b );
-}
-item Cond(bool cond, item a, item b)
-{
-	return ( cond ? a : b );
-}
-lweapon Cond(bool cond, lweapon a, lweapon b)
-{
-	return ( cond ? a : b );
-}
-eweapon Cond(bool cond, eweapon a, eweapon b)
-{
-	return ( cond ? a : b );
-}
-ffc Cond(bool cond, ffc a, ffc b)
-{
-	return ( cond ? a : b );
-}
-itemdata Cond(bool cond, itemdata a, itemdata b)
-{
-	return ( cond ? a : b );
+	return cond ? a : b;
 }
 
 bool ConsumeKey(int level = -1)
@@ -1014,21 +984,21 @@ float DotProduct( float x1, float y1, float x2, float y2 )
 //Overload to Screen->DrawString which includes a position to begin drawing from in the string
 //Does not check for overflow
 void DrawString(int layer, int x, int y, int font, int color, int background_color, int format, int opacity,
-				char32 ptr, int start)
+				char32[] ptr, int start)
 {
 	char32 buffer[256];
 	for(int i=start;ptr[i]!=0;++i) buffer[i-start] = ptr[i];
-	Screen->DrawString(layer,x,y,font,color,background_color,format,opacity,buffer);
+	Screen->DrawString(layer,x,y,font,color,background_color,format,buffer,opacity);
 }
 
 //Overload to Screen->DrawString which includes a start and end position to draw the string
 //Does not check for overflow
 void DrawString(int layer, int x, int y, int font, int color, int background_color, int format, int opacity,
-				char32 ptr, int start, int end)
+				char32[] ptr, int start, int end)
 {
 	char32 buffer[256];
 	for(int i=start;i<end;++i) buffer[i-start] = ptr[i];
-	Screen->DrawString(layer,x,y,font,color,background_color,format,opacity,buffer);
+	Screen->DrawString(layer,x,y,font,color,background_color,format,buffer,opacity);
 }
 
 // A very simple layer 0 tile drawing routine.
@@ -1182,7 +1152,7 @@ eweapon Duplicate(eweapon a)
 bool EnemiesAlive()
 {
 	bool alive = false;
-	for ( int q = Screen->NumNPCs(); q > 0; --q )
+	for ( int q = Screen->NumNPCs; q > 0; --q )
 	{
 		npc n = Screen->LoadNPC(q);
 		if ( n->Type != NPCT_PROJECTILE )
@@ -1465,7 +1435,7 @@ messagedata GetInfoString(int shop_id, int str_id)
 //Copies the ZString (message) ID used by a Pay for Info Shop to a client (ZScript) string.
 //Argument 1 is a ZScript string pointer, Arguent 2 is the info shop ID,
 //Argument 3 is the shop's string (0 to 2).
-void GetInfoString(char32 buffer, int shop_id, int str_id)
+void GetInfoString(char32[] buffer, int shop_id, int str_id)
 {
 	if (shop_id < 0 || shop_id > 255 )
 	{
@@ -1913,7 +1883,7 @@ bool GetMapscreenFlag(int mapid, int scr, mapscreenflags flagid)
 
 
 //Puts a ZQE Message String into a client array string 'ptr'
-void GetMessage(int ID, char32 ptr)
+void GetMessage(int ID, char32[] ptr)
 {
 	messagedata md = Game->LoadMessageData(ID);
 	int sz = md->Length;
@@ -1931,7 +1901,7 @@ bool GetNPCMiscFlag(npc e, int flag)
 }
 
 //Get an NPC's name from an ID
-void GetNPCName(int npc_id, char32 buffer)
+void GetNPCName(int npc_id, char32[] buffer)
 {
 	//we need npcdata->GetName()
 	npcdata nd = Game->LoadNPCData(npc_id);
@@ -2390,7 +2360,7 @@ bool LinkCollision(ffc f)
 eweapon LoadEWeaponOf(int type)
 {
 	eweapon w;
-	for ( int i = Screen->NumEWeapons(); i > 0; --i )
+	for ( int i = Screen->NumEWeapons; i > 0; --i )
 	{
 		w = Screen->LoadEWeapon(i);
 		if (w->ID == type) return w;
@@ -2404,7 +2374,7 @@ eweapon LoadEWeaponOf(int type)
 lweapon LoadLWeaponOf(int type)
 {
 	lweapon w;
-	for ( int i = Screen->NumLWeapons(); i > 0; --i )
+	for ( int i = Screen->NumLWeapons; i > 0; --i )
 	{
 		w = Screen->LoadLWeapon(i);
 		if (w->ID == type) return w;
@@ -2418,7 +2388,7 @@ lweapon LoadLWeaponOf(int type)
 npc LoadNPCOf(int type)
 {
 	npc n;
-	for ( int i = Screen->NumNPCs(); i > 0; --i )
+	for ( int i = Screen->NumNPCs; i > 0; --i )
 	{
 		n = Screen->LoadNPC(i);
 		if (n->ID == type) return n;
@@ -2432,7 +2402,7 @@ npc LoadNPCOf(int type)
 npc LoadNPCOfType(int type)
 {
 	npc n;
-	for ( int i = Screen->NumNPCs(); i > 0; --i )
+	for ( int i = Screen->NumNPCs; i > 0; --i )
 	{
 		n = Screen->LoadNPC(i);
 		if (n->Type == type) return n;
@@ -2581,7 +2551,7 @@ void NoAction()
 int NumberEnemies()
 {
 	int count;
-	for ( int q = Screen->NumNPCs(); q > 0; --q )
+	for ( int q = Screen->NumNPCs; q > 0; --q )
 	{
 		npc n = Screen->LoadNPC(q);
 		if ( n->Type != NPCT_PROJECTILE )
@@ -2605,7 +2575,7 @@ int NumEWeaponsOf(int type)
 {
 	int ret = 0;
 	eweapon w;
-	for (int i = Screen->NumEWeapons(); i > 0; --i)
+	for (int i = Screen->NumEWeapons; i > 0; --i)
 	{
 		w = Screen->LoadEWeapon(i);
 		if (w->ID == type)
@@ -2621,7 +2591,7 @@ int NumItemsOf(int type)
 {
 	int ret = 0;
 	item it;
-	for (int i = Screen->NumItems(); i > 0 ; --i)
+	for (int i = Screen->NumItems; i > 0 ; --i)
 	{
 		it = Screen->LoadItem(i);
 		if (it->ID == type)
@@ -2645,7 +2615,7 @@ int NumLWeaponsOf(int type)
 {
 	int ret = 0;
 	lweapon w;
-	for (int i = Screen->NumLWeapons(); i > 0; --i)
+	for (int i = Screen->NumLWeapons; i > 0; --i)
 	{
 		w = Screen->LoadLWeapon(i);
 		if (w->ID == type)
@@ -2659,7 +2629,7 @@ int NumNPCsOf(int type)
 {
 	int ret = 0;
 	npc n;
-	for (int i = Screen->NumNPCs(); i > 0 ; --i)
+	for (int i = Screen->NumNPCs; i > 0 ; --i)
 	{
 		n = Screen->LoadNPC(i);
 		if (n->ID == type)
@@ -3875,7 +3845,7 @@ namespace std
 		}
 	}
 	////clkptr is an array, sized at least [1], frames is the duration on/off, so, 10 would be on for ten frames, then off for ten frames
-	bool blink(int clkptr, int frames)
+	bool blink(int[] clkptr, int frames)
 	{
 	    const int clkIindx = 0;
 	    clkptr[clkIindx] = (clkptr[clkIindx]+1)%(frames<<1);
@@ -3883,7 +3853,7 @@ namespace std
 	}
 }
 
-void getScrTimeName(char32 buf, int scrtime)
+void getScrTimeName(char32[] buf, int scrtime)
 {
 	switch(scrtime)
 	{
@@ -4017,7 +3987,7 @@ untyped wrap(untyped x, int mod)
     return x%mod;
 }
 
-eweapon FireEWeaponAngle(int type, int x, int y, int radians, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+eweapon FireEWeaponAngle(int type, int x, int y, int radians, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	eweapon weap = scriptid ? RunEWeaponScriptAt(type, scriptid, x, y, args) : CreateEWeaponAt(type,x,y);
 	weap->Damage = dmg;
@@ -4030,7 +4000,7 @@ eweapon FireEWeaponAngle(int type, int x, int y, int radians, int step, int dmg,
 	weap->Dir = AngleDir8(weap->DegAngle); //For shields
 	return weap;
 }
-eweapon FireEWeaponDegAngle(int type, int x, int y, int degrees, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+eweapon FireEWeaponDegAngle(int type, int x, int y, int degrees, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	eweapon weap = scriptid ? RunEWeaponScriptAt(type, scriptid, x, y, args) : CreateEWeaponAt(type,x,y);
 	weap->Damage = dmg;
@@ -4043,7 +4013,7 @@ eweapon FireEWeaponDegAngle(int type, int x, int y, int degrees, int step, int d
 	weap->Dir = AngleDir8(degrees); //For shields
 	return weap;
 }
-eweapon FireEWeaponDir(int type, int x, int y, int dir, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+eweapon FireEWeaponDir(int type, int x, int y, int dir, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	eweapon weap = scriptid ? RunEWeaponScriptAt(type, scriptid, x, y, args) : CreateEWeaponAt(type,x,y);
 	weap->Damage = dmg;
@@ -4054,7 +4024,7 @@ eweapon FireEWeaponDir(int type, int x, int y, int dir, int step, int dmg, int s
 	weap->Dir = dir;
 	return weap;
 }
-eweapon FireEWeaponAtHero(int type, int x, int y, bool angular, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+eweapon FireEWeaponAtHero(int type, int x, int y, bool angular, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	eweapon weap = scriptid ? RunEWeaponScriptAt(type, scriptid, x, y, args) : CreateEWeaponAt(type,x,y);
 	weap->Damage = dmg;
@@ -4070,7 +4040,7 @@ eweapon FireEWeaponAtHero(int type, int x, int y, bool angular, int step, int dm
 	return weap;
 }
 
-lweapon FireLWeaponAngle(int type, int x, int y, int radians, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+lweapon FireLWeaponAngle(int type, int x, int y, int radians, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	lweapon weap = scriptid ? RunLWeaponScriptAt(type, scriptid, x, y, args) : CreateLWeaponAt(type,x,y);
 	weap->Damage = dmg;
@@ -4083,7 +4053,7 @@ lweapon FireLWeaponAngle(int type, int x, int y, int radians, int step, int dmg,
 	weap->Dir = AngleDir8(weap->DegAngle); //For shields
 	return weap;
 }
-lweapon FireLWeaponDegAngle(int type, int x, int y, int degrees, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+lweapon FireLWeaponDegAngle(int type, int x, int y, int degrees, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	lweapon weap = scriptid ? RunLWeaponScriptAt(type, scriptid, x, y, args) : CreateLWeaponAt(type,x,y);
 	weap->Damage = dmg;
@@ -4096,7 +4066,7 @@ lweapon FireLWeaponDegAngle(int type, int x, int y, int degrees, int step, int d
 	weap->Dir = AngleDir8(degrees); //For shields
 	return weap;
 }
-lweapon FireLWeaponDir(int type, int x, int y, int dir, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped args = NULL)
+lweapon FireLWeaponDir(int type, int x, int y, int dir, int step, int dmg, int sprite = -1, int sfx = 0, int scriptid = 0, untyped[] args = NULL)
 {
 	lweapon weap = scriptid ? RunLWeaponScriptAt(type, scriptid, x, y, args) : CreateLWeaponAt(type,x,y);
 	weap->Damage = dmg;
