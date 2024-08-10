@@ -23,6 +23,7 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
+      background-color: var(--vscode-editor-background);
     }
 
     .toolbar {
@@ -93,8 +94,8 @@
 </head>
 
 <body>
-  <div class="app">
-    <div class="toolbar monaco-component">
+  <div class="app monaco-component">
+    <div class="toolbar">
       <div>
         <label for="theme">Theme</label>
         <select name="theme" id="theme">
@@ -118,12 +119,13 @@
     <div class="editor">
       <div class="loading">loading ...</div>
       <div class="editor-container hidden">
-        <div class="tabs monaco-component">
+        <div class="tabs">
           <div class="tabs__add">+</div>
         </div>
         <div class="current-model"></div>
       </div>
     </div>
+    <div id="zc-log"></div>
   </div>
 
   <script src="./playground.js"></script>
