@@ -3689,7 +3689,7 @@ void __AutoGhostKill(npc enemy)
     enemy->X=1024;
     enemy->Y=1024;
     enemy->HP=HP_SILENT;
-    enemy->ItemSet=0;
+    enemy->ItemSet=IS_NONE;
 }
 
 bool __IsScriptNameChar(int character, bool first)
@@ -6282,7 +6282,7 @@ void __DeathAnimSFX(int id, int x)
     npc deathSFXNPC=Screen->CreateNPC(id);
     deathSFXNPC->X=x; // For panning
     deathSFXNPC->Y=176;
-    deathSFXNPC->ItemSet=0;
+    deathSFXNPC->ItemSet=IS_NONE;
     deathSFXNPC->HP=0;
     deathSFXNPC->Misc[__GHI_NPC_DATA]=0x10000;
 }
@@ -15867,6 +15867,8 @@ namespace Emily
 ░░░░░░░▀▀▀▀▀▀▀▀▀▀░░░░░░░
 */
 
+import "bindings/common.zh"
+
 import "bindings/audio.zh"
 import "bindings/bitmap.zh"
 import "bindings/bottledata.zh"
@@ -17016,8 +17018,9 @@ class combodata {
 	// @zasm_var COMBODASPEED
 	internal int ASpeed;
 
-	// The combo's flip value. Use the `FLIP_` or `ROT_` constants from
-	// `std_constants.zh` for this value.
+	// How to flip (or rotate) the combo.
+	//
+	// Valid values: [TransformationType] (`FLIP_` or `ROT_`).
 	//
 	// @zasm_var COMBODFLIP
 	internal int Flip;
@@ -17032,8 +17035,7 @@ class combodata {
 	// @zasm_var COMBODEFFECT
 	internal int Effect;
 
-	// The combo type of the combo. Use the `CT_` constants from
-	// `std_constants.zh`.
+	// Valid values: [ComboType] (`CT_`).
 	//
 	// @zasm_var COMBODTYPE
 	internal int Type;
@@ -17509,6 +17511,393 @@ class combodata {
 	//   SETR D2 COMBOLAYERR
 	internal int Layer();
 }
+enum Direction
+{
+	DIR_UP                = 0,
+	DIR_DOWN              = 1,
+	DIR_LEFT              = 2,
+	DIR_RIGHT             = 3,
+	DIR_LEFTUP            = 4,
+	DIR_RIGHTUP           = 5,
+	DIR_LEFTDOWN          = 6,
+	DIR_RIGHTDOWN         = 7,
+
+	DIR_UPLEFT            = 4,
+	DIR_UPRIGHT           = 5,
+	DIR_DOWNLEFT          = 6,
+	DIR_DOWNRIGHT         = 7
+};
+
+enum EnemyPattern
+{
+	PATTERN_STANDARD,
+	PATTERN_SIDES,
+	PATTERN_SIDES_RANDOM,
+	PATTERN_CEILING,
+	PATTERN_CEILING_RANDOM,
+	PATTERN_STANDARD_RANDOM,
+	PATTERN_NO_SPAWNING
+};
+
+// Indices for generic counters.
+// Use with [itemdata->Counter], [Game->Counter[]], [Game->MCounter[]] and [Game->DCounter[]]
+enum CounterIndex
+{
+	CR_NONE = -1,
+	CR_LIFE,
+	CR_MONEY,
+	CR_RUPEES = CR_MONEY,
+	CR_BOMBS,
+	CR_ARROWS,
+	CR_MAGIC,
+	CR_KEYS,
+	CR_SBOMBS,
+	CR_CUSTOM1,
+	CR_CUSTOM2,
+	CR_CUSTOM3,
+	CR_CUSTOM4,  CR_CUSTOM5,  CR_CUSTOM6,  CR_CUSTOM7,  CR_CUSTOM8,
+	CR_CUSTOM9,  CR_CUSTOM10, CR_CUSTOM11, CR_CUSTOM12, CR_CUSTOM13,
+	CR_CUSTOM14, CR_CUSTOM15, CR_CUSTOM16, CR_CUSTOM17, CR_CUSTOM18,
+	CR_CUSTOM19, CR_CUSTOM20, CR_CUSTOM21, CR_CUSTOM22, CR_CUSTOM23,
+	CR_CUSTOM24, CR_CUSTOM25, CR_CUSTOM26, CR_CUSTOM27, CR_CUSTOM28,
+	CR_CUSTOM29, CR_CUSTOM30, CR_CUSTOM31, CR_CUSTOM32, CR_CUSTOM33,
+	CR_CUSTOM34, CR_CUSTOM35, CR_CUSTOM36, CR_CUSTOM37, CR_CUSTOM38,
+	CR_CUSTOM39, CR_CUSTOM40, CR_CUSTOM41, CR_CUSTOM42, CR_CUSTOM43,
+	CR_CUSTOM44, CR_CUSTOM45, CR_CUSTOM46, CR_CUSTOM47, CR_CUSTOM48,
+	CR_CUSTOM49, CR_CUSTOM50, CR_CUSTOM51, CR_CUSTOM52, CR_CUSTOM53,
+	CR_CUSTOM54, CR_CUSTOM55, CR_CUSTOM56, CR_CUSTOM57, CR_CUSTOM58,
+	CR_CUSTOM59, CR_CUSTOM60, CR_CUSTOM61, CR_CUSTOM62, CR_CUSTOM63,
+	CR_CUSTOM64, CR_CUSTOM65, CR_CUSTOM66, CR_CUSTOM67, CR_CUSTOM68,
+	CR_CUSTOM69, CR_CUSTOM70, CR_CUSTOM71, CR_CUSTOM72, CR_CUSTOM73,
+	CR_CUSTOM74, CR_CUSTOM75, CR_CUSTOM76, CR_CUSTOM77, CR_CUSTOM78,
+	CR_CUSTOM79, CR_CUSTOM80, CR_CUSTOM81, CR_CUSTOM82, CR_CUSTOM83,
+	CR_CUSTOM84, CR_CUSTOM85, CR_CUSTOM86, CR_CUSTOM87, CR_CUSTOM88,
+	CR_CUSTOM89, CR_CUSTOM90, CR_CUSTOM91, CR_CUSTOM92, CR_CUSTOM93,
+	CR_CUSTOM94, CR_CUSTOM95, CR_CUSTOM96, CR_CUSTOM97, CR_CUSTOM98,
+	CR_CUSTOM99, CR_CUSTOM100,
+
+	CR_SCRIPT1 = CR_CUSTOM1, CR_SCRIPT2, CR_SCRIPT3,
+	CR_SCRIPT4,  CR_SCRIPT5,  CR_SCRIPT6,  CR_SCRIPT7,  CR_SCRIPT8,
+	CR_SCRIPT9,  CR_SCRIPT10, CR_SCRIPT11, CR_SCRIPT12, CR_SCRIPT13,
+	CR_SCRIPT14, CR_SCRIPT15, CR_SCRIPT16, CR_SCRIPT17, CR_SCRIPT18,
+	CR_SCRIPT19, CR_SCRIPT20, CR_SCRIPT21, CR_SCRIPT22, CR_SCRIPT23,
+	CR_SCRIPT24, CR_SCRIPT25, CR_SCRIPT26, CR_SCRIPT27, CR_SCRIPT28,
+	CR_SCRIPT29, CR_SCRIPT30, CR_SCRIPT31, CR_SCRIPT32, CR_SCRIPT33,
+	CR_SCRIPT34, CR_SCRIPT35, CR_SCRIPT36, CR_SCRIPT37, CR_SCRIPT38,
+	CR_SCRIPT39, CR_SCRIPT40, CR_SCRIPT41, CR_SCRIPT42, CR_SCRIPT43,
+	CR_SCRIPT44, CR_SCRIPT45, CR_SCRIPT46, CR_SCRIPT47, CR_SCRIPT48,
+	CR_SCRIPT49, CR_SCRIPT50, CR_SCRIPT51, CR_SCRIPT52, CR_SCRIPT53,
+	CR_SCRIPT54, CR_SCRIPT55, CR_SCRIPT56, CR_SCRIPT57, CR_SCRIPT58,
+	CR_SCRIPT59, CR_SCRIPT60, CR_SCRIPT61, CR_SCRIPT62, CR_SCRIPT63,
+	CR_SCRIPT64, CR_SCRIPT65, CR_SCRIPT66, CR_SCRIPT67, CR_SCRIPT68,
+	CR_SCRIPT69, CR_SCRIPT70, CR_SCRIPT71, CR_SCRIPT72, CR_SCRIPT73,
+	CR_SCRIPT74, CR_SCRIPT75, CR_SCRIPT76, CR_SCRIPT77, CR_SCRIPT78,
+	CR_SCRIPT79, CR_SCRIPT80, CR_SCRIPT81, CR_SCRIPT82, CR_SCRIPT83,
+	CR_SCRIPT84, CR_SCRIPT85, CR_SCRIPT86, CR_SCRIPT87, CR_SCRIPT88,
+	CR_SCRIPT89, CR_SCRIPT90, CR_SCRIPT91, CR_SCRIPT92, CR_SCRIPT93,
+	CR_SCRIPT94, CR_SCRIPT95, CR_SCRIPT96, CR_SCRIPT97, CR_SCRIPT98,
+	CR_SCRIPT99, CR_SCRIPT100,
+
+	CR_MAX
+};
+
+enum SwitchEffect
+{
+	SW_EFF_POOF,
+	SW_EFF_FLICKER,
+	SW_EFF_RISE
+};
+
+// Use with [Screen->SetSideWarp()] and [Link->WarpEx()]
+enum WarpType
+{
+	WT_CAVE,
+	WT_PASSAGE,
+	WT_ENTRANCEEXIT,
+	WT_SCROLLING,
+	WT_IWARP,
+	WT_IWARPBLACKOUT,
+	WT_IWARPOPENWIPE,
+	WT_IWARPZAP,
+	WT_IWARPWAVE,
+	WT_NOWARP
+};
+
+enum WeaponFlagIndex
+{
+	WFLAG_PICKUP_ITEMS,
+	WFLAG_BREAKS_ON_LANDING,
+	WFLAG_BREAKS_ON_SOLID,
+	WFLAG_BURN_ANYFIRE,
+	WFLAG_BURN_STRONGFIRE,
+	WFLAG_BURN_MAGICFIRE,
+	WFLAG_BURN_DIVINEFIRE,
+	WFLAG_STOP_ON_LANDING,
+	WFLAG_STOP_ON_SOLID,
+	WFLAG_UPDATE_BURNSPR,
+	WFLAG_MAX
+};
+
+enum WeaponSpriteIndex
+{
+	WPN_SPRITE_BASE,
+	WPN_SPRITE_BURN_ANY,
+	WPN_SPRITE_BURN_STRONG,
+	WPN_SPRITE_BURN_MAGIC,
+	WPN_SPRITE_BURN_DIVINE,
+	WPN_SPRITE_MAX
+};
+
+enum ShadowType
+{
+	SHD_NORMAL, //No Shadow
+	//These draw ONLY a shadow, no actual text
+	SHD_SHADOW,
+	SHD_SHADOWU,
+	SHD_OUTLINE8,
+	SHD_OUTLINEPLUS,
+	SHD_OUTLINEX,
+	//These draw a shadow behind the actual text
+	SHD_SHADOWED,
+	SHD_SHADOWEDU,
+	SHD_OUTLINED8,
+	SHD_OUTLINEDPLUS,
+	SHD_OUTLINEDX,
+	//Max number; not an actual value to use
+	SHD_MAX
+};
+
+enum DrawStyle
+{
+	DS_NORMAL,
+	DS_PHANTOM,
+	DS_CLOAKED,
+	DS_LINK
+};
+
+enum TransformationType
+{
+	FLIP_NONE,
+	FLIP_HORIZONTAL,
+	FLIP_VERTICAL,
+	FLIP_HV 		= 3, // Horizontal and vertical
+	FLIP_VH 		= 3, // Horizontal and vertical
+	FLIP_BOTH 		= 3, // Horizontal and vertical
+
+	// Rotations + Flip
+
+	ROT_CW          = 4,
+	ROT_CW_FLIP     = 5,
+	ROT_CCW_FLIP    = 6,
+	ROT_CCW         = 7,
+	ROT_ACW_FLIP    = 6, // Anticlockwise
+	ROT_ACW         = 7 
+};
+
+enum ComboType
+{
+	CT_NONE               = 0,
+	CT_STAIR              = 1,
+	CT_CAVE               = 2,
+	CT_WATER              = 3,
+	CT_ARMOS              = 4,
+	CT_GRAVE              = 5,
+	CT_DOCK               = 6,
+	CT_PUSHWAIT           = 8,
+	CT_PUSHHEAVY          = 9,
+	CT_PUSHHEAVYWAIT      = 10,
+	CT_LEFTSTATUE         = 11,
+	CT_RIGHTSTATUE        = 12,
+	CT_WALKSLOW           = 13,
+	CT_CVUP               = 14,
+	CT_CVDOWN             = 15,
+	CT_CVLEFT             = 16,
+	CT_CVRIGHT            = 17,
+	CT_SWIMWARP           = 18,
+	CT_DIVEWARP           = 19,
+	CT_LADDERHOOKSHOT     = 20,
+	CT_TRIGNOFLAG         = 21,
+	CT_TRIGFLAG           = 22,
+	CT_ZELDA              = 23,
+	CT_SLASH              = 24,
+	CT_SLASHITEM          = 25,
+	CT_PUSHHEAVY2         = 26,
+	CT_PUSHHEAVY2WAIT     = 27,
+	CT_POUND              = 28,
+	CT_HSGRAB             = 29,
+	CT_HSBRIDGE           = 30,
+	CT_DAMAGE1            = 31,
+	CT_DAMAGE2            = 32,
+	CT_DAMAGE3            = 33,
+	CT_DAMAGE4            = 34,
+	CT_CENTRESTATUE       = 35,
+	CT_TRAPH              = 36,
+	CT_TRAPV              = 37,
+	CT_TRAP4WAY           = 38,
+	CT_TRAPLEFTRIGHT      = 39,
+	CT_TRAPUPDOWN         = 40,
+	CT_PIT                = 41,
+	CT_HOOKSHOTONLY       = 42,
+	CT_OVERHEAD           = 43,
+	CT_NOFLYZONE          = 44,
+	CT_MIRROR             = 45,
+	CT_MIRRORSLASH        = 46,
+	CT_MIRRORBACKSLASH    = 47,
+	CT_MAGICPRISM         = 48,
+	CT_MAGICPRISM4WAY     = 49,
+	CT_BLOCKMAGIC         = 50,
+	CT_CAVE2              = 51,
+	CT_EYEBALLA           = 52,
+	CT_EYEBALLB           = 53,
+	CT_NOJUMPZONE         = 54,
+	CT_BUSH               = 55,
+	CT_FLOWERS            = 56,
+	CT_TALLGRASS          = 57,
+	CT_SHALLOWWATER       = 58,
+	CT_LOCKBLOCK          = 59,
+	CT_LOCKBLOCK2         = 60,
+	CT_BOSSLOCKBLOCK      = 61,
+	CT_BOSSLOCKBLOCK2     = 62,
+	CT_LADDERONLY         = 63,
+	CT_BSGRAVE            = 64,
+	CT_CHEST              = 65,
+	CT_CHEST2             = 66,
+	CT_LOCKEDCHEST        = 67,
+	CT_LOCKEDCHEST2       = 68,
+	CT_BOSSCHEST          = 69,
+	CT_BOSSCHEST2         = 70,
+	CT_RESET              = 71,
+	CT_SAVE               = 72,
+	CT_SAVE2              = 73,
+	CT_CAVEB              = 74,
+	CT_CAVEC              = 75,
+	CT_CAVED              = 76,
+	CT_STAIRB             = 77,
+	CT_STAIRC             = 78,
+	CT_STAIRD             = 79,
+	CT_PITB               = 80,
+	CT_PITC               = 81,
+	CT_PITD               = 82,
+	CT_CAVE2B             = 83,
+	CT_CAVE2C             = 84,
+	CT_CAVE2D             = 85,
+	CT_SWIMWARPB          = 86,
+	CT_SWIMWARPC          = 87,
+	CT_SWIMWARPD          = 88,
+	CT_DIVEWARPB          = 89,
+	CT_DIVEWARPC          = 90,
+	CT_DIVEWARPD          = 91,
+	CT_STAIRR             = 92,
+	CT_PITR               = 93,
+	CT_AWARPA             = 94,
+	CT_AWARPB             = 95,
+	CT_AWARPC             = 96,
+	CT_AWARPD             = 97,
+	CT_AWARPR             = 98,
+	CT_SWARPA             = 99,
+	CT_SWARPB             = 100,
+	CT_SWARPC             = 101,
+	CT_SWARPD             = 102,
+	CT_SWARPR             = 103,
+	CT_STRIGNOFLAG        = 104,
+	CT_STRIGFLAG          = 105,
+	CT_STEP               = 106,
+	CT_STEPSAME           = 107,
+	CT_STEPALL            = 108,
+	CT_STEPCOPY           = 109,
+	CT_NOENEMY            = 110,
+	CT_BLOCKARROW1        = 111,
+	CT_BLOCKARROW2        = 112,
+	CT_BLOCKARROW3        = 113,
+	CT_BLOCKBRANG1        = 114,
+	CT_BLOCKBRANG2        = 115,
+	CT_BLOCKBRANG3        = 116,
+	CT_BLOCKSWORDBEAM     = 117,
+	CT_BLOCKALL           = 118,
+	CT_BLOCKFIREBALL      = 119,
+	CT_DAMAGE5            = 120,
+	CT_DAMAGE6            = 121,
+	CT_DAMAGE7            = 122,
+	CT_SPINTILE1          = 124,
+	CT_SPINTILE2          = 125,
+	CT_SCREENFREEZE       = 126,
+	CT_SCREENFREEZEFF     = 127,
+	CT_NOGROUNDENEMY      = 128,
+	CT_SLASHNEXT          = 129,
+	CT_SLASHNEXTITEM      = 130,
+	CT_BUSHNEXT           = 131,
+	CT_SLASHC             = 132,
+	CT_SLASHITEMC         = 133,
+	CT_BUSHC              = 134,
+	CT_FLOWERSC           = 135,
+	CT_TALLGRASSC         = 136,
+	CT_SLASHNEXTC         = 137,
+	CT_SLASHNEXTITEMC     = 138,
+	CT_BUSHNEXTC          = 139,
+	CT_EYEBALL4WAY        = 140,
+	CT_TALLGRASSNEXT      = 141,
+	CT_SCRIPT1            = 142,
+	CT_SCRIPT2            = 143,
+	CT_SCRIPT3            = 144,
+	CT_SCRIPT4            = 145,
+	CT_SCRIPT5            = 146,
+	CT_SCRIPT6            = 147,
+	CT_SCRIPT7            = 148,
+	CT_SCRIPT8            = 149,
+	CT_SCRIPT9            = 150,
+	CT_SCRIPT10           = 151,
+	CT_SCRIPT11           = 152,
+	CT_SCRIPT12           = 153,
+	CT_SCRIPT13           = 154,
+	CT_SCRIPT14           = 155,
+	CT_SCRIPT15           = 156,
+	CT_SCRIPT16           = 157,
+	CT_SCRIPT17           = 158,
+	CT_SCRIPT18           = 159,
+	CT_SCRIPT19           = 160,
+	CT_SCRIPT20           = 161,
+	CT_GENERIC            = 162,
+	CT_PITFALL            = 163,
+	CT_STEPFX             = 164,
+	CT_BRIDGE             = 165,
+	CT_SIGNPOST           = 166,
+	CT_SWITCH             = 167,
+	CT_SWITCHBLOCK        = 168,
+	CT_LANTERN            = 169,
+	CT_SPOTLIGHT          = 170,
+	CT_GLASS              = 171,
+	CT_LIGHT_TARGET       = 172,
+	CT_SWITCHHOOK_BLOCK   = 173,
+	CT_CUSTOM_BLOCKER     = 174,
+	CT_SHOOTER            = 175,
+	CT_MAX                = 176
+};
+
+enum TileWarpIndex
+{
+	TILEWARP_A,
+	TILEWARP_B,
+	TILEWARP_C,
+	TILEWARP_D
+};
+
+enum SideWarpIndex
+{
+	SIDEWARP_NONE  = -1,
+	SIDEWARP_A     = 0,
+	SIDEWARP_B     = 1,
+	SIDEWARP_C     = 2,
+	SIDEWARP_D     = 3
+};
+
+enum WarpIndex
+{
+	WARP_NONE      = -1,
+	WARP_A         = 0,
+	WARP_B         = 1,
+	WARP_C         = 2,
+	WARP_D         = 3
+};
 class Debug {
 	// @delete
 	internal Debug();
@@ -18070,7 +18459,9 @@ class eweapon {
 	// @zasm_var EWPNFRAME
 	internal int Frame;
 
-	// The mode for the sprite's draws, using the `DS_` constants.
+	// The mode for the sprite's draws.
+	//
+	// Valid values: [DrawStyle] (`DS_`).
 	//
 	// @zasm_var EWPNDRAWTYPE
 	internal int DrawStyle;
@@ -18155,8 +18546,9 @@ class eweapon {
 	// @zasm_var EWPNFLASH
 	internal bool Flash;
 
-	// The flip status of the weapon's tile. Uses the [[`FLIP_`|$FLIP_]]
-	// constants.
+	// How to flip (or rotate) the weapon.
+	//
+	// Valid values: [TransformationType] (`FLIP_` or `ROT_`).
 	//
 	// @zasm_var EWPNFLIP
 	internal int Flip;
@@ -18395,7 +18787,9 @@ class eweapon {
 	// @zasm_var EWPNAUTOROTATE
 	internal bool AutoRotate;
 
-	// A set of weapon flags. Use the `WFLAG_` constants as indexes.
+	// A set of weapon flags.
+	//
+	// Valid indices: [WeaponFlagIndex] (`WFLAG_`).
 	//
 	// @zasm_var EWPNFLAGS
 	internal bool Flags[];
@@ -18447,8 +18841,9 @@ class eweapon {
 	// @zasm_var EWPNSPRITES
 	internal int Sprites[];
 
-	// The burning light radii associated with sprites of the weapon. See
-	// 'WPN_SPRITE_' constants in 'std_constants.zh'
+	// The burning light radii associated with sprites of the weapon.
+	//
+	// Valid indices: [WeaponSpriteIndex] (`WPN_SPRITE_`).
 	//
 	// @zasm_var EWPNBURNLIGHTRADIUS
 	internal int BurnLightRadius[];
@@ -18511,8 +18906,9 @@ class eweapon {
 	//   EWPNDEL
 	internal void Remove();
 
-	// Switch the player with this sprite. Use the `SW_EFF_` constants for
-	// [effect] to select a visual style for the switch.
+	// Switch the player with this sprite.
+	//
+	// Valid values for [effect]: [SwitchEffect] (`SW_EFF_`).
 	//
 	// @zasm
 	//   POP D2
@@ -19055,6 +19451,100 @@ class FileSystem {
 }
 
 internal const FileSystem FileSystem;
+import "bindings/qrs.zh"
+
+// Use as index for [Game->Gravity[]].
+enum GravityIndex
+{
+	GR_STRENGTH,
+	GR_TERMINALV,
+	GR_SPRLAYER,
+	GR_AIRDRAG
+};
+
+// Use as index for [Game->Scrolling[]].
+enum ScrollingIndex
+{
+	SCROLL_DIR,
+	SCROLL_NX,
+	SCROLL_NY,
+	SCROLL_OX,
+	SCROLL_OY
+};
+
+// Use as index for [Game->MiscSprites[]].
+enum MiscSpriteIndex
+{
+	MISCSPR_FALL,
+	MISCSPR_DROWN,
+	MISCSPR_LAVADROWN,
+	MISCSPR_SWITCHPOOF,
+	MISCSPR_MAX
+};
+
+// Use as index for [Game->MiscSFX[]].
+enum MiscSfx
+{
+	MISCSFX_BUSH,
+	MISCSFX_SWITCHED,
+	MISCSFX_LOWHEART,
+	MISCSFX_ERROR,
+	MISCSFX_PLAYER_HURT,
+	MISCSFX_HAMMER_PEG,
+	MISCSFX_SUBSCR_ITEM_ASSIGN,
+	MISCSFX_SUBSCR_CURSOR_MOVE,
+	MISCSFX_REFILL,
+	MISCSFX_RUPEEDRAIN,
+	MISCSFX_MAX
+};
+
+// Use as index for [Game->Generic[]].
+enum GenericIndex
+{
+	GEN_HEARTPIECES        = 0, // Heart Pieces currently possessed
+	GEN_MAGICDRAINRATE     = 1, // Link's magic usage equals n / 2.
+	GEN_CANSLASH           = 2, // Link can slash with the sword.
+	// Warp Ring number that a Whirlwind warp will send Link to.
+	// It is set every time that Link uses the Whistle.
+	GEN_WARPLEVEL          = 3,
+	GEN_HCPPERHC           = 4, // How many Pieces of Heart form a complete Heart Container?
+	GEN_CONTINUEHEARTS     = 5, // Amount of life that Link continues with
+	GEN_CONTINUEISPERCENT  = 6, // Percentage of life that Link continues with
+	GEN_HP_PER_HEART       = 7, //How much HP makes a 'heart'
+	GEN_MP_PER_BLOCK       = 8, //How much MP makes a 'block'
+	GEN_HERO_DMG_MULT      = 9, //Damage multiplier for damage by Link
+	GEN_ENEM_DMG_MULT      = 10, //Damage multiplier for damage by enemies
+	GEN_DITHER_TYPE        = 11, //Type of dithering used with dark rooms
+	GEN_DITHER_ARG         = 12, //Dithering argument used with dark rooms
+	GEN_DITHER_PERCENT     = 13, //Percent of light circles taken up by dithering
+	GEN_DEFAULT_LIGHT_RAD  = 14, //Default light radius initialized to enemies
+	GEN_TRANS_PERCENT      = 15, //Percent of light circles taken up by transparency
+	GEN_DARKNESS_COLOR     = 16, //Color of darkness
+	GEN_WATERGRAVITY       = 17, //Y position addition when not moving when sideview swimming. can be negative
+	GEN_SIDESWIM_STEP_UP   = 18, //Hero step speed when sideview swimming, moving up
+	GEN_SIDESWIM_STEP_SIDE = 19, //Hero step speed when sideview swimming, moving left and right
+	GEN_SIDESWIM_STEP_DOWN = 20, //Hero step speed when sideview swimming, moving down
+	// Jump value when exiting water from the top.
+	// If 0, Link can only leave the top of the water via
+	// sideview ladder.
+	GEN_SIDESWIM_EXITJUMP  = 21,
+	GEN_BUNNY_TILEMOD      = 22, //Tile modifier to apply while player is bunnified
+	GEN_SWITCHHOOK_STYLE   = 23, //Which 'SW_EFF' style to use for the 'Switch w/ Player' enemy defense
+	GEN_FLICKER_FRAMES     = 24, //How many frames Link / enemies flicker for with the flicker damage effect
+	GEN_FLICKER_COLOR      = 25, //Color used for the flicker effect
+	GEN_FLICKER_TRANSP     = 26, //Number of transparency passes for the flicker effect
+	GEN_MAX                = 27
+};
+
+// Values for [Game->MouseCursor].
+enum MouseCursor
+{
+	ZCM_CUSTOM,
+	ZCM_BLANK,
+	ZCM_NORMAL,
+	ZCM_MAX
+};
+
 class Game {
 	// @delete
 	internal Game();
@@ -19144,25 +19634,33 @@ class Game {
 	// @zasm_var GAMECONTDMAP
 	internal int ContinueDMap;
 
-	// The value of each of the game's counters (using `CR_` constants). Values
-	// `0 to 65535`.
+	// The value of each of the game's counters.
+	//
+	// Valid indices: [CounterIndex] (`CR_`).
+	// Valid values: `0 to 65535`.
 	//
 	// @zasm_var GAMECOUNTERD
 	internal int Counter[];
 
-	// The max value of each of the game's counters (using `CR_` constants).
-	// Values `0 to 65535`.
+	// The max value of each of the game's counters.
+	//
+	// Valid indices: [CounterIndex] (`CR_`).
+	// Valid values: `0 to 65535`.
 	//
 	// @zasm_var GAMEMCOUNTERD
 	internal int MCounter[];
 
-	// The value of each of the game's drain counters (using `CR_` constants).
-	// Values `-32768 to 32767`.
+	// The value of each of the game's drain counters.
+	//
+	// Valid indices: [CounterIndex] (`CR_`).
+	// Valid values: `-32768 to 32767`.
 	//
 	// @zasm_var GAMEDCOUNTERD
 	internal int DCounter[];
 
 	// Generic values related to the game.
+	//
+	// Valid indices: [GenericIndex] (`GEN_`).
 	//
 	// @zasm_var GAMEGENERICD
 	internal untyped Generic[];
@@ -19226,8 +19724,9 @@ class Game {
 	// @zasm_var GAMECLICKFREEZE
 	internal bool ClickToFreezeEnabled;
 
-	// The values of all Quest Rules. Access this array using the `qr_`
-	// constants in `include/std_zh/ffrules.zh`.
+	// The values of all Quest Rules.
+	//
+	// Valid indices: [QR] (`qr_`).
 	//
 	// @zasm_var FFRULE
 	internal bool FFRules[];
@@ -19302,22 +19801,28 @@ class Game {
 
 	// Values related to gravity.
 	//
+	// Valid indices: [GravityIndex] (`GR_`).
+	//
 	// @zasm_var GAMEGRAVITY
 	internal int Gravity[];
 
 	// values related to scrolling.
 	//
+	// Valid indices: [ScrollingIndex] (`SCROLL_`).
+	//
 	// @zasm_var GAMESCROLLING
 	internal const int Scrolling[];
 
-	// The `Quest->Graphics->Sprites->Misc Sprites` values, accessed with the
-	// `MISCSPR_` constants.
+	// The `Quest->Graphics->Sprites->Misc Sprites` values.
+	//
+	// Valid indices: [MiscSpriteIndex] (`MISCSPR_`).
 	//
 	// @zasm_var GAMEMISCSPR
 	internal int MiscSprites[];
 
-	// The `Quest->Audio->Misc SFX` values, accessed with the `MISCSFX_`
-	// constants.
+	// The `Quest->Audio->Misc SFX` values.
+	//
+	// Valid indices: [MiscSfx] (`MISCSFX_`).
 	//
 	// @zasm_var GAMEMISCSFX
 	internal int MiscSFX[];
@@ -19340,9 +19845,10 @@ class Game {
 	// @zasm_var TANGOARR
 	internal untyped Misc3[];
 
-	// Which mouse cursor (using the `ZCM_` constants) should be displayed
-	// during gameplay. ZCM_BLANK is the default, and it resets on visiting the
-	// title screen.
+	// Which mouse cursor should be displayed during gameplay.
+	// [ZCM_BLANK] is the default, and it resets on visiting the title screen.
+	//
+	// Valid values: [MouseCursor] (`ZCM_`).
 	//
 	// @zasm_var GAMEMOUSECURSOR
 	internal int MouseCursor;
@@ -19389,17 +19895,17 @@ class Game {
 	// @zasm_var GAMEASUBYOFF
 	internal const int ActiveSubscreenY;
 
-	// Returns the total number of active/passive/overlay subscreens
+	// Returns the total number of active subscreens
 	//
 	// @zasm_var GAMENUMASUB
 	internal int NumActiveSubscreens;
 
-	// Returns the total number of active/passive/overlay subscreens
+	// Returns the total number of passive subscreens
 	//
 	// @zasm_var GAMENUMPSUB
 	internal int NumPassiveSubscreens;
 
-	// Returns the total number of active/passive/overlay subscreens
+	// Returns the total number of overlay subscreens
 	//
 	// @zasm_var GAMENUMOSUB
 	internal int NumOverlaySubscreens;
@@ -22005,6 +22511,146 @@ class Input {
 internal const Input Input;
 script typedef itemdata item;
 
+// Item class ids, used by [itemdata::Family].
+enum ItemClass {
+	// Item class ids, used by [itemdata->Family].
+	IC_SWORD              = 0,
+	IC_BRANG              = 1,
+	IC_ARROW              = 2,
+	IC_CANDLE             = 3,
+	IC_WHISTLE            = 4,
+	IC_BAIT               = 5,
+	IC_LETTER             = 6,
+	IC_POTION             = 7,
+	IC_WAND               = 8,
+	IC_RING               = 9,
+	IC_WALLET             = 10,
+	IC_AMULET             = 11,
+	IC_SHIELD             = 12,
+	IC_BOW                = 13,
+	IC_RAFT               = 14,
+	IC_LADDER             = 15,
+	IC_BOOK               = 16,
+	IC_MAGICKEY           = 17,
+	IC_BRACELET           = 18,
+	IC_FLIPPERS           = 19,
+	IC_BOOTS              = 20,
+	IC_HOOKSHOT           = 21,
+	IC_LENS               = 22,
+	IC_HAMMER             = 23,
+	IC_DINSFIRE           = 24,
+	IC_FARORESWIND        = 25,
+	IC_NAYRUSLOVE         = 26,
+	IC_BOMB               = 27,
+	IC_SBOMB              = 28,
+	IC_CLOCK              = 29,
+	IC_KEY                = 30,
+	IC_MAGICCONTAINER     = 31,
+	IC_TRIFORCE           = 32,
+	IC_MAP                = 33,
+	IC_COMPASS            = 34,
+	IC_BOSSKEY            = 35,
+	IC_QUIVER             = 36,
+	IC_LEVELKEY           = 37,
+	IC_CBYRNA             = 38,
+	IC_RUPEE              = 39,
+	IC_ARROWAMMO          = 40,
+	IC_FAIRY              = 41,
+	IC_MAGIC              = 42,
+	IC_HEART              = 43,
+	IC_HEARTCONTAINER     = 44,
+	IC_HEARTPIECE         = 45,
+	IC_KILLALL            = 46,
+	IC_BOMBAMMO           = 47,
+	IC_BOMBBAG            = 48,
+	IC_ROCS               = 49,
+	IC_HOVERBOOTS         = 50,
+	IC_SPINSCROLL         = 51,
+	IC_CROSSSCROLL        = 52,
+	IC_QUAKESCROLL        = 53,
+	IC_WHISPRING          = 54,
+	IC_CHARGERING         = 55,
+	IC_PERILSCROLL        = 56,
+	IC_WEALTHMEDAL        = 57,
+	IC_HEARTRING          = 58,
+	IC_MAGICRING          = 59,
+	IC_HURRICANESCROLL    = 60,
+	IC_SQUAKESCROLL       = 61,
+	IC_STONEAGONY         = 62,
+	IC_STOMPBOOTS         = 63,
+	IC_WHIMSICALRING      = 64,
+	IC_PERILRING          = 65,
+	IC_MISC               = 66,
+	IC_CUSTOM1            = 67,
+	IC_CUSTOM2            = 68,
+	IC_CUSTOM3            = 69,
+	IC_CUSTOM4            = 70,
+	IC_CUSTOM5            = 71,
+	IC_CUSTOM6            = 72,
+	IC_CUSTOM7            = 73,
+	IC_CUSTOM8            = 74,
+	IC_CUSTOM9            = 75,
+	IC_CUSTOM10           = 76,
+	IC_CUSTOM11           = 77,
+	IC_CUSTOM12           = 78,
+	IC_CUSTOM13           = 79,
+	IC_CUSTOM14           = 80,
+	IC_CUSTOM15           = 81,
+	IC_CUSTOM16           = 82,
+	IC_CUSTOM17           = 83,
+	IC_CUSTOM18           = 84,
+	IC_CUSTOM19           = 85,
+	IC_CUSTOM20           = 86,
+	IC_BOWANDARROW        = 87,
+	IC_LETTERPOTION       = 88,
+
+	// 89-255 free use
+
+	// These item classes create a projectile of the 
+	// type LW_CUSTOM/LW_SCRIPT, 01 to 10
+	IC_WPN_CUSTOM_01           = 256,
+	IC_WPN_SCRIPT_01           = 256,
+	IC_WPN_CUSTOM_02           = 257,
+	IC_WPN_SCRIPT_02           = 257,
+	IC_WPN_CUSTOM_03           = 258,
+	IC_WPN_SCRIPT_03           = 258,
+	IC_WPN_CUSTOM_04           = 259,
+	IC_WPN_SCRIPT_04           = 259,
+	IC_WPN_CUSTOM_05           = 260,
+	IC_WPN_SCRIPT_05           = 260,
+	IC_WPN_CUSTOM_06           = 261,
+	IC_WPN_SCRIPT_06           = 261,
+	IC_WPN_CUSTOM_07           = 262,
+	IC_WPN_SCRIPT_07           = 262,
+	IC_WPN_CUSTOM_08           = 263,
+	IC_WPN_SCRIPT_08           = 263,
+	IC_WPN_CUSTOM_09           = 264,
+	IC_WPN_SCRIPT_09           = 264,
+	IC_WPN_CUSTOM_10           = 265,
+	IC_WPN_SCRIPT_10           = 265,
+
+	IC_ICEROD          	     = 266, //Not Implemented
+
+	IC_ATKRING                 = 267,
+	IC_LANTERN                 = 268,
+	IC_PEARL                   = 269,
+	IC_BOTTLE                  = 270,
+	IC_BOTTLE_FILL             = 271,
+	IC_BUG_NET                 = 272,
+	IC_MIRRORS                 = 273,
+	IC_SWITCHHOOK              = 274,
+	IC_ITEM_BUNDLE             = 275,
+	IC_PROGRESSIVE             = 276,
+	IC_NOTE                    = 277,
+	IC_REFILL                  = 278,
+	IC_LIFTGLOVE               = 279,
+
+	//Itemclasses not less than this are reserved for future engine itemclasses
+	IC_MAXUSABLE               = 280,
+
+	IC_MAX                     = 512 //Last of enum. All itemclassesare < this.
+};
+
 // @zasm_ref REFITEMCLASS
 class itemdata {
 	// @delete
@@ -22049,6 +22695,8 @@ class itemdata {
 	internal bool EquipmentItem;
 
 	// The counter to increase when this item is picked up.
+	//
+	// Valid values: [CounterIndex] (`CR_`).
 	//
 	// @zasm_var IDATACOUNTER
 	internal int Counter;
@@ -22485,7 +23133,7 @@ class itemdata {
 
 	// The distance that the weapon is allowed to travel.
 	//
-	// See [lweapon::>Distance]
+	// See [lweapon::Distance]
 	//
 	// Not implemented at this time.
 	//
@@ -22605,7 +23253,9 @@ class itemsprite {
 	// @zasm_var ITEMJUMP
 	internal int Jump;
 
-	// The drawing mode used, defined by the `DS_` constants.
+	// The drawing mode used.
+	//
+	// Valid values: [DrawStyle] (`DS_`).
 	//
 	// @zasm_var ITEMDRAWTYPE
 	internal int DrawStyle;
@@ -22690,7 +23340,9 @@ class itemsprite {
 	// @zasm_var ITEMFLASH
 	internal bool Flash;
 
-	// The flip status of the itemsprite's tile. Uses the `FLIP_` constants.
+	// How to flip (or rotate) the item.
+	//
+	// Valid values: [TransformationType] (`FLIP_` or `ROT_`).
 	//
 	// @zasm_var ITEMFLIP
 	internal int Flip;
@@ -22959,8 +23611,9 @@ class itemsprite {
 	//   ITEMDEL
 	internal void Remove();
 
-	// Switch the player with this sprite. Use the `SW_EFF_` constants for
-	// 'effect' to select a visual style for the switch.
+	// Switch the player with this sprite.
+	//
+	// Valid values for [effect]: [SwitchEffect] (`SW_EFF_`).
 	//
 	// @zasm
 	//   POP D2
@@ -23092,7 +23745,9 @@ class lweapon {
 	// @zasm_var LWPNFRAME
 	internal int Frame;
 
-	// The mode for the sprite's draws, using the `DS_` constants.
+	// The mode for the sprite's draws.
+	//
+	// Valid values: [DrawStyle] (`DS_`).
 	//
 	// @zasm_var LWPNDRAWTYPE
 	internal int DrawStyle;
@@ -23177,7 +23832,9 @@ class lweapon {
 	// @zasm_var LWPNFLASH
 	internal bool Flash;
 
-	// The flip status of the weapon's tile. Uses the `FLIP_` constants.
+	// How to flip (or rotate) the weapon.
+	//
+	// Valid values: [TransformationType] (`FLIP_` or `ROT_`).
 	//
 	// @zasm_var LWPNFLIP
 	internal int Flip;
@@ -23446,7 +24103,9 @@ class lweapon {
 	// @zasm_var LWPNAUTOROTATE
 	internal bool AutoRotate;
 
-	// A set of weapon flags. Use the `WFLAG_` constants as indexes.
+	// A set of weapon flags.
+	//
+	// Valid indices: [WeaponFlagIndex] (`WFLAG_`).
 	//
 	// @zasm_var LWPNFLAGS
 	internal bool Flags[];
@@ -23498,8 +24157,9 @@ class lweapon {
 	// @zasm_var LWPNSPRITES
 	internal int Sprites[];
 
-	// The burning light radii associated with sprites of the weapon. See
-	// 'WPN_SPRITE_' constants in 'std_constants.zh'
+	// The burning light radii associated with sprites of the weapon.
+	//
+	// Valid indices: [WeaponSpriteIndex] (`WPN_SPRITE_`).
 	//
 	// @zasm_var LWPNBURNLIGHTRADIUS
 	internal int BurnLightRadius[];
@@ -23558,8 +24218,9 @@ class lweapon {
 	//   LWPNDEL
 	internal void Remove();
 
-	// Switch the player with this sprite. Use the `SW_EFF_` constants for
-	// 'effect' to select a visual style for the switch.
+	// Switch the player with this sprite.
+	//
+	// Valid values for [effect]: [SwitchEffect] (`SW_EFF_`).
 	//
 	// @zasm
 	//   POP D2
@@ -23683,7 +24344,7 @@ class mapdata {
 	// The Tile Warp type for Tile Warps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// See std_constants.zh WT_* constants for valid types.
+	// Valid values: [WarpType] (`WT_`).
 	//
 	// @zasm_var MAPDATATILEWARPTYPE
 	internal int TileWarpType[];
@@ -23745,7 +24406,9 @@ class mapdata {
 	// @zasm_var MAPDATACOLOUR
 	internal int Palette;
 
-	// The 4 door states of the screen, indexed with the `DIR_` constants.
+	// The 4 door states of the screen.
+	//
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
 	//
 	// @zasm_var MAPDATADOOR
 	internal int Door[];
@@ -23770,8 +24433,9 @@ class mapdata {
 	// @zasm_var MAPDATAENEMY
 	internal int Enemy[];
 
-	// The spawn pattern for the screen enemies. Use the `PATTERN_` constants
-	// for the value.
+	// The spawn pattern for the screen enemies.
+	//
+	// Valid values: [EnemyPattern] (`PATTERN_`).
 	//
 	// @zasm_var MAPDATAPATTERN
 	internal int Pattern;
@@ -23779,7 +24443,7 @@ class mapdata {
 	// The Sidewarp type for Sidewarps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// See std_constants.zh WT_* constants for valid types.
+	// Valid values: [WarpType] (`WT_`).
 	//
 	// @zasm_var MAPDATASIDEWARPTYPE
 	internal int SideWarpType[];
@@ -23800,8 +24464,9 @@ class mapdata {
 	// @zasm_var MAPDATAWARPARRIVALY
 	internal int WarpArrivalY;
 
-	// The four directions you must go for the maze path. Use the `DIR_`
-	// constants for the values.
+	// The four directions you must go for the maze path.
+	//
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
 	//
 	// @zasm_var MAPDATAPATH
 	internal int MazePath[];
@@ -23813,12 +24478,10 @@ class mapdata {
 
 	// Returns the sidewarp ID for a given screen edge, as SideWarpID[dir];
 	//
-	// Returns -1 if there is no sidewarp in that direction.
+	// Returns [SIDEWARP_NONE] if there is no sidewarp in that direction.
 	//
-	// Use the SIDEWARP_* constants in std.zh for the value of this (read return
-	// value, or write value).
-	//
-	// Use the DIR_* constants in std.zh for the index values.
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
+	// Valid values: [SideWarpIndex] (`SIDEWARP_`)
 	//
 	// @zasm_var MAPDATASIDEWARPID
 	internal int SideWarpID[];
@@ -24430,8 +25093,9 @@ class messagedata {
 	// @zasm_var MESSAGEDATAFLAGSARR
 	internal bool Flags[];
 
-	// The margins, in pixels, from each edge of the text box. Use the `DIR_`
-	// constants to access this.
+	// The margins, in pixels, from each edge of the text box.
+	//
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
 	//
 	// @zasm_var MESSAGEDATAMARGINS
 	internal int Margins[];
@@ -24528,6 +25192,262 @@ class messagedata {
 	//   SETR D2 MESSAGEDATATEXTWID
 	internal int TextWidth();
 }
+enum NpcType
+{
+	NPCT_GUY,
+	NPCT_WALK,
+
+	NPCT_TEKTITE = 3,
+	NPCT_LEEVER,
+	NPCT_PEAHAT,
+	NPCT_ZORA,
+	NPCT_ROCK,
+	NPCT_GHINI,
+	NPCT_ARMOS,
+	NPCT_KEESE,
+
+	NPCT_TRAP = 15,
+	NPCT_WALLMASTER = 16,
+
+	NPCT_WIZZROBE = 21,
+	NPCT_AQUAMENTUS,
+	NPCT_MOLDORM,
+	NPCT_DODONGO,
+	NPCT_MANHANDLA,
+	NPCT_GLEEOK,
+	NPCT_DIGDOGGER,
+	NPCT_GOHMA,
+	NPCT_LANMOLA,
+	NPCT_PATRA,
+	NPCT_GANON,
+	NPCT_PROJECTILE,
+
+	NPCT_SPINTILE = 37,
+	NPCT_NONE,
+	NPCT_FAIRY,
+	NPCT_OTHERFLOAT,
+	NPCT_OTHER,
+
+	NPCT_CUSTOM_01 = 43,
+	NPCT_SCRIPT_01 = 43,
+	NPCT_CUSTOM_02 = 44,
+	NPCT_SCRIPT_02 = 44,
+	NPCT_CUSTOM_03 = 45,
+	NPCT_SCRIPT_03 = 45,
+	NPCT_CUSTOM_04 = 46,
+	NPCT_SCRIPT_04 = 46,
+	NPCT_CUSTOM_05 = 47,
+	NPCT_SCRIPT_05 = 47,
+	NPCT_CUSTOM_06 = 48,
+	NPCT_SCRIPT_06 = 48,
+	NPCT_CUSTOM_07 = 49,
+	NPCT_SCRIPT_07 = 49,
+	NPCT_CUSTOM_08 = 50,
+	NPCT_SCRIPT_08 = 50,
+	NPCT_CUSTOM_09 = 51,
+	NPCT_SCRIPT_09 = 51,
+	NPCT_CUSTOM_10 = 52,
+	NPCT_SCRIPT_10 = 52,
+	NPCT_CUSTOM_11 = 53,
+	NPCT_SCRIPT_11 = 53,
+	NPCT_CUSTOM_12 = 54,
+	NPCT_SCRIPT_12 = 54,
+	NPCT_CUSTOM_13 = 55,
+	NPCT_SCRIPT_13 = 55,
+	NPCT_CUSTOM_14 = 56,
+	NPCT_SCRIPT_14 = 56,
+	NPCT_CUSTOM_15 = 57,
+	NPCT_SCRIPT_15 = 57,
+	NPCT_CUSTOM_16 = 58,
+	NPCT_SCRIPT_16 = 58,
+	NPCT_CUSTOM_17 = 59,
+	NPCT_SCRIPT_17 = 59,
+	NPCT_CUSTOM_18 = 60,
+	NPCT_SCRIPT_18 = 60,
+	NPCT_CUSTOM_19 = 61,
+	NPCT_SCRIPT_19 = 61,
+	NPCT_CUSTOM_20 = 62,
+	NPCT_SCRIPT_20 = 62,
+	NPCT_FRIENDLY_01 = 63,
+	NPCT_FRIENDLY_02 = 64,
+	NPCT_FRIENDLY_03 = 65,
+	NPCT_FRIENDLY_04 = 66,
+	NPCT_FRIENDLY_05 = 67,
+	NPCT_FRIENDLY_06 = 68,
+	NPCT_FRIENDLY_07 = 69,
+	NPCT_FRIENDLY_08 = 70,
+	NPCT_FRIENDLY_09 = 71,
+	NPCT_FRIENDLY_10 = 72
+};
+
+// Use as index for npc->Defense[].
+enum NpcDefenseIndex
+{
+	NPCD_BRANG,
+	NPCD_BOMB,
+	NPCD_SBOMB,
+	NPCD_ARROW,
+	NPCD_FIRE,
+	NPCD_WAND,
+	NPCD_MAGIC,
+	NPCD_HOOKSHOT,
+	NPCD_HAMMER,
+	NPCD_SWORD,
+	NPCD_BEAM,
+	NPCD_REFBEAM,
+	NPCD_REFMAGIC,
+	NPCD_REFFIREBALL,
+	NPCD_REFROCK,
+	NPCD_STOMP,
+	NPCD_BYRNA,
+	NPCD_SCRIPT,
+
+	NPCD_SCRIPT1 = 20,
+	NPCD_SCRIPT2,
+	NPCD_SCRIPT3,
+	NPCD_SCRIPT4,
+	NPCD_SCRIPT5,
+	NPCD_SCRIPT6,
+	NPCD_SCRIPT7,
+	NPCD_SCRIPT8,
+	NPCD_SCRIPT9,
+	NPCD_SCRIPT10,
+
+	NPCD_WHISTLE = 35,
+	NPCD_SWITCHHOOK,
+	NPCD_THROWN,
+	NPCD_REFARROW,
+	NPCD_REFFIRE,
+	NPCD_REFFIRE2
+};
+
+// Use as value type for npc->Defense[].
+enum NpcDefenseType
+{
+	NPCDT_NONE,
+	NPCDT_HALFDAMAGE,
+	NPCDT_QUARTERDAMAGE,
+	NPCDT_STUN,
+	NPCDT_STUNORBLOCK,
+	NPCDT_STUNORIGNORE,
+	NPCDT_BLOCK1,
+	NPCDT_BLOCK2,
+	NPCDT_BLOCK4,
+	NPCDT_BLOCK6,
+	NPCDT_BLOCK8,
+	NPCDT_BLOCK,
+	NPCDT_IGNORE1,
+	NPCDT_IGNORE,
+	NPCDT_ONEHITKILL,
+	NPCDT_BLOCK10,
+	NPCDT_2XDAMAGE,
+	NPCDT_3XDAMAGE,
+	NPCDT_4XDAMAGE,
+	NPCDT_HEAL,
+	NPCDT_TRIGGERSECRETS,
+
+	NPCDT_SWITCH = 50
+};
+
+// Enemy projectile weapon selections. Use with npc->Weapon.
+// Note: Don't use these with Screen->CreateEWeapon! Use the `EW_` constants instead.
+// Use WeaponTypeToID to convert this enum to a `EW_` value.
+enum NpcWeapon {
+	WPN_NONE              = 0,
+	WPN_ENEMYFLAME        = 140,
+	WPN_ENEMYWIND         = 141,
+	WPN_ENEMYFIREBALL     = 129,
+	WPN_ENEMYARROW        = 130,
+	WPN_ENEMYBRANG        = 131,
+	WPN_ENEMYSWORD        = 132,
+	WPN_ENEMYROCK         = 133,
+	WPN_ENEMYMAGIC        = 134,
+	WPN_ENEMYBOMB         = 135,
+	WPN_ENEMYSBOMB        = 136,
+	WPN_ENEMYLITBOMB      = 137,
+	WPN_ENEMYLITSBOMB     = 138,
+	WPN_ENEMYFIRETRAIL    = 139,
+	WPN_ENEMYFLAME2       = 142,
+	WPN_ENEMYFLAME2TRAIL  = 143, // Not implemented
+	WPN_ENEMYICE          = 144, // Not implemented
+	WPN_ENEMYFIREBALL2    = 145  // A fireball that doesn't fly toward Link
+};
+
+// Default item drop sets.
+enum ItemSet {
+	IS_NONE,
+	IS_DEFAULT,
+	IS_BOMBS,
+	IS_MONEY,
+	IS_LIFE,
+	IS_BOMB100, // Used by Dodongos
+	IS_SBOMB100, // Used by Dodongos
+	IS_MAGIC,
+	IS_MAGICBOMBS,
+	IS_MAGICMONEY,
+	IS_MAGICLIFE,
+	IS_MAGIC2,
+	IS_COMBOS // Used by Tall Grass / Bush / Slash combos.
+};
+
+// Boss palettes.
+enum BossPal
+{
+	BPAL_AQUA,
+	BPAL_GLEEOK,
+	BPAL_DODONGO,
+	BPAL_GANON,
+	BPAL_BROWN,
+	BPAL_PILE, // Used for the Dust Pile.
+	BPAL_BLUE,
+	BPAL_RED,
+	BPAL_GOLD,
+	BPAL_ICON1, // Used for Quest Icon 1.
+	BPAL_ICON2, // Used for Quest Icon 2.
+	BPAL_ICON3, // Used for Quest Icon 3.
+	BPAL_ICON4, // Used for Quest Icon 4.
+	BPAL_GLEEOKF,
+	BPAL_FROZEN // Unused
+};
+
+enum NpcMoveFlagIndex
+{
+	NPCMV_OBEYS_GRAVITY,
+	NPCMV_CAN_PITFALL,
+	NPCMV_CAN_PIT_WALK,
+	NPCMV_CAN_WATERDROWN,
+	NPCMV_CAN_WATER_WALK,
+	NPCMV_ONLY_WATER_WALK,
+	NPCMV_ONLY_SHALLOW_WATER_WALK,
+	NPCMV_ONLY_PIT_WALK,
+	NPCMV_NO_FAKE_Z,
+	NPCMV_NO_REAL_Z,
+	NPCMV_USE_FAKE_Z,
+	NPCMV_IGNORE_SOLIDITY,
+	NPCMV_IGNORE_BLOCKFLAGS,
+	NPCMV_IGNORE_SCREENEDGE,
+	NPCMV_USE_SCRIPTED_MOVEMENT_ENGINE,
+	NPCMV_NOT_PUSHABLE_BY_SOLIDS
+};
+
+enum NpcShieldIndex
+{
+	SHLD_FRONT,
+	SHLD_BACK,
+	SHLD_LEFT,
+	SHLD_RIGHT,
+	SHLD_CAN_BREAK
+};
+
+enum NpcFade
+{
+	NPCF_NONE,
+	NPCF_FLICKER,
+	NPCF_INVISIBLE,
+	NPCF_FLASH,
+	NPCF_POOF
+};
+
 // @zasm_ref REFNPC
 class npc {
 	// @delete
@@ -24571,7 +25491,9 @@ class npc {
 	// @zasm_var NPCSLIDECLK
 	internal int SlideClock;
 
-	// The death effect for the npc. Use the enum NPCFadeType in std_constants.
+	// The death effect for the npc.
+	//
+	// Valid values: [NpcFade] (`NPCF_`).
 	//
 	// @zasm_var NPCFADING
 	internal int Fading;
@@ -24619,12 +25541,16 @@ class npc {
 	// @zasm_var NPCID
 	internal const int ID;
 
-	// The type, or 'enemy class' of the enemy. Use the `NPCT_` constants.
+	// The type, or 'enemy class' of the enemy.
+	//
+	// Valid values: [NpcType] (`NPCT_`).
 	//
 	// @zasm_var NPCTYPE
 	internal int Type;
 
-	// The type, or 'enemy class' of the enemy. Use the `NPCT_` constants.
+	// The type, or 'enemy class' of the enemy. Same as [Type].
+	//
+	// Valid values: [NpcType] (`NPCT_`).
 	//
 	// @zasm_var NPCTYPE
 	internal int Family;
@@ -24656,10 +25582,14 @@ class npc {
 	// @zasm_var NPCOTILE
 	internal int OriginalTile;
 
+	// Valid values: [NpcWeapon] (`WPN_`).
+	//
 	// @zasm_var NPCWEAPON
 	internal int Weapon;
 
-	// The Dropset ID that this enemy will drop from when killed
+	// The Dropset ID that this enemy will drop from when killed.
+	//
+	// Valid values: [ItemSet] (`IS_`).
 	//
 	// @zasm_var NPCITEMSET
 	internal int ItemSet;
@@ -24674,8 +25604,10 @@ class npc {
 	// @zasm_var NPCCSET
 	internal int CSet;
 
+	// Valid values: [BossPal] (`BPAL_`).
+	//
 	// @zasm_var NPCBOSSPAL
-	internal int BossPal;
+	internal BossPal BossPal;
 
 	// @zasm_var NPCBGSFX
 	internal int SFX;
@@ -24785,6 +25717,9 @@ class npc {
 
 	// Expanded to a size of 42 to cover new defense categories.
 	//
+	// Valid indices are [NpcDefenseIndex] (`NPCD_`).
+	// Valid values: [NpcDefenseType] (`NPCDT_`).
+	//
 	// @zasm_var NPCDEFENSED
 	internal int Defense[];
 
@@ -24857,7 +25792,9 @@ class npc {
 	// @zasm_var NPCHASITEM
 	internal bool HasItem;
 
-	// Flags related to the enemy's shield. Use the `SHLD_` constants to access.
+	// Flags related to the enemy's shield.
+	//
+	// Valid indices are [NpcShieldIndex] (`SHLD_`).
 	//
 	// @zasm_var NPCSHIELD
 	internal bool Shield[];
@@ -24937,7 +25874,9 @@ class npc {
 	// @zasm_var NPCFALLCMB
 	internal int FallCombo;
 
-	// The movement flags of the npc. See `NPCMV_` constants.
+	// The movement flags of the npc.
+	//
+	// Valid indices are [NpcMoveFlagIndex] (`NPCMV_`).
 	//
 	// @zasm_var NPCMOVEFLAGS
 	internal bool MoveFlags[];
@@ -25369,8 +26308,9 @@ class npc {
 	//   NPCKNOCKBACK D2 D3
 	internal bool Knockback(int time, int dir, int speed = 4);
 
-	// Switch the player with this sprite. Use the `SW_EFF_` constants for
-	// 'effect' to select a visual style for the switch.
+	// Switch the player with this sprite.
+	//
+	// Valid values for [effect] is [SwitchEffect] (`SW_EFF_`).
 	//
 	// @zasm
 	//   POP D2
@@ -25679,7 +26619,7 @@ class npcdata {
 	//
 	// Higher values make it more likely that the enemy is attracted to Bait.
 	//
-	// Valid only for NPCT_WALKING enemies.
+	// Valid only for [NPCT_WALKING] enemies.
 	//
 	// @zasm_var NPCDATAHUNGER
 	internal int Hunger;
@@ -25800,10 +26740,8 @@ class npcdata {
 
 	// The shield status of the enemy.
 	//
-	// [0] through [3] correspond to DIR* constants (wherein DIR_UP represents
-	// FRONT, and DIR_DOWN represents BACK)
-	//
-	// [4] corresponds to 'Shield can be broken'.
+	// Valid indices: [DIR_UP] (front), [DIR_DOWN] (back), [DIR_LEFT], [DIR_RIGHT],
+	//                `4` (Shield can be broken).
 	//
 	// @zasm_var NPCDATASHIELD
 	internal bool Shield[];
@@ -26525,6 +27463,16 @@ class paldata {
 	//   PALDATAOWN
 	internal void Own();
 }
+enum PlayerSliding
+{
+	SLD_NONE,
+	// sliding on the ground, on ice
+	SLD_ICE,
+	// sliding in the air (momentum from ice)
+	SLD_AIR,
+	SLD_MAX
+};
+
 class player {
 	// @delete
 	internal player();
@@ -27099,11 +28047,7 @@ class player {
 	// @zasm_var HEROFLASHINGCSET
 	internal const int FlashingCSet;
 
-	// One of the 'SLD_' constants:
-	//
-	// - SLD_NONE (0) - not sliding
-	// - SLD_ICE (1) - sliding on the ground, on ice
-	// - SLD_AIR (2) - sliding in the air (momentum from ice)
+	// Valid values: [PlayerSliding] (`SLD_`).
 	//
 	// @zasm_var HEROSLIDING
 	internal const int Sliding;
@@ -27411,8 +28355,9 @@ class player {
 	internal void SelectYWeapon(int dir);
 
 	// Switch the player with the given combo position.
-	// Use the `SW_EFF_` constants from std_constants.zh for 'effect'.
 	// Returns true if successful.
+	//
+	// Valid values for [effect]: [SwitchEffect] (`SW_EFF_`).
 	//
 	// @zasm
 	//   POP D3
@@ -27575,7 +28520,8 @@ internal const player Hero;
 internal const player Link;	  // @deprecated Use Hero->
 internal const player Player; // @deprecated Use Hero->
 script typedef player link;
-script typedef player hero;// @zasm_ref REFPORTAL
+script typedef player hero;
+// @zasm_ref REFPORTAL
 class portal {
 	// @delete
 	internal portal();
@@ -27630,6 +28576,459 @@ class portal {
 	//   PORTALUSESPRITE D2
 	internal void UseSprite(int arg1);
 }
+enum QR
+{
+	qr_SOLIDBLK, 				// Combos (>>>) Can't Push Blocks Onto Unwalkable Combos
+	qr_NOTMPNORET, 				// Enemies (>>>) Temporary No Return Disabled
+	qr_ALWAYSRET, 				// Enemies (>>>) Enemies Always Return
+	qr_MEANTRAPS, 				// Enemies (>>>) Multi-Directional Traps
+	qr_BSZELDA, 				// Animation (>>>) BS Zelda Animation
+	qr_FADE, 				// Animation (>>>) Interpolated Fading
+	qr_FADECS5, 				// Animation (>>>) Fade CSet 5
+	qr_FASTDNGN, 				// Animation (>>>) Fast Dungeon Scrolling
+	qr_NOLEVEL3FIX, 			// NES (>>>) No Palette 3 Level 6 CSet Fix
+	qr_COOLSCROLL, 				// Animation (>>>) Circle Opening/Closing Wipes
+	qr_NOSCROLL,  				// Animation (>>>) No Screen Scrolling
+	qr_4TRI, 				// Items (>>>) Big Triforce Pieces
+	qr_EXPLICIT_RAFTING, 			// Unused
+	qr_FASTFILL, 				// Misc (>>>) Fast Heart Refill
+	qr_CAVEEXITNOSTOPMUSIC, 		// NES (>>>) Leaving Item Cellar/Passageway Doesn't Restart Music
+	qr_3TRI, 				// Items (>>>) 3 or 6 Triforce Total
+	qr_TIME, 				// Misc (>>>) Show Time On Subscreen
+	qr_FREEFORM, 				// NES (>>>) Freeform Dungeons
+	qr_KILLALL, 				// Enemies (>>>) Must Kill All Bosses To Set 'No Return' Screen State
+	qr_NOFLICKER, 				// NES (>>>) No NES 'Sprite Flicker'
+	qr_CONTFULL_DEP,			// DEPRECATED
+	qr_RLFIX, 				// NES (>>>) Raft/Ladder Sprite Direction Fix
+	qr_LENSHINTS, 				// DEPRECATED // Items (>>>) Show Secret Combo Hints When Using The Lens
+	qr_LINKDUNGEONPOSFIX, 			// NES (>>>) Fix Link's Position in Dungeons
+	qr_HOLDITEMANIMATION, 			// Animation (>>>) Items Held Above Link's Head Continue To Animate
+	qr_HESITANTPUSHBLOCKS, 			// Combos (>>>) Push Blocks Don't Move When Bumped
+	qr_HIDECARRIEDITEMS, 			// Items (>>>) Hide Enemy-Carried Items
+	qr_FFCSCROLL, 				// Animation (>>>) FFCs Are Visible While The Screen Is Scrolling
+	qr_RAFTLENS, 				// DEPRECATED	Items (>>>) Lens Shows Raft Paths
+	qr_SMOOTHVERTICALSCROLLING,	 	// Animation (>>>) Smooth Vertical Scrolling
+	qr_WHIRLWINDMIRROR, 			// Combos (>>>) Magic Mirrors Reflect Scripted Whirlwinds
+	qr_NOFLASHDEATH, 			// Enemies (>>>) Enemies Don't Flash When Dying
+	qr_HOLDNOSTOPMUSIC, 			// NES (>>>) Holding Up Items Doesn't Restart Music
+	qr_FIREPROOFLINK, 			// Items (>>>) Scripted Fire LWeapons Don't Hurt Link
+	qr_OUCHBOMBS, 				// Items (>>>) Scripted Bomb LWeapons Hurt Link
+	qr_NOCLOCKS_DEP,			// DEPRECATED
+	qr_TEMPCLOCKS_DEP,			// DEPRECATED
+	qr_BRKBLSHLDS_DEP,			// DEPRECATED
+	qr_BRKNSHLDTILES, 			// Enemies (>>>) Broken Enemy Shield Tiles
+	qr_MEANPLACEDTRAPS, 			// Enemies (>>>) Line-of-Sight Traps Can Move Across Entire Screen
+	qr_PHANTOMPLACEDTRAPS, 			// Enemies (>>>) Constant Traps Can Pass Through Enemies
+	qr_ALLOWFASTMSG, 			// Misc (>>>) Messages Can Be Sped Up With The A Button
+	qr_LINKEDCOMBOS,			// DEPRECATED
+	qr_NOGUYFIRES, 				// Misc (>>>) No Fires In Special Rooms
+	qr_HEARTRINGFIX, 			// Misc (>>>) Healing Fairy Heart Circle Is Centered Around Link
+	qr_NOHEARTRING, 			// Misc (>>>) No Healing Fairy Heart Circle
+	qr_OVERWORLDTUNIC, 			// NES (>>>) Tunic Color Can Change On Overworld
+	qr_SWORDWANDFLIPFIX, 			// NES (>>>) Sword/Wand Flip Fix
+	qr_ENABLEMAGIC, 			// Items (>>>) Enable Magic
+	qr_MAGICWAND_DEP,			// DEPRECATED
+	qr_MAGICCANDLE_DEP,			// DEPRECATED
+	qr_MAGICBOOTS_DEP,			// DEPRECATED
+	qr_NONBUBBLEMEDICINE, 			// Items (>>>) Medicine Doesn't Remove Sword Jinxes
+	qr_NONBUBBLEFAIRIES, 			// Items (>>>) Fairy Combos Don't Remove Sword Jinxes
+	qr_NONBUBBLETRIFORCE, 			// Items (>>>) Triforce Doesn't Remove Sword Jinxes
+	qr_NEWENEMYTILES, 			// Enemies (>>>) Use New Enemy Tiles
+	qr_NOROPE2FLASH_DEP,			// DEPRECATED
+	qr_NOBUBBLEFLASH_DEP,			// DEPRECATED
+	qr_GHINI2BLINK_DEP, 			// DEPRECATED
+	qr_BITMAPOFFSETFIX, 			// Compatibility (>>>) Use DrawBitmap() Offsets Prior to 2.50.2
+	qr_PHANTOMGHINI2_DEP,			// DEPRECATED
+	qr_Z3BRANG_HSHOT, 			// Items (>>>) New Boomerang/Hookshot
+	qr_NOITEMMELEE,				// Items (>>>) Wand Can't Be Used As Melee Weapon	/DEPRECATED/
+	qr_SHADOWS, 				// Enemies (>>>) Show Shadows
+	qr_TRANSSHADOWS, 			// Enemies (>>>) Translucent Shadows
+	qr_QUICKSWORD, 				// Items (>>>) Quick Sword
+	qr_BOMBHOLDFIX, 			// NES (>>>) Link Holds Special Bombs Over His Head
+	qr_EXPANDEDLTM, 			// Animation (>>>) Expanded Link Tile Modifiers
+	qr_NOPOTIONCOMBINE_DEP,			// DEPRECATED
+	qr_LINKFLICKER, 			// Animation (>>>) Invincible Link Flickers
+	qr_SHADOWSFLICKER, 			// Enemies (>>>) Shadows Flicker
+	qr_WALLFLIERS, 				// Enemies (>>>) Flying Enemies Can Appear on Unwalkable Combos
+	qr_NOBOMBPALFLASH, 			// Animation (>>>) Bomb Explosions Don't Flash Palette
+	qr_HEARTSREQUIREDFIX, 			// Items (>>>) Hearts Required' Affects Non-Special Items
+	qr_PUSHBLOCKCSETFIX, 			// NES (>>>) Push Block CSet Fix
+	qr_TRANSLUCENTNAYRUSLOVEROCKET_DEP,	// DEPRECATED
+	qr_FLICKERINGNAYRUSLOVEROCKET_DEP,	// DEPRECATED
+	qr_CMBCYCLELAYERS, 			// Combos (>>>) Combo Cycling On Layers
+	qr_DMGCOMBOPRI, 			// Combos (>>>) Full Priority Damage Combos
+	qr_WARPSIGNOREARRIVALPOINT, 		// Combos (>>>) Warps Ignore Arrival X/Y Position When Setting Continue Screen
+	qr_LTTPCOLLISION, 			// Player (>>>) Full Tile Collision
+	qr_LTTPWALK, 				// Player (>>>) Diagonal Movement
+	qr_SLOWENEMYANIM_DEP,			// DEPRECATED
+	qr_TRUEARROWS, 				// Items (>>>) True Arrows
+	qr_NOSAVE, 				// Misc (>>>) No Saving When Continuing
+	qr_NOCONTINUE, 				// Misc (>>>) Skip Continue Screen
+	qr_QUARTERHEART, 			// Misc (>>>) Enable 1/4 Heart Life Bar
+	qr_NOARRIVALPOINT, 			// Combos (>>>) Use Warp Return Points Only
+	qr_NOGUYPOOF, 				// Misc (>>>) Special Room Guys Don't Create A Puff When Appearing
+	qr_ALLOWMSGBYPASS, 			// Misc (>>>) Messages Can Be Bypassed With The B Button
+	qr_NODIVING, 				// Items (>>>) No Diving
+	qr_LAYER12UNDERCAVE, 			// Animation (>>>) Layers 1 and 2 Are Drawn Under Caves
+	qr_NOSCROLLCONTINUE, 			// Combos (>>>) Scrolling Warps Don't Set The Continue Point
+	qr_SMARTSCREENSCROLL, 			// Combos>>Smart Screen Scrolling
+	qr_RINGAFFECTDAMAGE, 			// Items (>>>) Rings Affect Damage Combos /DEPRECATED/
+	qr_ALLOW10RUPEEDROPS_DEP, 		// DEPRECATED
+	qr_TRAPPOSFIX, 				// NES (>>>) Trap Position Fix
+	qr_TEMPCANDLELIGHT, 			// Items (>>>) Scripted and Enemy Fire Lights Temporarily
+	qr_REDPOTIONONCE_DEP,			// DEPRECATED
+	qr_OLDSTYLEWARP, 			// Combos (>>>) Use Old-Style Warp Detection (NES Movement Only)
+	qr_NOBORDER, 				// NES (>>>) No Invisible Border on Non-Dungeon Dmaps
+	qr_OLDTRIBBLES_DEP,			// DEPRECATED
+	qr_REFLECTROCKS,			// DEPRECATED
+	qr_OLDPICKUP, 				// NES (>>>) Items Disappear During Hold-Up
+	qr_ENEMIESZAXIS, 			// Enemies (>>>) Enemies Jump/Fly Through Z-Axis
+	qr_SAFEENEMYFADE, 			// NES (>>>) Can Safely Trigger Armos/Grave From The South
+	qr_MORESOUNDS, 				// Misc (>>>) More Sound Effects
+	qr_BRANGPICKUP, 			// Items (>>>) Boomerang/Hookshot Grabs All Items
+	qr_HEARTPIECEINCR_DEP,			// DEPRECATED
+	qr_ITEMSONEDGES, 			// NES (>>>) Can Use Items/Weapons on Edge of Screen
+	qr_EATSMALLSHIELD_DEP,			// DEPRECATED
+	qr_MSGFREEZE, 				// Misc (>>>) Messages Freeze All Action
+	qr_SLASHFLIPFIX,			// Items (>>>) Flip Right-Facing Slash /DEPRECATED/
+	qr_FIREMAGICSPRITE_DEP, 		// DEPRECATED
+	qr_SLOWCHARGINGWALK, 			// Items (>>>) Slow Walk While Charging /DEPRECATED/
+	qr_NOWANDMELEE, 			// Items (>>>) Wand Can't Be Used As Melee Weapon /DEPRECATED/
+	qr_SLOWBOMBFUSES_DEP,			// DEPRECATED
+	qr_SWORDMIRROR, 			// Combos (>>>) Magic Mirror/Prism Combos Reflect Enemy and Scripted Sword Beams
+	qr_SELECTAWPN, 				// Misc (>>>) Can Select A-Button Weapon On Subscreen
+	qr_LENSSEESENEMIES,  			// Items (>>>) Lens Reveals Invisible Enemies /DEPRECATED/
+	qr_INSTABURNFLAGS, 			// Combos>>Burn Flags Are Triggered Instantly
+	qr_DROWN, 				// Combos>>Link Drowns in Walkable Water
+	qr_MSGDISAPPEAR, 			// Misc (>>>) Messages Disappear
+	qr_SUBSCREENOVERSPRITES, 		// NES (>>>) Subscreen Appears Above Sprites
+	qr_BOMBDARKNUTFIX, 			// NES (>>>) Correct Bomb/Darknut Interaction
+	qr_LONGBOMBBOOM_DEP,			// DEPRECATED
+	qr_OFFSETEWPNCOLLISIONFIX, 		// NES (>>>) Correct Offset Enemy Weapon Collision Detection
+	qr_DMGCOMBOLAYERFIX, 			// Combos (>>>) Damage Combos Work On Layers 1 And 2
+	qr_ITEMSINPASSAGEWAYS, 			// NES (>>>) Special Items Don't Appear In Passageways
+	qr_LOG, 				// Misc (>>>) Log Game Events To Allegro.log
+	qr_FIREPROOFLINK2, 			// NES (>>>) Invincible Link Isn't Hurt By Own Fire Weapons
+	qr_NOITEMOFFSET, 			// NES (>>>) No Position Offset Of Screen Items
+	qr_ITEMBUBBLE, 				// Items (>>>) "Fairy Combos Remove Item Jinxes
+	qr_GOTOLESSNOTEQUAL, 			// Compatibility (>>>) Old GOTOLESS Behavior
+	qr_LADDERANYWHERE, 			// NES (>>>) Allow Ladder Anywhere
+	qr_HOOKSHOTLAYERFIX, 			// Combos (>>>) Hookshot Grab Combos Work On Layers 1 And 2
+	qr_REPLACEOPENDOORS, 			// Compatibility (>>>) Fix Open Door Solidity
+	qr_OLDLENSORDER, 			// Compatibility (>>>) Old Lens Drawing Order
+	qr_NOFAIRYGUYFIRES, 			// Compatibility (>>>) No Fairy Guy Fires
+	qr_SCRIPTERRLOG, 			// Misc (>>>) Log Script Errors To Allegro.log
+	qr_TRIGGERSREPEAT, 			// Compatibility (>>>) Continuous Step Triggers
+	qr_ENEMIESFLICKER, 			// Enemies (>>>) Enemies Flicker When Hit
+	qr_OVALWIPE, 				// Animation (>>>) Oval Opening/Closing Wipes
+	qr_TRIANGLEWIPE, 			// Animation (>>>) Triangle Opening/Closing Wipes"
+	qr_SMASWIPE, 				// Animation (>>>) Super Mario All-Stars Opening/Closing Wipes
+	qr_NOSOLIDDAMAGECOMBOS, 		// Compatibility (>>>) No Solid Damage Combos
+	qr_SHOPCHEAT, 				// Misc (>>>) Draining Rupees Can Still Be Spent
+	qr_HOOKSHOTDOWNBUG, 			// Compatibility (>>>) Downward Hookshot Bug
+	qr_OLDHOOKSHOTGRAB, 			// Compatibility (>>>) Old Hookshot Grab Checking
+	qr_PEAHATCLOCKVULN, 			// Compatibility (>>>) Peahats Are Vulnerable When Frozen By Clocks
+	qr_VERYFASTSCROLLING, 			// Animation (>>>) Very Fast Scrolling
+	qr_OFFSCREENWEAPONS, 			// Compatibility (>>>) Weapons With No Collision Detection Move Offscreen
+	qr_BROKENSTATUES, 			// Enemies (>>>) No Statue Minimum Range Or Double Fireballs
+	qr_BOMBCHUSUPERBOMB, 			// Enemies (>>>) Use Super Bomb Explosions for Explode on Contact
+	qr_ITEMPICKUPSETSBELOW, 		// Compatibility (>>>) Screen Item Pickup Disables Hunger/Special Item
+	qr_NOGANONINTRO, 			// Misc (>>>) No Intro String in Ganon Room
+	qr_MELEEMAGICCOST, 			// Items (>>>) Melee Weapons Require Magic Cost /DEPRECATED/
+	qr_OLDMIRRORCOMBOS, 			// Combos (>>>) Broken Mirror and Weapon Interaction
+	qr_BROKENBOOKCOST, 			// Items (>>>) Broken Magic Book Costs
+	qr_OLDSIDEVIEWSPIKES, 			// Compatibility (>>>) Sideview Spike Detection Prior to 2.50.1RC3
+	qr_OLDINFMAGIC, 			// Compatibility (>>>) Infinite Magic Prevents Items From Draining Rupees
+	qr_NEVERDISABLEAMMOONSUBSCREEN,		// Misc (>>>) No Ammo Required to Display Subscreen Items
+	qr_ITEMSCRIPTSKEEPRUNNING, 		// ZScript (>>>) Item Scripts Continue To Run
+	qr_SCRIPTSRUNINLINKSTEPFORWARD,		// ZScript (>>>) Scripts Draw When Stepping Forward In Dungeons
+	qr_FIXSCRIPTSDURINGSCROLLING,		// ZScript (>>>) Scripts Draw During Scrolling
+	qr_SCRIPTDRAWSINWARPS,  		// ZScript (>>>) Scripts Draw During Warps
+	qr_DYINGENEMYESDONTHURTLINK, 		// t.b.a
+	qr_SIDEVIEWTRIFORCECELLAR, 		// Misc (>>>) Triforce in Cellar Warps Link Out
+	qr_OUTOFBOUNDSENEMIES, 			// Enemies (>>>) Enemies Can Go Out of Bounds
+	qr_EPILEPSY, 				// Misc (>>>) Reduced Flashing (Epilepsy Protection)
+	qr_SCRIPT_FRIENDLY_ENEMY_TYPES,		// Enemies (>>>) Disable Spawning Custom and Friendly Enemy Types
+	qr_SMARTDROPS, 				// Items (>>>) Reroll Useless Drops
+	qr_NO_L_R_BUTTON_INVENTORY_SWAP,	// Misc (>>>) No L/R Inventory Shifting
+	qr_USE_EX1_EX2_INVENTORYSWAP, 		// Misc (>>>) Ex3 and Ex4 Shift A-Button Items
+	qr_NOFASTMODE, 				// Misc (>>>) Disable Fast Mode (Uncap)
+	qr_OLD_F6, 				// Compatibility (>>>) Old (Instant) F6 Menu
+	qr_BROKEN_ASKIP_Y_FRAMES,		// Compatibility (>>>) Broken ASkipY Animation Frames
+	qr_ENEMY_BROKEN_TOP_HALF_SOLIDITY,	// Compatibility (>>>) Enemies Clip Through Top-Half Partial Solids
+	qr_SIDEVIEWLADDER_FACEUP,		// Combos (>>>) 2 (>>>) Always Face Up on Sideview Ladders
+	qr_ITEMS_IGNORE_SIDEVIEW_PLATFORMS,	// Items (>>>) Items Ignore Sideview Platforms
+	qr_DOWN_FALL_THROUGH_SIDEVIEW_PLATFORMS,// Combos (>>>) 2 (>>>) Press 'Down' to Fall Through Sideview Platforms
+	qr_SIDEVIEW_FALLTHROUGH_USES_DRUNK, 	// Combos (>>>) 2 (>>>) Falling Through Sideview Platforms Respects 'Drunk' Inputs
+	qr_DOWN_DOESNT_GRAB_LADDERS, 		// Combos (>>>) 2 (>>>) Pressing Down Will Not Grab Sideview Ladders
+	qr_DOWNJUMP_FALL_THROUGH_SIDEVIEW_PLATFORMS,
+						// Combos (>>>) 2 (>>>) Press 'Down+Jump' to Fall Through Sideview Platforms
+	qr_OLD_SIDEVIEW_CEILING_COLLISON, 	// Compatibility (>>>) Old Sideview Ceiling Collision
+	qr_0AFRAME_ITEMS_IGNORE_AFRAME_CHANGES, // Compatibility (>>>) Items set to 0 AFrames ignore AFrame changes
+	qr_OLD_ENEMY_KNOCKBACK_COLLISION,	// Compatibility (>>>) Old Enemy Knockback Collision
+	qr_FADEBLACKWIPE, 			// Animation (>>>) Fade to/from Black Opening/Closing Wipes
+	qr_PASSIVE_SUBSCRIPT_RUNS_DURING_ACTIVE_SUBSCRIPT, // ZScript (>>>) Scripts (>>>) Passive Subscreen Script runs during Active Subscreen
+	qr_DMAP_ACTIVE_RUNS_DURING_ACTIVE_SUBSCRIPT, // ZScript (>>>) Scripts (>>>) DMap Active Script runs during Active Subscreen
+	qr_ANIMATECUSTOMWEAPONS,
+	qr_WEAPONSMOVEOFFSCREEN, 		// Compatibility (>>>) Weapons Can Go Out of Bounds (Offscreen)
+	qr_CHECKSCRIPTWEAPONOFFSCREENCLIP, 	// Compatibility (>>>) Check Clip for Custom / Script Type Weapons on Screen Edge
+	qr_SHORTDGNWALK, 			// Compatibility (>>>) 1.92 Diagonal Walk Speed
+	qr_SCRIPT_WEAPONS_UNIQUE_SPRITES,	// Weapons (>>>) npc->Weapon Uses Unique Sprites for Custom EWeapons
+	qr_ANGULAR_REFLECTED_WEAPONS, 		// Weapons (>>>) Angular Reflected Weapons
+	qr_MIRRORS_USE_WEAPON_CENTRE, 		// Weapons (>>>) Mirrors Use Weapon Centre for Collision
+	qr_CUSTOMCOMBOSLAYERS1AND2,		// Combos (>>>) 2 (>>>) Custom Combos Work on Layers 1 and 2
+	qr_BUSHESONLAYERS1AND2,			// Combos (>>>) 2 (>>>) Slash Combos Work on Layers 1 and 2
+	qr_NEW_HERO_MOVEMENT,	// Hero (>>>) New Hero Movement
+	qr_DISABLE_4WAY_GRIDLOCK,	// Hero (>>>) Disable 4-Way Movement's Gridlock
+	qr_NEW_COMBO_ANIMATION,	// Combos (>>>) New Combo Animation
+	qr_OLD_STRING_EDITOR_MARGINS, 	// Compatibility (>>>) Old String Margins
+	qr_NO_OVERWRITING_HOPPING,	// ZScript (>>>) Don't allow overwriting hopping action
+	qr_DUNGEON_DMAPS_PERM_SECRETS,	// Other (>>>) Allow permanent secrets on Dungeon-type dmaps
+	qr_STRING_FRAME_OLD_WIDTH_HEIGHT,	// Compatibility (>>>) Old String Frame Width/Height
+	qr_NO_SCROLL_WHILE_IN_AIR,	// Other (>>>) No Scrolling Screen While In Air
+	qr_INSTANT_RESPAWN,	// Other (>>>) Instant Reload On Death
+	qr_BROKEN_OVERWORLD_MINIMAP,	// Compatibility (>>>) Overworld Minimap Ignores Map Item
+	qr_NO_STUNLOCK,	// Weapons (>>>) Weapons Cannot Stunlock Enemies
+	qr_GREATER_MAX_TIME,	// Other (>>>) Higher Maximum Playtime
+	qr_BROKEN_RING_POWER,	// Compatibility (>>>) Old (Broken) Ring Power Maths
+	qr_NO_OVERWORLD_MAP_CHARTING,	// Compatibility (>>>) Overworld DMaps Do Not Chart Progress
+	qr_DUNGEONS_USE_CLASSIC_CHARTING,	// Compatibility (>>>) Dungeon DMaps Use Classic Charting
+	qr_ARROWS_ALWAYS_PENETRATE,	// Weapons (>>>) Arrows Always Penetrate
+	qr_SWORDBEAMS_ALWAYS_PENETRATE,	// Weapons (>>>) Swordbeams Always Penetrate
+	qr_SET_XBUTTON_ITEMS,	// Other (>>>) Allow Setting X Button Items
+	qr_SMARTER_WATER,	// Combos (>>>) New Water Collision
+	qr_NO_HOPPING,	// Combos (>>>) No Water Hopping
+	qr_NO_SOLID_SWIM,	// Combos (>>>) Can't Swim in Solid Water
+	qr_WATER_ON_LAYER_1,	// Combos (>>>) Water works on Layer 1
+	qr_WATER_ON_LAYER_2,	// Combos (>>>) Water works on Layer 2
+	qr_SHALLOW_SENSITIVE,	// Combos (>>>) New Shallow Water Detection
+	qr_SMARTER_SMART_SCROLL,	// Combos (>>>) Fixed Smart Scrolling
+	qr_INSTANT_CONTINUE,	// Other (>>>) Instant Continue On Death
+	qr_NONHEAVY_BLOCKTRIGGER_PERM,	// Combos (>>>) Block Triggers Are Perm For Non-Heavy Blocks
+	qr_SET_YBUTTON_ITEMS,	// Other (>>>) Allow Setting Y Button Items
+	qr_CORRECTED_EW_BRANG_ANIM,	// Weapons (>>>) Boomerang EWeapons Corrected Animation
+	qr_SCRIPT_WRITING_HEROSTEP_DOESNT_CARRY_OVER,	// ZScript (>>>) Script writes to Hero->Step don't carry over
+	qr_OVERHEAD_COMBOS_L1_L2,	// Combos (>>>) Overhead Combos work on Layers 1 and 2
+	qr_ALLOW_EDITING_COMBO_0,	// Compatibility (>>>) Allow Editing Combo 0
+	qr_OLD_CHEST_COLLISION,	// Compatibility (>>>) Old Chest Collision
+	qr_AUTOCOMBO_LAYER_1,	// Combos (>>>) Auto Combos Work On Layer 1
+	qr_AUTOCOMBO_LAYER_2,	// Combos (>>>) Auto Combos Work On Layer 2
+	qr_TRUEFIXEDBOMBSHIELD,	// NES (>>>) Blocked Bombs Don't Trigger Shielded Enemies' I-Frames
+	qr_BOMBSPIERCESHIELD,	// Weapons (>>>) Bombs Pierce Enemy Shields
+	qr_BROKEN_HORIZONTAL_WEAPON_ANIM,	// Compatibility (>>>) Broken Horizontal Weapon Animation
+	qr_NEW_DARKROOM,	// Misc (>>>) New Dark Rooms
+	qr_NEWDARK_L6,	// Misc (>>>) New Darkness Draws Under Layer 7
+	qr_ENEMIES_SECRET_ONLY_16_31,	// Compatibility (>>>) Enemies->Secret only affects flags 16-31
+	qr_SCREEN80_OWN_MUSIC,	// Misc (>>>) Item Cellars/Passageways/Caves use own music
+	qr_OLDCS2,	// Compatibility (>>>) Old CSet2 Handling
+	qr_HARDCODED_ENEMY_ANIMS,	// Compatibility (>>>) Hardcoded Shadow/Spawn/Death anim frames
+	qr_OLD_ITEMDATA_SCRIPT_TIMING,	// Compatibility (>>>) Old Itemdata Script timing
+	qr_SIDESWIM,	// Combos (>>>) Sideview Swimming
+	qr_SIDESWIMDIR,	// Combos (>>>) Player Faces Left/Right While Sieview Swimming
+	qr_PUSHBLOCK_LAYER_1_2,	// Combos (>>>) Pushblocks Work On Layer 1 and 2
+	qr_NEWDARK_SCROLLEDGE,	// Misc (>>>) New Darkroom Lanterns Cross Screen Boundary
+	qr_STEPTEMP_SECRET_ONLY_16_31,	// Compatibility (>>>) Step->Secrets (Temp) only affects flags 16-31
+	qr_ALLTRIG_PERMSEC_NO_TEMP,	// Compatibility (>>>) 'Hit All Triggers->Perm Secret' doesn't trigger temp secrets
+	qr_HARDCODED_LITEM_LTMS,	// Compatibility (>>>) Hardcoded LItem/Bomb/Clock/Magic Tile Mods
+	qr_NO_BOTTLE_IF_ANY_COUNTER_FULL,	// Items (>>>) Bottles can't be used with any maxed counter
+	qr_LIGHTBEAM_TRANSPARENT,	// Combos (>>>) Light beams draw Transparently
+	qr_CANDLES_SHARED_LIMIT,	// Compatibility (>>>) Candle use limit is shared
+	qr_OLD_RESPAWN_POINTS,	// Combos (>>>) Classic Respawn Points
+	qr_HOOKSHOTALLLAYER,	// Combos (>>>) Hookshot/SwitchHook Combos Work On All Layers
+	qr_ANONE_NOANIM,	// Compatibility (>>>) Enemies with 'None' animation don't obey OriginalTile changes
+	qr_BLOCKHOLE_SAME_ONLY,	// Combos (>>>) Block holes / triggers only trigger on same layer as block
+	qr_SWITCHOBJ_RUN_SCRIPT,	// Items (>>>) Switchhooked Objects Run Scripts
+	qr_ITEMCOMBINE_NEW_PSTR,	// Items (>>>) 'Upgraded' items play upgraded pickup string
+	qr_ITEMCOMBINE_CONTINUOUS,	// Compatibility (>>>) Enemies->Secret only affects flags 16-31
+	qr_SCC_ITEM_COMBINES_ITEMS,	// Items (>>>) SCC/Bundle Item handles 'Upgraded' Items
+	qr_SCROLLING_KILLS_CHARGE,	// Compatibility (>>>) Scrolling Cancels Charge
+	qr_CUSTOMWEAPON_IGNORE_COST,	// Compatibility (>>>) Enemies->Secret only affects flags 16-31
+	qr_BLOCKS_DONT_LOCK_OTHER_LAYERS,	// Compatibility (>>>) Custom Weapon / Ice Rod Bugged Cost
+	qr_SCC_GOTO_RESPECTS_CONTFLAG,	// Misc (>>>) Goto SCCs respect 'continuation' flag
+	qr_BROKEN_KEEPOLD_FLAG,	// Compatibility (>>>) Broken 'Keep Lower Level Items'
+	qr_KEEPOLD_APPLIES_RETROACTIVELY,	// Items (>>>) 'Keep Lower Level Items' applies retroactively
+	qr_PASSIVE_ITEM_SCRIPT_ONLY_HIGHEST,	// Items (>>>) Only highest level item passive script runs
+	qr_OLD_HALF_MAGIC,	// Compatibility (>>>) Old Half Magic
+	qr_LEVEL_RESTART_CONT_POINT,	// Misc (>>>) Restarting Level always goes to DMap continue point
+	qr_SUBSCR_OLD_SELECTOR,	// Subscreen (>>>) Old Subscreen Selector
+	qr_OLD_FAIRY_LIMIT,	// Compatibility (>>>) Old fairy spawn limit
+	qr_FAIRYDIR,	// Items (>>>) Fairies spawn with random direction
+	qr_ARROWCLIP,	// Compatibility (>>>) Arrows clip farther into dungeon walls
+	qr_CONT_SWORD_TRIGGERS,	// Compatibility (>>>) All sword triggers are continuous
+	qr_OLD_210_WATER,	// Compatibility (>>>) Ladder takes precedence over North and South water
+	qr_8WAY_SHOT_SFX,	// Compatibility (>>>) All 8 way-shot enemies use SFX_FIRE for firing SFX
+	qr_COPIED_SWIM_SPRITES,	// Compatibility (>>>) BS Zelda uses walking sprites for swimming
+	qr_WRONG_BRANG_TRAIL_DIR,	// Compatibility (>>>) Fire boomerang sparkles always face up
+	qr_192b163_WARP,	// Compatibility (>>>) Wavy and Cancel warps are swapped
+	qr_210_WARPRETURN,	// Compatibility (>>>) Old Warping Onto Warp Protection
+	qr_LESS_AWFUL_SIDESPIKES,	// Combos (>>>) Better Sideview Damage Combo Detection
+	qr_OLD_LADDER_ITEM_SIDEVIEW,	// Compatibility (>>>) Jittering In Sideview With Ladder Item
+	qr_OLD_SECRETMONEY,	// Compatibility (>>>) Renewable Secret Money Rooms Outside Caves
+	qr_OLD_DOORREPAIR,	// Compatibility (>>>) Renewable Door Repair Rooms Outside Caves
+	qr_OLD_POTION_OR_HC,	// Compatibility (>>>) Renewable Potion Or Heart Container Rooms Outside Caves
+	qr_NO_LANMOLA_RINGLEADER,	// Compatibility (>>>) Lanmolas can't be ringleaders
+	qr_HARDCODED_BS_PATRA,	// Compatibility (>>>) Hardcoded BS Patras
+	qr_PATRAS_USE_HARDCODED_OFFSETS,	// Compatibility (>>>) Hardcoded Patra Inner Eye offsets
+	qr_BROKEN_BIG_ENEMY_ANIMATION,	// Compatibility (>>>) Broken 'Big enemy' animation style
+	qr_BROKEN_ATTRIBUTE_31_32,	// Compatibility (>>>) Broken Attribute 31/32
+	qr_CAN_PLACE_GANON,	// Enemies (>>>) Allow Placing Ganon as Screen Enemy
+	qr_CAN_PLACE_TRAPS,	// Enemies (>>>) Allow Placing Traps as Screen Enemies
+	qr_FIND_CLOSEST_BAIT,	// Enemies (>>>) Enemies check closest bait
+	qr_OLD_FLAMETRAIL_DURATION,	// Compatibility (>>>) Old fire trail duration
+	qr_PERMANENT_WHISTLE_SECRETS,	// Items (>>>) Whistle triggers can be permanent
+	qr_SMARTER_DROPS,	// Items (>>>) Reroll Drops If Capacity is Full
+	qr_WAVY_NO_EPILEPSY,	// Misc (>>>) Screen->Wavy Intensity is not affected by Epilepsy Protection
+	qr_WAVY_NO_EPILEPSY_2,	// Misc (>>>) Screen->Wavy Speed is not affected by Epilepsy Protection
+	qr_DYING_ENEMIES_IGNORE_STUN,	// NES (>>>) Killing Stunned Enemy With Melee Weapons Won't Hurt Player
+	qr_SHOP_ITEMS_VANISH,	// NES (>>>) Shop Items Disappear on Pickup
+	qr_ANGULAR_REFLECT_BROKEN,	// Compatibility (>>>) 'Prisms Reflect Angular Weapons' Uses Broken Logic
+	qr_CSET1_LEVEL,	// Animaton (>>>) CSet 1 is level-specific
+	qr_CSET5_LEVEL,	// Animaton (>>>) CSet 5 is level-specific
+	qr_CSET7_LEVEL,	// Animaton (>>>) CSet 7 is level-specific
+	qr_CSET8_LEVEL,	// Animaton (>>>) CSet 8 is level-specific
+	qr_FADECS1,	// Animaton (>>>) Fade CSet 1
+	qr_FADECS7,	// Animaton (>>>) Fade CSet 7
+	qr_FADECS8,	// Animaton (>>>) Fade CSet 8
+	qr_FADECS9,	// Animaton (>>>) Fade CSet 9
+	qr_UNBEATABLES_DONT_KEEP_DEAD,	// Enemies (>>>) Unbeatable enemies don't prevent enemies from respawning
+	qr_NO_LEAVE_ONE_ENEMY_ALIVE_TRICK,	// Enemies (>>>) No 'Leave one enemy alive' trick
+	qr_OLD_BRIDGE_COMBOS,	// Compatibility (>>>) Old Bridge Combo Behavior
+	qr_BROKEN_Z3_ANIMATION,	// Compatibility (>>>) Broken Z3 Animation
+	qr_OLD_TILE_INITIALIZATION,	// Compatibility (>>>) Old Enemy Tile Behavior with Animation (None) Enemies
+	qr_FLUCTUATING_ENEMY_JUMP,	// Compatibility (>>>) Enemy->Jump Fluctuates When on Ground
+	qr_SPRITE_JUMP_IS_TRUNCATED,	// Compatibility (>>>) Script Sprite->Jump is Truncated
+	qr_BUGGY_BUGGY_SLASH_TRIGGERS,	// Compatibility (>>>) ->Next Combos Ignore Trigger Flags
+	qr_OLD_DRAWOFFSET,	// Compatibility (>>>) Old Quake/DrawYOffset Behavior
+	qr_BROKEN_DRAWSCREEN_FUNCTIONS,	// Compatibility (>>>) Broken DrawScreen Derivative Functions
+	qr_ENEMY_DROPS_USE_HITOFFSETS,	// Enemies (>>>) Enemy Drops use Hitbox for Position
+	qr_BROKEN_ITEM_CARRYING,	// Compatibility (>>>) Broken Enemy Item Carrying
+	qr_LEEVERS_DONT_OBEY_STUN,	// Compatibility (>>>) Leever's Still Submerge If Stunned
+	qr_QUAKE_STUNS_LEEVERS,	// Enemies (>>>) Quake Hammer Stuns Leevers
+	qr_GANON_CANT_SPAWN_ON_CONTINUE,	// Compatibility (>>>) Ganon-Type Rooms Don't Work On Continuing
+	qr_WIZZROBES_DONT_OBEY_STUN,	// Compatibility (>>>) Wizzrobes Still Teleport If Stunned
+	qr_OLD_BUG_NET,	// Compatibility (>>>) Old Bug Net Animation
+	qr_MANHANDLA_BLOCK_SFX,	// Compatibility (>>>) Manhandla Uses Hit Sound For Center Body
+	qr_GRASS_SENSITIVE,	// Combos (>>>) New Tall Grass Detection
+	qr_BETTER_RAFT,	// Combos (>>>) Less Arbitrary Dock Combos
+	qr_BETTER_RAFT_2,	// Combos (>>>) More Senistive Dock Combos
+	qr_RAFT_SOUND,	// Combos (>>>) Docks use Raft Item's sound
+	qr_WARPS_RESTART_DMAPSCRIPT,	// Compatibility (>>>) Engine warps restart DMap Script
+	qr_DMAP_0_CONTINUE_BUG,	// Compatibility (>>>) DMap 0 hardcoded continue
+	qr_SCRIPT_WARPS_DMAP_SCRIPT_TOGGLE,	// Misc (>>>) Flip 'don't restart dmap script' script warp flag
+	qr_OLD_SCRIPTED_KNOCKBACK,	// Compatibility (>>>) Old Scripted Knockback
+	qr_OLD_KEESE_Z_AXIS,	// Compatibility (>>>) Old Keese Z Axis Behavior
+	qr_POLVIRE_NO_SHADOW,	// Compatibility (>>>) No Pols Voice/Vire Shadows with Z axis
+	qr_CONVEYORS_L1_L2,	// Combos (>>>) Conveyors work on layers 1 and 2
+	qr_CUSTOMCOMBOS_EVERY_LAYER,	// Combos (>>>) Custom Combos Work On All Layers
+	qr_SUBSCR_BACKWARDS_ID_ORDER,	// Compatibility (>>>) Old Subscreen Item ID order
+	qr_FASTCOUNTERDRAIN,	// Items (>>>) Fast Counter Drain
+	qr_OLD_LOCKBLOCK_COLLISION,	// Compatibility (>>>) Old Lockblock Collision
+	qr_DECO_2_YOFFSET,
+	qr_SCREENSTATE_80s_BUG,	// Compatibility (>>>) Screen->State[] 0x80 bug
+	qr_AUTOCOMBO_ANY_LAYER,	// Combos (>>>) Auto Combos Work On All Layers
+	qr_GOHMA_UNDAMAGED_BUG,	// Compatibility (>>>) Undamaged Gohma can be hit on any side
+	qr_FFCPRELOAD_BUGGED_LOAD,	// Compatibility (>>>) Preload FFCs don't work on init screen
+	qr_SWITCHES_AFFECT_MOVINGBLOCKS,	// Items (>>>) Moving pushblock switch blocks obey switch toggle
+	qr_BROKEN_GETPIXEL_VALUE,	// ZScript (>>>) GetPixel returns color / 10000
+	qr_NO_LIFT_SPRITE,	// Compatibility (>>>) No lifting sprite
+	qr_OLD_SIDEVIEW_LANDING_CODE,	// Compatibility (>>>) Old Sideview Landing
+	qr_OLD_FFC_SPEED_CAP,	// Compatibility (>>>) FFC 128 speed cap
+	qr_OLD_WIZZROBE_SUBMERGING,	// Compatibility (>>>) Wizzrobes use old submerge code
+	qr_SPARKLES_INHERIT_PROPERTIES,	// Compatibility (>>>) Weapon Sparkles Inherit Properties
+	qr_BROKENHITBY,	// Compatibility (>>>) Broken ->HitBy UIDs
+	qr_ENEMIES_DONT_SCRIPT_FIRST_FRAME,	// Compatibility (>>>) Scripted enemies don't run script on first frame of screen entry
+	qr_OLD_CONVEYOR_COLLISION,	// DEPRECATED*/
+	qr_SENSITIVE_SOLID_DAMAGE,	// Combos (>>>) Sensitive Solid Damage Combos
+	qr_LENIENT_SOLID_DAMAGE,	// Combos (>>>) Lenient Solid Damage Combos
+	qr_NO_SIDEVIEW_SOLID_DAMAGE,	// Combos (>>>) No Sideview Solid Damage
+
+	qr_OLD_FFC_FUNCTIONALITY = 50*8,	// Compatibility (>>>) Old FFC Functionality
+	qr_OLD_SHALLOW_SFX,	// Compatibility (>>>) Old Shallow Water SFX Attribute
+	qr_BUGGED_LAYERED_FLAGS,	// Compatibility (>>>) Bugged Layered Flags
+	qr_HARDCODED_FFC_BUSH_DROPS,	// Compatibility (>>>) Old FFC Bush Drops
+	qr_POUNDLAYERS1AND2,	// Combos (>>>) Pound Combos Work On Layers 1 and 2
+	qr_MOVINGBLOCK_FAKE_SOLID,	// Compatibility (>>>) Fake-solid Pushblocks
+	qr_NEW_HERO_MOVEMENT2,	// Player (>>>) Newer Player Movement
+	qr_CARRYABLE_NO_ACROSS_SCREEN,	// Misc (>>>) Carryables Can't Leave Screen
+	qr_NO_SCROLL_WHILE_CARRYING,	// Misc (>>>) No Scrolling Screen While Carrying
+	qr_HELD_BOMBS_EXPLODE,	// Weapons (>>>) Lifted Bombs Explode In Hand
+	qr_BROKEN_MOVING_BOMBS,	// Compatibility (>>>) Broken Moving & Air Bombs
+	qr_OLD_BOMB_HITBOXES,	// Compatibility (>>>) Old Bomb Hitboxes
+	qr_SCROLLWARP_NO_RESET_FRAME,	// Compatibility (>>>) Broken scroll/warp frame issue
+	qr_BROKEN_RAFT_SCROLL,	// Compatibility (>>>) Broken Scrolling Onto Raft Flags
+	qr_BROKEN_INPUT_DOWN_STATE,	// Compatibility (>>>) Broken Input Down State
+	qr_OLD_GUY_HANDLING,	// Compatibility (>>>) Old Guy Handling
+	qr_FREEFORM_SUBSCREEN_CURSOR,	// Subscreen (>>>) Freeform Subscreen Cursor
+	qr_SUBSCR_PRESS_TO_EQUIP,	// Subscreen (>>>) Always Press To Equip
+	qr_FAIRY_FLAG_COMPAT,	// Compatibility (>>>) Inconsistent Fairy Flags
+	qr_MIRROR_PRISM_LAYERS,	// Combos (>>>) Mirror/Prism Combos Work On All Layers
+	qr_OLD_LENS_LAYEREFFECT,	// Compatibility (>>>) Old Lens Layer Effects
+	qr_PUSHBLOCK_SPRITE_LAYER,	// Combos (>>>) Pushable Block Sprite Layer
+	qr_OLD_SUBSCR,	// Compatibility (>>>) Old Engine Subscreen Quirks
+	qr_ITM_0_INVIS_ON_BTNS,	// Subscreen (>>>) Item 0 is invisible on buttons
+	qr_NO_BUTTON_VERIFY,	// Subscreen (>>>) No Button Verification
+	qr_OLD_GAUGE_TILE_LAYOUT,	// Subscreen (>>>) Old Gauge Tile Layout
+	qr_WALKTHROUGHWALL_NO_DOORSTATE,	// Compatibility (>>>) 'Walk Through Walls' don't set door state
+	qr_SPOTLIGHT_IGNR_SOLIDOBJ,	// Compatibility (>>>) Light Beams Ignore Solid Objects
+	qr_BROKEN_LIGHTBEAM_HITBOX,	// Compatibility (>>>) Broken light beam hitbox
+	qr_BROKEN_SWORD_SPIN_TRIGGERS,	// Compatibility (>>>) Broken Sword Triggers (spin-related)
+
+	qr_OLD_SCRIPT_VOLUME = 70 * 8,	// Compatibility (>>>) Old (Buggy) ZScript Volume Access
+	qr_OLD_DMAP_INTRO_STRINGS,	// Compatibility (>>>) Old DMap Titles and Intros
+	qr_SCRIPTDRAWSFROZENMSG,	// ZScript (>>>) Scripts Draw During Frozen Messages
+
+	qr_PARSER_250DIVISION = 80*8, 		// ZScript (>>>) 2.50 Division Truncation
+	qr_PARSER_NO_LOGGING, 			// ZScript (>>>) Disable Tracing
+	qr_PARSER_SHORT_CIRCUIT, 		// ZScript (>>>) Short-Circuit Boolean Operations
+	qr_SPRITEXY_IS_FLOAT, 		// ZScript (>>>) Short-Circuit Boolean Operations
+	qr_PARSER_BOOL_TRUE_DECIMAL, 		// ZScript (>>>) Sprite Coordinates are Float
+	qr_PARSER_TRUE_INT_SIZE, 		// Compilation (>>>) True MAX_INT sizing
+	qr_WPNANIMFIX, 				// Not Implemented : This was in 2.50.2, but never used.
+	qr_NOSCRIPTSDURINGSCROLL, 		// Not Implemented : This was in 2.50.2, but never used.
+	qr_OLDSPRITEDRAWS, 			// Compatibility (>>>) Old (Faster) Sprite Drawing
+	qr_WEAPONSHADOWS,  			// ZScript (>>>) Draw Shadows on Weapons
+	qr_ITEMSHADOWS, 			// ZScript (>>>) Draw Shadows on Items
+	qr_OLDEWPNPARENT, 			// ZScript (>>>) Old eweapon->Parent
+	qr_OLDCREATEBITMAP_ARGS,		// ZScript (>>>) Old Args for CreateBitmap() and bitmap->Create()
+	qr_OLDQUESTMISC, 			// ZScript (>>>) Game->Misc[] is not *10000"
+	qr_PARSER_FORCE_INLINE,			// Compilation (>>>) Inline all possible functions
+	qr_CLEARINITDONSCRIPTCHANGE,		// ZScript (>>>) Clear InitD[] on Script Change
+	qr_NOFFCWAITDRAW,			// ZScript (>>>) No FFC Waitdraw()
+	qr_NOITEMWAITDRAW,			// ZScript (>>>) No Item Script Waitdraw()
+	qr_TRACESCRIPTIDS,			// ZScript (>>>) Print Script Metadata on Traces
+	qr_FIXDRUNKINPUTS,			// ZScript (>>>) Writing to INPUT Overrides Drunk State
+	qr_32BIT_BINARY,			// Compilation (>>>) Binary Operations use true 32-bit Int
+	qr_ALWAYS_DEALLOCATE_ARRAYS,		// ZScript (>>>) Always Deallocate Arrays
+	qr_ONDEATH_RUNS_AFTER_DEATH_ANIM,	// ZScript (>>>) Hero OnDeath script runs AFTER engine death animation
+	qr_DISALLOW_SETTING_RAFTING,		// ZScript (>>>) Don't Allow Setting Action to Rafting
+	qr_WEAPONS_EXTRA_FRAME,			// ZScript (>>>) Weapons Live One Extra Frame With WDS_DEAD
+	qr_250WRITEEDEFSCRIPT,			// ZScript (>>>) Writing npc->Defense[NPCD_SCRIPT] Sets All Script Defences
+	qr_SETENEMYWEAPONSPRITESONWPNCHANGE,	// ZScript (>>>) Writing npc->Weapon Sets its Weapon Sprite
+	qr_BROKENCHARINTDRAWING,		// ZScript (>>>) Broken DrawInteger and DrawCharacter Scaling
+	qr_WRITING_NPC_WEAPON_UNIQUE_SPRITES,	// ZScript (>>>) npc->Weapon Uses Sprite 246-255 for EW_CUSTOM*
+	qr_COMBOSCRIPTS_LAYER_0,	// ZScript (>>>) Combos Run Scripts On Layer 0
+	qr_COMBOSCRIPTS_LAYER_1,	// ZScript (>>>) Combos Run Scripts On Layer 1
+	qr_COMBOSCRIPTS_LAYER_2,	// ZScript (>>>) Combos Run Scripts On Layer 2
+	qr_COMBOSCRIPTS_LAYER_3,	// ZScript (>>>) Combos Run Scripts On Layer 3
+	qr_COMBOSCRIPTS_LAYER_4,	// ZScript (>>>) Combos Run Scripts On Layer 4
+	qr_COMBOSCRIPTS_LAYER_5,	// ZScript (>>>) Combos Run Scripts On Layer 5
+	qr_COMBOSCRIPTS_LAYER_6,	// ZScript (>>>) Combos Run Scripts On Layer 6
+	qr_OLD_INIT_SCRIPT_TIMING,	// ZScript (>>>) Use Old Global Init and SaveLoad Timing
+	qr_DO_NOT_DEALLOCATE_INIT_AND_SAVELOAD_ARRAYS,	// ZScript (>>>) Don't Deallocate Init/SaveLoad Local Arrays
+	qr_BITMAP_AND_FILESYSTEM_PATHS_ALWAYS_RELATIVE, 	// ZScript (>>>) All bitmap-> and FileSystem-> paths relative to quest 'files' folder
+	qr_PARSER_STRINGSWITCH_INSENSITIVE,	// Compilation (>>>) Switch/case of strings is case-insensitive
+	qr_SLASH_NEXT_SECRET_BUG,	// Compatibility (>>>) Bugged ->Next Combos
+	qr_STEP_IS_FLOAT,	// ZScript (>>>) Sprite->Step uses new, precise values
+	qr_OLDMAPDATAFLAGS,	// ??? (>>>) ???
+	qr_OLD_PRINTF_ARGS,	// ZScript (>>>) Old printf() args
+	qr_PASSIVE_SUBSCRIPT_RUNS_WHEN_GAME_IS_FROZEN,	// ZScript (>>>) Passive Subscreen Script runs during wipes/refills
+	qr_WRITE_ENTRYPOINTS_AFFECTS_HEROCLASS,	// ZScript (>>>) Writing Screen->EntryX, EntryY Resets Spawn Points
+	qr_LOG_INVALID_UID_LOAD,	// ZScript (>>>) Log on Loading Invalid UID
+	qr_COMBODATA_INITD_MULT_TENK,	// ZScript (>>>) Broken Combodata->InitD[]
+	qr_ZS_NO_NEG_ARRAY,	// ZScript (>>>) Disable accessing negative array indices
+	qr_PRINTF_NO_0FILL,	// ZScript (>>>) No prinft() 0-fill
+	qr_MAX
+};
 // @zasm_ref REFRNG
 class randgen {
 	// @zasm
@@ -27834,6 +29233,16 @@ class savedportal {
 	//   SAVEDPORTALGENERATE
 	internal portal Generate();
 }
+enum WipeEffect
+{
+	WIPE_CIRCLE,
+	WIPE_OVAL,
+	WIPE_TRIANGLE,
+	WIPE_SMAS,
+	WIPE_FADEBLACK,
+	WIPE_MAX
+};
+
 class screendata {
 	// @delete
 	internal screendata();
@@ -27855,6 +29264,8 @@ class screendata {
 	// @zasm_var COMBOID
 	internal int ComboI[];
 
+	// Valid values: [ComboType] (`CT_`).
+	//
 	// @zasm_var COMBOTD
 	internal int ComboT[];
 
@@ -28002,7 +29413,8 @@ class screendata {
 	// The Tile Warp type for Tile Warps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// See std_constants.zh TWTYPE_* constants for valid types.
+	// Valid indices: [TileWarpIndex] (`TILEWARP_`).
+	// Valid values: [WarpType] (`WT_`).
 	//
 	// @zasm_var SCREENDATATILEWARPTYPE
 	internal int TileWarpType[];
@@ -28070,7 +29482,7 @@ class screendata {
 
 	// The enemy 'Spawn Pattern'.
 	//
-	// Use the PATTERN_* constants in std.zh for the valid values
+	// Valid values: [EnemyPattern] (`PATTERN_`).
 	//
 	// @zasm_var SCREENDATAPATTERN
 	internal int Pattern;
@@ -28078,7 +29490,8 @@ class screendata {
 	// The Sidewarp type for Sidewarps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// See std_constants.zh SWTYPE_* constants for valid types.
+	// Valid indices: [SideWarpIndex] (`SIDEWARP_`).
+	// Valid values: [WarpType] (`WT_`).
 	//
 	// @zasm_var SCREENDATASIDEWARPTYPE
 	internal int SideWarpType[];
@@ -28111,12 +29524,10 @@ class screendata {
 
 	// Returns the sidewarp ID for a given screen edge, as SideWarpID[dir];
 	//
-	// Returns -1 if there is no sidewarp in that direction.
+	// Returns [SIDEWARP_NONE] if there is no sidewarp in that direction.
 	//
-	// Use the SIDEWARP_* constants in std.zh for the value of this (read return
-	// value, or write value).
-	//
-	// Use the `DIR_` constants in std.zh for the index values.
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
+	// Valid values: [SideWarpIndex] (`SIDEWARP_`)
 	//
 	// @zasm_var SCREENSIDEWARPID
 	internal int SideWarpID[];
@@ -28502,9 +29913,7 @@ class screendata {
 	//   SETR D2 REFNPC
 	internal npc LoadNPC(int n);
 
-	// Creates a new sprite object, with the given ID. Use the `LW_` and `EW_`
-	// constants for `CreateLWeapon()`/`CreateEWeapon()`. Use the item editor
-	// IDs and enemy editor IDs for `CreateItem()`/`CreateNPC()`.
+	// Creates a new sprite object, with the given ID. Use the NPC_ constants.
 	//
 	// @zasm
 	//   POP D2
@@ -28718,7 +30127,7 @@ class screendata {
 
 	// As DrawString(), but includes a shadow on the text.
 	//
-	// Use the 'SHD_' constants for 'shadow_type'.
+	// Valid values for [shadow_type]: [ShadowType] (`SHD_`).
 	//
 	// @zasm
 	//   DRAWSTRINGR2
@@ -28950,21 +30359,23 @@ class screendata {
 	//   CLOSEWIPE
 	internal void ClosingWipe();
 
-	// Plays the warping screen 'wipe' effect with the specified shape, using
-	// the `WIPE_` constants for the shape.
+	// Plays the warping screen 'wipe' effect.
+	//
+	// Valid values for [effect]: [WipeEffect] (`WIPE_`).
 	//
 	// @zasm
 	//   POP D2
 	//   OPENWIPESHAPE D2
-	internal void OpeningWipe(int shape);
+	internal void OpeningWipe(int effect);
 
-	// Plays the warping screen 'wipe' effect with the specified shape, using
-	// the `WIPE_` constants for the shape.
+	// Plays the warping screen 'wipe' effect.
+	//
+	// Valid values for [effect]: [WipeEffect] (`WIPE_`).
 	//
 	// @zasm
 	//   POP D2
 	//   CLOSEWIPESHAPE D2
-	internal void ClosingWipe(int shape);
+	internal void ClosingWipe(int effect);
 
 	// @zasm
 	//   POLYGONR
@@ -29078,13 +30489,15 @@ class screendata {
 	//   POPARGS D5 0.0002
 	internal void SetExDoor(int dir, int index, bool state);
 
+	// Valid values for [type]: [WarpType] (`WT_`).
+	//
 	// @zasm
 	//   SETSIDEWARP
 	//   POP D3
 	//   POP D3
 	//   POP D3
 	//   POP D3
-	internal void SetSideWarp(int arg1, int arg2, int arg3, int arg4);
+	internal void SetSideWarp(int side, int screen, int dmap, int type);
 
 	// @zasm
 	//   SETTILEWARP
@@ -30116,7 +31529,9 @@ class subscreenwidget {
 	// @zasm_var SUBWIDGTY_ALIGN
 	internal int Align;
 
-	// The widget's Shadow Type, use the 'SHD_' constants.
+	// The widget's Shadow Type.
+	//
+	// Valid values: [ShadowType] (`SHD_`).
 	//
 	// - SUBWIDG_TEXT
 	// - SUBWIDG_TEXTBOX
@@ -30611,6 +32026,18 @@ class Text {
 }
 
 internal const Text Text;
+enum WebsocketState {
+    WEBSOCKET_STATE_CONNECTING = 0L,
+    WEBSOCKET_STATE_OPEN = 1L,
+    WEBSOCKET_STATE_CLOSING = 2L,
+    WEBSOCKET_STATE_CLOSED = 3L
+};
+
+enum WebsocketType {
+    WEBSOCKET_MESSAGE_TYPE_TEXT = 1L,
+    WEBSOCKET_MESSAGE_TYPE_BINARY = 2L
+};
+
 // @zasm_ref REFWEBSOCKET
 class websocket {
 	// @zasm
@@ -30620,10 +32047,8 @@ class websocket {
 
 	// Returns the current state of the socket.
 	//
-	// Compare with the `WEBSOCKET_STATE_` constants.
-	//
 	// @zasm_var WEBSOCKET_STATE
-	internal const int State;
+	internal const WebsocketState State;
 
 	// True if the socket has a message waiting to be received.
 	//
@@ -30631,7 +32056,7 @@ class websocket {
 	internal const bool HasMessage;
 
 	// @zasm_var WEBSOCKET_MESSAGE_TYPE
-	internal const long MessageType;
+	internal const WebsocketType MessageType;
 
 	// @zasm_var WEBSOCKET_URL
 	internal char32 URL;
@@ -32532,636 +33957,23 @@ int CountFFCsRunning(int scriptNum)
 
 #includepath "include"
 
-typedef const int define;
-
 #include "std_zh/std.cfg"
 #include "std_zh/std_extension.zh"
 #include "std_zh/script_runners.zh"
 #include "std_zh/ghostBasedMovement.zh"
 #include "std_zh/limits.zh"
 #include "std_zh/std_constants.zh"
-#include "std_zh/ffrules.zh"
 #include "std_zh/std_functions.zh"
 #include "std_zh/std_sideview.zh"
 #include "std_zh/string/string_constants.zh"
 #include "std_zh/string/string_functions.zh"
 #include "std_zh/std_keyboard.zh"
-///////////////////////////////////
-/// FFRules[] --- Array Indices ///
-///     and Details of Each     ///
-///////////////////////////////////
-
-/*<< Enumerated list for Game->FFRules[] and Quest Rules get_bit. */
-enum ffruletype
-{
-
-//0
-qr_SOLIDBLK, 				/*<<	Combos (>>>) Can't Push Blocks Onto Unwalkable Combos */
-qr_NOTMPNORET, 				/*<<	Enemies (>>>) Temporary No Return Disabled */
-qr_ALWAYSRET, 				/*<<	Enemies (>>>) Enemies Always Return  */
-qr_MEANTRAPS, 				/*<<	Enemies (>>>) Multi-Directional Traps */
-qr_BSZELDA, 				/*<<	Animation (>>>) BS Zelda Animation */
-
-//5
-qr_FADE, 				/*<<	Animation (>>>) Interpolated Fading */
-qr_FADECS5, 				/*<<	Animation (>>>) Fade CSet 5 */
-qr_FASTDNGN, 				/*<<	Animation (>>>) Fast Dungeon Scrolling */
-qr_NOLEVEL3FIX, 			/*<<	NES (>>>) No Palette 3 Level 6 CSet Fix */
-qr_COOLSCROLL, 				/*<<	Animation (>>>) Circle Opening/Closing Wipes  */
-
-//10
-qr_NOSCROLL,  				/*<<	Animation (>>>) No Screen Scrolling */
-qr_4TRI, 				/*<<	Items (>>>) Big Triforce Pieces */
-qr_EXPLICIT_RAFTING, 			/*<<	Unused  */
-qr_FASTFILL, 				/*<<	Misc (>>>) Fast Heart Refill  */
-qr_CAVEEXITNOSTOPMUSIC, 		/*<<	NES (>>>) Leaving Item Cellar/Passageway Doesn't Restart Music */
-
-//15
-qr_3TRI, 				/*<<	Items (>>>) 3 or 6 Triforce Total */
-qr_TIME, 				/*<<	Misc (>>>) Show Time On Subscreen */
-qr_FREEFORM, 				/*<<	NES (>>>) Freeform Dungeons */
-qr_KILLALL, 				/*<<	Enemies (>>>) Must Kill All Bosses To Set 'No Return' Screen State */
-qr_NOFLICKER, 				/*<<	NES (>>>) No NES 'Sprite Flicker' */
-
-//20
-qr_CONTFULL_DEP,			/*<<	DEPRECATED */
-qr_RLFIX, 				/*<<	NES (>>>) Raft/Ladder Sprite Direction Fix  */
-qr_LENSHINTS, 				/*<<	DEPRECATED*/ /*<<	Items (>>>) Show Secret Combo Hints When Using The Lens  */
-qr_LINKDUNGEONPOSFIX, 			/*<<	NES (>>>) Fix Link's Position in Dungeons */
-qr_HOLDITEMANIMATION, 			/*<<	Animation (>>>) Items Held Above Link's Head Continue To Animate */
-
-//25
-qr_HESITANTPUSHBLOCKS, 			/*<<	Combos (>>>) Push Blocks Don't Move When Bumped */
-qr_HIDECARRIEDITEMS, 			/*<<	Items (>>>) Hide Enemy-Carried Items  */
-qr_FFCSCROLL, 				/*<<	Animation (>>>) FFCs Are Visible While The Screen Is Scrolling */
-qr_RAFTLENS, 				/*<<	DEPRECATED	Items (>>>) Lens Shows Raft Paths  */
-qr_SMOOTHVERTICALSCROLLING,	 	/*<<	Animation (>>>) Smooth Vertical Scrolling */
-
-//30
-qr_WHIRLWINDMIRROR, 			/*<<	Combos (>>>) Magic Mirrors Reflect Scripted Whirlwinds */
-qr_NOFLASHDEATH, 			/*<<	Enemies (>>>) Enemies Don't Flash When Dying */
-qr_HOLDNOSTOPMUSIC, 			/*<<	NES (>>>) Holding Up Items Doesn't Restart Music  */
-qr_FIREPROOFLINK, 			/*<<	Items (>>>) Scripted Fire LWeapons Don't Hurt Link */
-qr_OUCHBOMBS, 				/*<<	Items (>>>) Scripted Bomb LWeapons Hurt Link */
-
-//35
-qr_NOCLOCKS_DEP,			/*<<	DEPRECATED */
-qr_TEMPCLOCKS_DEP,			/*<<	DEPRECATED */
-qr_BRKBLSHLDS_DEP,			/*<<	DEPRECATED */
-qr_BRKNSHLDTILES, 			/*<<	Enemies (>>>) Broken Enemy Shield Tiles  */
-qr_MEANPLACEDTRAPS, 			/*<<	Enemies (>>>) Line-of-Sight Traps Can Move Across Entire Screen  */
-
-//40
-qr_PHANTOMPLACEDTRAPS, 			/*<<	Enemies (>>>) Constant Traps Can Pass Through Enemies */
-qr_ALLOWFASTMSG, 			/*<<	Misc (>>>) Messages Can Be Sped Up With The A Button */
-qr_LINKEDCOMBOS,			/*<<	DEPRECATED */
-qr_NOGUYFIRES, 				/*<<	Misc (>>>) No Fires In Special Rooms */
-qr_HEARTRINGFIX, 			/*<<	Misc (>>>) Healing Fairy Heart Circle Is Centered Around Link */
-
-//45
-qr_NOHEARTRING, 			/*<<	Misc (>>>) No Healing Fairy Heart Circle */
-qr_OVERWORLDTUNIC, 			/*<<	NES (>>>) Tunic Color Can Change On Overworld */
-qr_SWORDWANDFLIPFIX, 			/*<<	NES (>>>) Sword/Wand Flip Fix */
-qr_ENABLEMAGIC, 			/*<<	Items (>>>) Enable Magic */
-qr_MAGICWAND_DEP,			/*<<	DEPRECATED */
-
-//50
-qr_MAGICCANDLE_DEP,			/*<<	DEPRECATED */
-qr_MAGICBOOTS_DEP,			/*<<	DEPRECATED */
-qr_NONBUBBLEMEDICINE, 			/*<<	Items (>>>) Medicine Doesn't Remove Sword Jinxes */
-qr_NONBUBBLEFAIRIES, 			/*<<	Items (>>>) Fairy Combos Don't Remove Sword Jinxes */
-qr_NONBUBBLETRIFORCE, 			/*<<	Items (>>>) Triforce Doesn't Remove Sword Jinxes */
-
-//55
-qr_NEWENEMYTILES, 			/*<<	Enemies (>>>) Use New Enemy Tiles */
-qr_NOROPE2FLASH_DEP,			/*<<	DEPRECATED */
-qr_NOBUBBLEFLASH_DEP,			/*<<	DEPRECATED */
-qr_GHINI2BLINK_DEP, 			/*<<	DEPRECATED */
-qr_BITMAPOFFSETFIX, 			/*<<	Compatibility (>>>) Use DrawBitmap() Offsets Prior to 2.50.2  */
-
-//60
-qr_PHANTOMGHINI2_DEP,			/*<<	DEPRECATED */
-qr_Z3BRANG_HSHOT, 			/*<<	Items (>>>) New Boomerang/Hookshot  */
-qr_NOITEMMELEE,				/*<<	Items (>>>) Wand Can't Be Used As Melee Weapon	/DEPRECATED/  */
-qr_SHADOWS, 				/*<<	Enemies (>>>) Show Shadows */
-qr_TRANSSHADOWS, 			/*<<	Enemies (>>>) Translucent Shadows  */
-
-//65
-qr_QUICKSWORD, 				/*<<	Items (>>>) Quick Sword  */
-qr_BOMBHOLDFIX, 			/*<<	NES (>>>) Link Holds Special Bombs Over His Head  */
-qr_EXPANDEDLTM, 			/*<<	Animation (>>>) Expanded Link Tile Modifiers */
-qr_NOPOTIONCOMBINE_DEP,			/*<<	DEPRECATED */
-qr_LINKFLICKER, 			/*<<	Animation (>>>) Invincible Link Flickers */
-
-//70
-qr_SHADOWSFLICKER, 			/*<<	Enemies (>>>) Shadows Flicker */
-qr_WALLFLIERS, 				/*<<	Enemies (>>>) Flying Enemies Can Appear on Unwalkable Combos */
-qr_NOBOMBPALFLASH, 			/*<<	Animation (>>>) Bomb Explosions Don't Flash Palette */
-qr_HEARTSREQUIREDFIX, 			/*<<	Items (>>>) Hearts Required' Affects Non-Special Items */
-qr_PUSHBLOCKCSETFIX, 			/*<<	NES (>>>) Push Block CSet Fix */
-
-//75
-qr_TRANSLUCENTNAYRUSLOVEROCKET_DEP,	/*<<	DEPRECATED */
-qr_FLICKERINGNAYRUSLOVEROCKET_DEP,	/*<<	DEPRECATED */
-qr_CMBCYCLELAYERS, 			/*<<	Combos (>>>) Combo Cycling On Layers */
-qr_DMGCOMBOPRI, 			/*<<	Combos (>>>) Full Priority Damage Combos */
-qr_WARPSIGNOREARRIVALPOINT, 		/*<<	Combos (>>>) Warps Ignore Arrival X/Y Position When Setting Continue Screen */
-
-//80
-qr_LTTPCOLLISION, 			/*<<	Player (>>>) Full Tile Collision */
-qr_LTTPWALK, 				/*<<	Player (>>>) Diagonal Movement */
-qr_SLOWENEMYANIM_DEP,			/*<<	DEPRECATED */
-qr_TRUEARROWS, 				/*<<	Items (>>>) True Arrows */
-qr_NOSAVE, 				/*<<	Misc (>>>) No Saving When Continuing */
-
-//85
-qr_NOCONTINUE, 				/*<<	Misc (>>>) Skip Continue Screen */
-qr_QUARTERHEART, 			/*<<	Misc (>>>) Enable 1/4 Heart Life Bar  */
-qr_NOARRIVALPOINT, 			/*<<	Combos (>>>) Use Warp Return Points Only */
-qr_NOGUYPOOF, 				/*<<	Misc (>>>) Special Room Guys Don't Create A Puff When Appearing  */
-qr_ALLOWMSGBYPASS, 			/*<<	Misc (>>>) Messages Can Be Bypassed With The B Button  */
-
-//90
-qr_NODIVING, 				/*<<	Items (>>>) No Diving */
-qr_LAYER12UNDERCAVE, 			/*<<	Animation (>>>) Layers 1 and 2 Are Drawn Under Caves */
-qr_NOSCROLLCONTINUE, 			/*<<	Combos (>>>) Scrolling Warps Don't Set The Continue Point */
-qr_SMARTSCREENSCROLL, 			/*<<	Combos>>Smart Screen Scrolling */
-qr_RINGAFFECTDAMAGE, 			/*<<	Items (>>>) Rings Affect Damage Combos /DEPRECATED/  */
-
-//95
-qr_ALLOW10RUPEEDROPS_DEP, 		/*<<	DEPRECATED  */
-qr_TRAPPOSFIX, 				/*<<	NES (>>>) Trap Position Fix  */
-qr_TEMPCANDLELIGHT, 			/*<<	Items (>>>) Scripted and Enemy Fire Lights Temporarily */
-qr_REDPOTIONONCE_DEP,			/*<<	DEPRECATED  */
-qr_OLDSTYLEWARP, 			/*<<	Combos (>>>) Use Old-Style Warp Detection (NES Movement Only) */
-
-//100
-qr_NOBORDER, 				/*<<	NES (>>>) No Invisible Border on Non-Dungeon Dmaps */
-qr_OLDTRIBBLES_DEP,			/*<<	DEPRECATED */
-qr_REFLECTROCKS,			/*<<	DEPRECATED */
-qr_OLDPICKUP, 				/*<<	NES (>>>) Items Disappear During Hold-Up */
-qr_ENEMIESZAXIS, 			/*<<	Enemies (>>>) Enemies Jump/Fly Through Z-Axis */
-
-//105
-qr_SAFEENEMYFADE, 			/*<<	NES (>>>) Can Safely Trigger Armos/Grave From The South */
-qr_MORESOUNDS, 				/*<<	Misc (>>>) More Sound Effects  */
-qr_BRANGPICKUP, 			/*<<	Items (>>>) Boomerang/Hookshot Grabs All Items */
-qr_HEARTPIECEINCR_DEP,			/*<<	DEPRECATED */
-qr_ITEMSONEDGES, 			/*<<	NES (>>>) Can Use Items/Weapons on Edge of Screen */
-
-//110
-qr_EATSMALLSHIELD_DEP,			/*<<	DEPRECATED */
-qr_MSGFREEZE, 				/*<<	Misc (>>>) Messages Freeze All Action */
-qr_SLASHFLIPFIX,			/*<<	Items (>>>) Flip Right-Facing Slash /DEPRECATED/  */
-qr_FIREMAGICSPRITE_DEP, 		/*<<	DEPRECATED */
-qr_SLOWCHARGINGWALK, 			/*<<	Items (>>>) Slow Walk While Charging /DEPRECATED/ */
-
-//115
-qr_NOWANDMELEE, 			/*<<	Items (>>>) Wand Can't Be Used As Melee Weapon /DEPRECATED/  */
-qr_SLOWBOMBFUSES_DEP,			/*<<	DEPRECATED */
-qr_SWORDMIRROR, 			/*<<	Combos (>>>) Magic Mirror/Prism Combos Reflect Enemy and Scripted Sword Beams */
-qr_SELECTAWPN, 				/*<<	Misc (>>>) Can Select A-Button Weapon On Subscreen  */
-qr_LENSSEESENEMIES,  			/*<<	Items (>>>) Lens Reveals Invisible Enemies /DEPRECATED/  */
-
-//120
-qr_INSTABURNFLAGS, 			/*<<	Combos>>Burn Flags Are Triggered Instantly */
-qr_DROWN, 				/*<<	Combos>>Link Drowns in Walkable Water */
-qr_MSGDISAPPEAR, 			/*<<	Misc (>>>) Messages Disappear  */
-qr_SUBSCREENOVERSPRITES, 		/*<<	NES (>>>) Subscreen Appears Above Sprites */
-qr_BOMBDARKNUTFIX, 			/*<<	NES (>>>) Correct Bomb/Darknut Interaction */
-
-//125
-qr_LONGBOMBBOOM_DEP,			/*<<	DEPRECATED */
-qr_OFFSETEWPNCOLLISIONFIX, 		/*<<	NES (>>>) Correct Offset Enemy Weapon Collision Detection */
-qr_DMGCOMBOLAYERFIX, 			/*<<	Combos (>>>) Damage Combos Work On Layers 1 And 2 */
-qr_ITEMSINPASSAGEWAYS, 			/*<<	NES (>>>) Special Items Don't Appear In Passageways */
-qr_LOG, 				/*<<	Misc (>>>) Log Game Events To Allegro.log  */
-
-//130
-qr_FIREPROOFLINK2, 			/*<<	NES (>>>) Invincible Link Isn't Hurt By Own Fire Weapons */
-qr_NOITEMOFFSET, 			/*<<	NES (>>>) No Position Offset Of Screen Items */
-qr_ITEMBUBBLE, 				/*<<	Items (>>>) "Fairy Combos Remove Item Jinxes */
-qr_GOTOLESSNOTEQUAL, 			/*<<	Compatibility (>>>) Old GOTOLESS Behavior */
-qr_LADDERANYWHERE, 			/*<<	NES (>>>) Allow Ladder Anywhere */
-
-//135
-qr_HOOKSHOTLAYERFIX, 			/*<<	Combos (>>>) Hookshot Grab Combos Work On Layers 1 And 2 */
-qr_REPLACEOPENDOORS, 			/*<<	Compatibility (>>>) Fix Open Door Solidity  */
-qr_OLDLENSORDER, 			/*<<	Compatibility (>>>) Old Lens Drawing Order */
-qr_NOFAIRYGUYFIRES, 			/*<<	Compatibility (>>>) No Fairy Guy Fires */
-qr_SCRIPTERRLOG, 			/*<<	Misc (>>>) Log Script Errors To Allegro.log */
-
-//140
-qr_TRIGGERSREPEAT, 			/*<<	Compatibility (>>>) Continuous Step Triggers  */
-qr_ENEMIESFLICKER, 			/*<<	Enemies (>>>) Enemies Flicker When Hit  */
-qr_OVALWIPE, 				/*<<	Animation (>>>) Oval Opening/Closing Wipes */
-qr_TRIANGLEWIPE, 			/*<<	Animation (>>>) Triangle Opening/Closing Wipes" */
-qr_SMASWIPE, 				/*<<	Animation (>>>) Super Mario All-Stars Opening/Closing Wipes */
-
-//145
-qr_NOSOLIDDAMAGECOMBOS, 		/*<<	Compatibility (>>>) No Solid Damage Combos */
-qr_SHOPCHEAT, 				/*<<	Misc (>>>) Draining Rupees Can Still Be Spent */
-qr_HOOKSHOTDOWNBUG, 			/*<<	Compatibility (>>>) Downward Hookshot Bug */
-qr_OLDHOOKSHOTGRAB, 			/*<<	Compatibility (>>>) Old Hookshot Grab Checking  */
-qr_PEAHATCLOCKVULN, 			/*<<	Compatibility (>>>) Peahats Are Vulnerable When Frozen By Clocks  */
-
-//150
-qr_VERYFASTSCROLLING, 			/*<<	Animation (>>>) Very Fast Scrolling */
-qr_OFFSCREENWEAPONS, 			/*<<	Compatibility (>>>) Weapons With No Collision Detection Move Offscreen */
-qr_BROKENSTATUES, 			/*<<	Enemies (>>>) No Statue Minimum Range Or Double Fireballs */
-qr_BOMBCHUSUPERBOMB, 			/*<<	Enemies (>>>) Use Super Bomb Explosions for Explode on Contact */
-qr_ITEMPICKUPSETSBELOW, 		/*<<	Compatibility (>>>) Screen Item Pickup Disables Hunger/Special Item */
-
-//155
-qr_NOGANONINTRO, 			/*<<	Misc (>>>) No Intro String in Ganon Room */
-qr_MELEEMAGICCOST, 			/*<<	Items (>>>) Melee Weapons Require Magic Cost /DEPRECATED/  */
-qr_OLDMIRRORCOMBOS, 			/*<<	Combos (>>>) Broken Mirror and Weapon Interaction */
-qr_BROKENBOOKCOST, 			/*<<	Items (>>>) Broken Magic Book Costs */
-qr_OLDSIDEVIEWSPIKES, 			/*<<	Compatibility (>>>) Sideview Spike Detection Prior to 2.50.1RC3 */
-
-//160
-qr_OLDINFMAGIC, 			/*<<	Compatibility (>>>) Infinite Magic Prevents Items From Draining Rupees */
-qr_NEVERDISABLEAMMOONSUBSCREEN,		/*<<	Misc (>>>) No Ammo Required to Display Subscreen Items */
-qr_ITEMSCRIPTSKEEPRUNNING, 		/*<<	ZScript (>>>) Item Scripts Continue To Run */
-qr_SCRIPTSRUNINLINKSTEPFORWARD,		/*<<	ZScript (>>>) Scripts Draw When Stepping Forward In Dungeons */
-qr_FIXSCRIPTSDURINGSCROLLING,		/*<<	ZScript (>>>) Scripts Draw During Scrolling */
-
-//165
-qr_SCRIPTDRAWSINWARPS,  		/*<<	ZScript (>>>) Scripts Draw During Warps */
-qr_DYINGENEMYESDONTHURTLINK, 		/*<<	t.b.a */
-qr_SIDEVIEWTRIFORCECELLAR, 		/*<<	Misc (>>>) Triforce in Cellar Warps Link Out */
-qr_OUTOFBOUNDSENEMIES, 			/*<<	Enemies (>>>) Enemies Can Go Out of Bounds */
-qr_EPILEPSY, 				/*<<	Misc (>>>) Reduced Flashing (Epilepsy Protection) */
-
-//170
-qr_SCRIPT_FRIENDLY_ENEMY_TYPES,		/*<<	Enemies (>>>) Disable Spawning Custom and Friendly Enemy Types */
-qr_SMARTDROPS, 				/*<<	Items (>>>) Reroll Useless Drops */
-qr_NO_L_R_BUTTON_INVENTORY_SWAP,	/*<<	Misc (>>>) No L/R Inventory Shifting */
-qr_USE_EX1_EX2_INVENTORYSWAP, 		/*<<	Misc (>>>) Ex3 and Ex4 Shift A-Button Items */
-qr_NOFASTMODE, 				/*<<	Misc (>>>) Disable Fast Mode (Uncap) */
-
-//175
-qr_OLD_F6, 				/*<<	Compatibility (>>>) Old (Instant) F6 Menu */
-qr_BROKEN_ASKIP_Y_FRAMES,		/*<<	Compatibility (>>>) Broken ASkipY Animation Frames */
-qr_ENEMY_BROKEN_TOP_HALF_SOLIDITY,	/*<<	Compatibility (>>>) Enemies Clip Through Top-Half Partial Solids */
-qr_SIDEVIEWLADDER_FACEUP,		/*<<	Combos (>>>) 2 (>>>) Always Face Up on Sideview Ladders */
-qr_ITEMS_IGNORE_SIDEVIEW_PLATFORMS,	/*<<	Items (>>>) Items Ignore Sideview Platforms */
-
-//180
-qr_DOWN_FALL_THROUGH_SIDEVIEW_PLATFORMS,/*<<	Combos (>>>) 2 (>>>) Press 'Down' to Fall Through Sideview Platforms */
-qr_SIDEVIEW_FALLTHROUGH_USES_DRUNK, 	/*<<	Combos (>>>) 2 (>>>) Falling Through Sideview Platforms Respects 'Drunk' Inputs */
-qr_DOWN_DOESNT_GRAB_LADDERS, 		/*<<	Combos (>>>) 2 (>>>) Pressing Down Will Not Grab Sideview Ladders */
-qr_DOWNJUMP_FALL_THROUGH_SIDEVIEW_PLATFORMS,
-					/*<<	Combos (>>>) 2 (>>>) Press 'Down+Jump' to Fall Through Sideview Platforms */
-
-qr_OLD_SIDEVIEW_CEILING_COLLISON, 	/*<<	Compatibility (>>>) Old Sideview Ceiling Collision */
-
-//185
-qr_0AFRAME_ITEMS_IGNORE_AFRAME_CHANGES, /*<<	Compatibility (>>>) Items set to 0 AFrames ignore AFrame changes */
-qr_OLD_ENEMY_KNOCKBACK_COLLISION,	/*<<	Compatibility (>>>) Old Enemy Knockback Collision */
-qr_FADEBLACKWIPE, 			/*<<	Animation (>>>) Fade to/from Black Opening/Closing Wipes */
-qr_PASSIVE_SUBSCRIPT_RUNS_DURING_ACTIVE_SUBSCRIPT,
-					/*<<	ZScript (>>>) Scripts (>>>) Passive Subscreen Script runs during Active Subscreen */
-qr_DMAP_ACTIVE_RUNS_DURING_ACTIVE_SUBSCRIPT,
-					/*<<	ZScript (>>>) Scripts (>>>) DMap Active Script runs during Active Subscreen */
-
-//190
-qr_ANIMATECUSTOMWEAPONS,
-qr_WEAPONSMOVEOFFSCREEN, 		/*<<	Compatibility (>>>) Weapons Can Go Out of Bounds (Offscreen) */
-qr_CHECKSCRIPTWEAPONOFFSCREENCLIP, 	/*<<	Compatibility (>>>) Check Clip for Custom / Script Type Weapons on Screen Edge */
-qr_SHORTDGNWALK, 			/*<<	Compatibility (>>>) 1.92 Diagonal Walk Speed */
-qr_SCRIPT_WEAPONS_UNIQUE_SPRITES,	/*<<	Weapons (>>>) npc->Weapon Uses Unique Sprites for Custom EWeapons */
-
-//195
-qr_ANGULAR_REFLECTED_WEAPONS, 		/*<<	Weapons (>>>) Angular Reflected Weapons */
-qr_MIRRORS_USE_WEAPON_CENTRE, 		/*<<	Weapons (>>>) Mirrors Use Weapon Centre for Collision */
-qr_CUSTOMCOMBOSLAYERS1AND2,		/*<<	Combos (>>>) 2 (>>>) Custom Combos Work on Layers 1 and 2 */
-qr_BUSHESONLAYERS1AND2,			/*<<	Combos (>>>) 2 (>>>) Slash Combos Work on Layers 1 and 2 */
-qr_NEW_HERO_MOVEMENT,	/*<<	Hero (>>>) New Hero Movement */
-
-//200
-qr_DISABLE_4WAY_GRIDLOCK,	/*<<	Hero (>>>) Disable 4-Way Movement's Gridlock */
-qr_NEW_COMBO_ANIMATION,	/*<<	Combos (>>>) New Combo Animation */
-qr_OLD_STRING_EDITOR_MARGINS, 	/*<<	Compatibility (>>>) Old String Margins */
-qr_NO_OVERWRITING_HOPPING,	/*<<	ZScript (>>>) Don't allow overwriting hopping action */
-qr_DUNGEON_DMAPS_PERM_SECRETS,	/*<<	Other (>>>) Allow permanent secrets on Dungeon-type dmaps */
-
-//205
-qr_STRING_FRAME_OLD_WIDTH_HEIGHT,	/*<<	Compatibility (>>>) Old String Frame Width/Height */
-qr_NO_SCROLL_WHILE_IN_AIR,	/*<<	Other (>>>) No Scrolling Screen While In Air */
-qr_INSTANT_RESPAWN,	/*<<	Other (>>>) Instant Reload On Death */
-qr_BROKEN_OVERWORLD_MINIMAP,	/*<<	Compatibility (>>>) Overworld Minimap Ignores Map Item */
-qr_NO_STUNLOCK,	/*<<	Weapons (>>>) Weapons Cannot Stunlock Enemies */
-
-//210
-qr_GREATER_MAX_TIME,	/*<<	Other (>>>) Higher Maximum Playtime */
-qr_BROKEN_RING_POWER,	/*<<	Compatibility (>>>) Old (Broken) Ring Power Maths */
-qr_NO_OVERWORLD_MAP_CHARTING,	/*<<	Compatibility (>>>) Overworld DMaps Do Not Chart Progress */
-qr_DUNGEONS_USE_CLASSIC_CHARTING,	/*<<	Compatibility (>>>) Dungeon DMaps Use Classic Charting */
-qr_ARROWS_ALWAYS_PENETRATE,	/*<<	Weapons (>>>) Arrows Always Penetrate */
-
-//215
-qr_SWORDBEAMS_ALWAYS_PENETRATE,	/*<<	Weapons (>>>) Swordbeams Always Penetrate */
-qr_SET_XBUTTON_ITEMS,	/*<<	Other (>>>) Allow Setting X Button Items */
-qr_SMARTER_WATER,	/*<<	Combos (>>>) New Water Collision */
-qr_NO_HOPPING,	/*<<	Combos (>>>) No Water Hopping */
-qr_NO_SOLID_SWIM,	/*<<	Combos (>>>) Can't Swim in Solid Water */
-
-//220
-qr_WATER_ON_LAYER_1,	/*<<	Combos (>>>) Water works on Layer 1 */
-qr_WATER_ON_LAYER_2,	/*<<	Combos (>>>) Water works on Layer 2 */
-qr_SHALLOW_SENSITIVE,	/*<<	Combos (>>>) New Shallow Water Detection */
-qr_SMARTER_SMART_SCROLL,	/*<<	Combos (>>>) Fixed Smart Scrolling */
-qr_INSTANT_CONTINUE,	/*<<	Other (>>>) Instant Continue On Death */
-
-//225
-qr_NONHEAVY_BLOCKTRIGGER_PERM,	/*<<	Combos (>>>) Block Triggers Are Perm For Non-Heavy Blocks */
-qr_SET_YBUTTON_ITEMS,	/*<<	Other (>>>) Allow Setting Y Button Items */
-qr_CORRECTED_EW_BRANG_ANIM,	/*<<	Weapons (>>>) Boomerang EWeapons Corrected Animation */
-qr_SCRIPT_WRITING_HEROSTEP_DOESNT_CARRY_OVER,	/*<<	ZScript (>>>) Script writes to Hero->Step don't carry over */
-qr_OVERHEAD_COMBOS_L1_L2,	/*<<	Combos (>>>) Overhead Combos work on Layers 1 and 2 */
-//230
-qr_ALLOW_EDITING_COMBO_0,	/*<<	Compatibility (>>>) Allow Editing Combo 0 */
-qr_OLD_CHEST_COLLISION,	/*<<	Compatibility (>>>) Old Chest Collision */
-qr_AUTOCOMBO_LAYER_1,	/*<<	Combos (>>>) Auto Combos Work On Layer 1 */
-qr_AUTOCOMBO_LAYER_2,	/*<<	Combos (>>>) Auto Combos Work On Layer 2 */
-qr_TRUEFIXEDBOMBSHIELD,	/*<<	NES (>>>) Blocked Bombs Don't Trigger Shielded Enemies' I-Frames */
-//235
-qr_BOMBSPIERCESHIELD,	/*<<	Weapons (>>>) Bombs Pierce Enemy Shields */
-qr_BROKEN_HORIZONTAL_WEAPON_ANIM,	/*<<	Compatibility (>>>) Broken Horizontal Weapon Animation */
-qr_NEW_DARKROOM,	/*<<	Misc (>>>) New Dark Rooms */
-qr_NEWDARK_L6,	/*<<	Misc (>>>) New Darkness Draws Under Layer 7 */
-qr_ENEMIES_SECRET_ONLY_16_31,	/*<<	Compatibility (>>>) Enemies->Secret only affects flags 16-31 */
-//240
-qr_SCREEN80_OWN_MUSIC,	/*<<	Misc (>>>) Item Cellars/Passageways/Caves use own music */
-qr_OLDCS2,	/*<<	Compatibility (>>>) Old CSet2 Handling */
-qr_HARDCODED_ENEMY_ANIMS,	/*<<	Compatibility (>>>) Hardcoded Shadow/Spawn/Death anim frames */
-qr_OLD_ITEMDATA_SCRIPT_TIMING,	/*<<	Compatibility (>>>) Old Itemdata Script timing */
-qr_SIDESWIM,	/*<<	Combos (>>>) Sideview Swimming */
-//245
-qr_SIDESWIMDIR,	/*<<	Combos (>>>) Player Faces Left/Right While Sieview Swimming */
-qr_PUSHBLOCK_LAYER_1_2,	/*<<	Combos (>>>) Pushblocks Work On Layer 1 and 2 */
-qr_NEWDARK_SCROLLEDGE,	/*<<	Misc (>>>) New Darkroom Lanterns Cross Screen Boundary */
-qr_STEPTEMP_SECRET_ONLY_16_31,	/*<<	Compatibility (>>>) Step->Secrets (Temp) only affects flags 16-31 */
-qr_ALLTRIG_PERMSEC_NO_TEMP,	/*<<	Compatibility (>>>) 'Hit All Triggers->Perm Secret' doesn't trigger temp secrets */
-//250
-qr_HARDCODED_LITEM_LTMS,	/*<<	Compatibility (>>>) Hardcoded LItem/Bomb/Clock/Magic Tile Mods */
-qr_NO_BOTTLE_IF_ANY_COUNTER_FULL,	/*<<	Items (>>>) Bottles can't be used with any maxed counter */
-qr_LIGHTBEAM_TRANSPARENT,	/*<<	Combos (>>>) Light beams draw Transparently */
-qr_CANDLES_SHARED_LIMIT,	/*<<	Compatibility (>>>) Candle use limit is shared */
-qr_OLD_RESPAWN_POINTS,	/*<<	Combos (>>>) Classic Respawn Points */
-//255
-qr_HOOKSHOTALLLAYER,	/*<<	Combos (>>>) Hookshot/SwitchHook Combos Work On All Layers */
-qr_ANONE_NOANIM,	/*<<	Compatibility (>>>) Enemies with 'None' animation don't obey OriginalTile changes */
-qr_BLOCKHOLE_SAME_ONLY,	/*<<	Combos (>>>) Block holes / triggers only trigger on same layer as block */
-qr_SWITCHOBJ_RUN_SCRIPT,	/*<<	Items (>>>) Switchhooked Objects Run Scripts */
-qr_ITEMCOMBINE_NEW_PSTR,	/*<<	Items (>>>) 'Upgraded' items play upgraded pickup string */
-//260
-qr_ITEMCOMBINE_CONTINUOUS,	/*<<	Compatibility (>>>) Enemies->Secret only affects flags 16-31 */
-qr_SCC_ITEM_COMBINES_ITEMS,	/*<<	Items (>>>) SCC/Bundle Item handles 'Upgraded' Items */
-qr_SCROLLING_KILLS_CHARGE,	/*<<	Compatibility (>>>) Scrolling Cancels Charge */
-qr_CUSTOMWEAPON_IGNORE_COST,	/*<<	Compatibility (>>>) Enemies->Secret only affects flags 16-31 */
-qr_BLOCKS_DONT_LOCK_OTHER_LAYERS,	/*<<	Compatibility (>>>) Custom Weapon / Ice Rod Bugged Cost */
-//265
-qr_SCC_GOTO_RESPECTS_CONTFLAG,	/*<<	Misc (>>>) Goto SCCs respect 'continuation' flag */
-qr_BROKEN_KEEPOLD_FLAG,	/*<<	Compatibility (>>>) Broken 'Keep Lower Level Items' */
-qr_KEEPOLD_APPLIES_RETROACTIVELY,	/*<<	Items (>>>) 'Keep Lower Level Items' applies retroactively */
-qr_PASSIVE_ITEM_SCRIPT_ONLY_HIGHEST,	/*<<	Items (>>>) Only highest level item passive script runs */
-qr_OLD_HALF_MAGIC,	/*<<	Compatibility (>>>) Old Half Magic */
-//270
-qr_LEVEL_RESTART_CONT_POINT,	/*<<	Misc (>>>) Restarting Level always goes to DMap continue point */
-qr_SUBSCR_OLD_SELECTOR,	/*<<	Subscreen (>>>) Old Subscreen Selector */
-qr_OLD_FAIRY_LIMIT,	/*<<	Compatibility (>>>) Old fairy spawn limit */
-qr_FAIRYDIR,	/*<<	Items (>>>) Fairies spawn with random direction */
-qr_ARROWCLIP,	/*<<	Compatibility (>>>) Arrows clip farther into dungeon walls */
-//275
-qr_CONT_SWORD_TRIGGERS,	/*<<	Compatibility (>>>) All sword triggers are continuous */
-qr_OLD_210_WATER,	/*<<	Compatibility (>>>) Ladder takes precedence over North and South water */
-qr_8WAY_SHOT_SFX,	/*<<	Compatibility (>>>) All 8 way-shot enemies use SFX_FIRE for firing SFX */
-qr_COPIED_SWIM_SPRITES,	/*<<	Compatibility (>>>) BS Zelda uses walking sprites for swimming */
-qr_WRONG_BRANG_TRAIL_DIR,	/*<<	Compatibility (>>>) Fire boomerang sparkles always face up */
-//280
-qr_192b163_WARP,	/*<<	Compatibility (>>>) Wavy and Cancel warps are swapped */
-qr_210_WARPRETURN,	/*<<	Compatibility (>>>) Old Warping Onto Warp Protection */
-qr_LESS_AWFUL_SIDESPIKES,	/*<<	Combos (>>>) Better Sideview Damage Combo Detection */
-qr_OLD_LADDER_ITEM_SIDEVIEW,	/*<<	Compatibility (>>>) Jittering In Sideview With Ladder Item */
-qr_OLD_SECRETMONEY,	/*<<	Compatibility (>>>) Renewable Secret Money Rooms Outside Caves */
-//285
-qr_OLD_DOORREPAIR,	/*<<	Compatibility (>>>) Renewable Door Repair Rooms Outside Caves */
-qr_OLD_POTION_OR_HC,	/*<<	Compatibility (>>>) Renewable Potion Or Heart Container Rooms Outside Caves */
-qr_NO_LANMOLA_RINGLEADER,	/*<<	Compatibility (>>>) Lanmolas can't be ringleaders */
-qr_HARDCODED_BS_PATRA,	/*<<	Compatibility (>>>) Hardcoded BS Patras */
-qr_PATRAS_USE_HARDCODED_OFFSETS,	/*<<	Compatibility (>>>) Hardcoded Patra Inner Eye offsets */
-//290
-qr_BROKEN_BIG_ENEMY_ANIMATION,	/*<<	Compatibility (>>>) Broken 'Big enemy' animation style */
-qr_BROKEN_ATTRIBUTE_31_32,	/*<<	Compatibility (>>>) Broken Attribute 31/32 */
-qr_CAN_PLACE_GANON,	/*<<	Enemies (>>>) Allow Placing Ganon as Screen Enemy */
-qr_CAN_PLACE_TRAPS,	/*<<	Enemies (>>>) Allow Placing Traps as Screen Enemies */
-qr_FIND_CLOSEST_BAIT,	/*<<	Enemies (>>>) Enemies check closest bait */
-//295
-qr_OLD_FLAMETRAIL_DURATION,	/*<<	Compatibility (>>>) Old fire trail duration */
-qr_PERMANENT_WHISTLE_SECRETS,	/*<<	Items (>>>) Whistle triggers can be permanent */
-qr_SMARTER_DROPS,	/*<<	Items (>>>) Reroll Drops If Capacity is Full */
-qr_WAVY_NO_EPILEPSY,	/*<<	Misc (>>>) Screen->Wavy Intensity is not affected by Epilepsy Protection */
-qr_WAVY_NO_EPILEPSY_2,	/*<<	Misc (>>>) Screen->Wavy Speed is not affected by Epilepsy Protection */
-//300
-qr_DYING_ENEMIES_IGNORE_STUN,	/*<<	NES (>>>) Killing Stunned Enemy With Melee Weapons Won't Hurt Player */
-qr_SHOP_ITEMS_VANISH,	/*<<	NES (>>>) Shop Items Disappear on Pickup */
-qr_ANGULAR_REFLECT_BROKEN,	/*<<	Compatibility (>>>) 'Prisms Reflect Angular Weapons' Uses Broken Logic */
-qr_CSET1_LEVEL,	/*<<	Animaton (>>>) CSet 1 is level-specific */
-qr_CSET5_LEVEL,	/*<<	Animaton (>>>) CSet 5 is level-specific */
-//305
-qr_CSET7_LEVEL,	/*<<	Animaton (>>>) CSet 7 is level-specific */
-qr_CSET8_LEVEL,	/*<<	Animaton (>>>) CSet 8 is level-specific */
-qr_FADECS1,	/*<<	Animaton (>>>) Fade CSet 1 */
-qr_FADECS7,	/*<<	Animaton (>>>) Fade CSet 7 */
-qr_FADECS8,	/*<<	Animaton (>>>) Fade CSet 8 */
-//310
-qr_FADECS9,	/*<<	Animaton (>>>) Fade CSet 9 */
-qr_UNBEATABLES_DONT_KEEP_DEAD,	/*<<	Enemies (>>>) Unbeatable enemies don't prevent enemies from respawning */
-qr_NO_LEAVE_ONE_ENEMY_ALIVE_TRICK,	/*<<	Enemies (>>>) No 'Leave one enemy alive' trick */
-qr_OLD_BRIDGE_COMBOS,	/*<<	Compatibility (>>>) Old Bridge Combo Behavior */
-qr_BROKEN_Z3_ANIMATION,	/*<<	Compatibility (>>>) Broken Z3 Animation */
-//315
-qr_OLD_TILE_INITIALIZATION,	/*<<	Compatibility (>>>) Old Enemy Tile Behavior with Animation (None) Enemies */
-qr_FLUCTUATING_ENEMY_JUMP,	/*<<	Compatibility (>>>) Enemy->Jump Fluctuates When on Ground */
-qr_SPRITE_JUMP_IS_TRUNCATED,	/*<<	Compatibility (>>>) Script Sprite->Jump is Truncated */
-qr_BUGGY_BUGGY_SLASH_TRIGGERS,	/*<<	Compatibility (>>>) ->Next Combos Ignore Trigger Flags */
-qr_OLD_DRAWOFFSET,	/*<<	Compatibility (>>>) Old Quake/DrawYOffset Behavior */
-//320
-qr_BROKEN_DRAWSCREEN_FUNCTIONS,	/*<<	Compatibility (>>>) Broken DrawScreen Derivative Functions */
-qr_ENEMY_DROPS_USE_HITOFFSETS,	/*<<	Enemies (>>>) Enemy Drops use Hitbox for Position */
-qr_BROKEN_ITEM_CARRYING,	/*<<	Compatibility (>>>) Broken Enemy Item Carrying */
-qr_LEEVERS_DONT_OBEY_STUN,	/*<<	Compatibility (>>>) Leever's Still Submerge If Stunned */
-qr_QUAKE_STUNS_LEEVERS,	/*<<	Enemies (>>>) Quake Hammer Stuns Leevers */
-//325
-qr_GANON_CANT_SPAWN_ON_CONTINUE,	/*<<	Compatibility (>>>) Ganon-Type Rooms Don't Work On Continuing */
-qr_WIZZROBES_DONT_OBEY_STUN,	/*<<	Compatibility (>>>) Wizzrobes Still Teleport If Stunned */
-qr_OLD_BUG_NET,	/*<<	Compatibility (>>>) Old Bug Net Animation */
-qr_MANHANDLA_BLOCK_SFX,	/*<<	Compatibility (>>>) Manhandla Uses Hit Sound For Center Body */
-qr_GRASS_SENSITIVE,	/*<<	Combos (>>>) New Tall Grass Detection */
-//330
-qr_BETTER_RAFT,	/*<<	Combos (>>>) Less Arbitrary Dock Combos */
-qr_BETTER_RAFT_2,	/*<<	Combos (>>>) More Senistive Dock Combos */
-qr_RAFT_SOUND,	/*<<	Combos (>>>) Docks use Raft Item's sound */
-qr_WARPS_RESTART_DMAPSCRIPT,	/*<<	Compatibility (>>>) Engine warps restart DMap Script */
-qr_DMAP_0_CONTINUE_BUG,	/*<<	Compatibility (>>>) DMap 0 hardcoded continue */
-//335
-qr_SCRIPT_WARPS_DMAP_SCRIPT_TOGGLE,	/*<<	Misc (>>>) Flip 'don't restart dmap script' script warp flag */
-qr_OLD_SCRIPTED_KNOCKBACK,	/*<<	Compatibility (>>>) Old Scripted Knockback */
-qr_OLD_KEESE_Z_AXIS,	/*<<	Compatibility (>>>) Old Keese Z Axis Behavior */
-qr_POLVIRE_NO_SHADOW,	/*<<	Compatibility (>>>) No Pols Voice/Vire Shadows with Z axis */
-qr_CONVEYORS_L1_L2,	/*<<	Combos (>>>) Conveyors work on layers 1 and 2 */
-//340
-qr_CUSTOMCOMBOS_EVERY_LAYER,	/*<<	Combos (>>>) Custom Combos Work On All Layers */
-qr_SUBSCR_BACKWARDS_ID_ORDER,	/*<<	Compatibility (>>>) Old Subscreen Item ID order */
-qr_FASTCOUNTERDRAIN,	/*<<	Items (>>>) Fast Counter Drain */
-qr_OLD_LOCKBLOCK_COLLISION,	/*<<	Compatibility (>>>) Old Lockblock Collision */
-qr_DECO_2_YOFFSET,
-//345
-qr_SCREENSTATE_80s_BUG,	/*<<	Compatibility (>>>) Screen->State[] 0x80 bug */
-qr_AUTOCOMBO_ANY_LAYER,	/*<<	Combos (>>>) Auto Combos Work On All Layers */
-qr_GOHMA_UNDAMAGED_BUG,	/*<<	Compatibility (>>>) Undamaged Gohma can be hit on any side */
-qr_FFCPRELOAD_BUGGED_LOAD,	/*<<	Compatibility (>>>) Preload FFCs don't work on init screen */
-qr_SWITCHES_AFFECT_MOVINGBLOCKS,	/*<<	Items (>>>) Moving pushblock switch blocks obey switch toggle */
-//350
-qr_BROKEN_GETPIXEL_VALUE,	/*<<	ZScript (>>>) GetPixel returns color / 10000 */
-qr_NO_LIFT_SPRITE,	/*<<	Compatibility (>>>) No lifting sprite */
-qr_OLD_SIDEVIEW_LANDING_CODE,	/*<<	Compatibility (>>>) Old Sideview Landing */
-qr_OLD_FFC_SPEED_CAP,	/*<<	Compatibility (>>>) FFC 128 speed cap */
-qr_OLD_WIZZROBE_SUBMERGING,	/*<<	Compatibility (>>>) Wizzrobes use old submerge code */
-//355
-qr_SPARKLES_INHERIT_PROPERTIES,	/*<<	Compatibility (>>>) Weapon Sparkles Inherit Properties */
-qr_BROKENHITBY,	/*<<	Compatibility (>>>) Broken ->HitBy UIDs */
-qr_ENEMIES_DONT_SCRIPT_FIRST_FRAME,	/*<<	Compatibility (>>>) Scripted enemies don't run script on first frame of screen entry */
-qr_OLD_CONVEYOR_COLLISION,	/*<<	DEPRECATED*/
-qr_SENSITIVE_SOLID_DAMAGE,	/*<<	Combos (>>>) Sensitive Solid Damage Combos */
-//360
-qr_LENIENT_SOLID_DAMAGE,	/*<<	Combos (>>>) Lenient Solid Damage Combos */
-qr_NO_SIDEVIEW_SOLID_DAMAGE,	/*<<	Combos (>>>) No Sideview Solid Damage */
-
-//400
-qr_OLD_FFC_FUNCTIONALITY = 50*8,	/*<<	Compatibility (>>>) Old FFC Functionality */
-qr_OLD_SHALLOW_SFX,	/*<<	Compatibility (>>>) Old Shallow Water SFX Attribute */
-qr_BUGGED_LAYERED_FLAGS,	/*<<	Compatibility (>>>) Bugged Layered Flags */
-qr_HARDCODED_FFC_BUSH_DROPS,	/*<<	Compatibility (>>>) Old FFC Bush Drops */
-qr_POUNDLAYERS1AND2,	/*<<	Combos (>>>) Pound Combos Work On Layers 1 and 2 */
-
-//405
-qr_MOVINGBLOCK_FAKE_SOLID,	/*<<	Compatibility (>>>) Fake-solid Pushblocks */
-qr_NEW_HERO_MOVEMENT2,	/*<<	Player (>>>) Newer Player Movement */
-qr_CARRYABLE_NO_ACROSS_SCREEN,	/*<<	Misc (>>>) Carryables Can't Leave Screen */
-qr_NO_SCROLL_WHILE_CARRYING,	/*<<	Misc (>>>) No Scrolling Screen While Carrying */
-qr_HELD_BOMBS_EXPLODE,	/*<<	Weapons (>>>) Lifted Bombs Explode In Hand */
-
-//410
-qr_BROKEN_MOVING_BOMBS,	/*<<	Compatibility (>>>) Broken Moving & Air Bombs */
-qr_OLD_BOMB_HITBOXES,	/*<<	Compatibility (>>>) Old Bomb Hitboxes */
-qr_SCROLLWARP_NO_RESET_FRAME,	/*<<	Compatibility (>>>) Broken scroll/warp frame issue */
-qr_BROKEN_RAFT_SCROLL,	/*<<	Compatibility (>>>) Broken Scrolling Onto Raft Flags */
-qr_BROKEN_INPUT_DOWN_STATE,	/*<<	Compatibility (>>>) Broken Input Down State */
-
-//415
-qr_OLD_GUY_HANDLING,	/*<<	Compatibility (>>>) Old Guy Handling */
-qr_FREEFORM_SUBSCREEN_CURSOR,	/*<<	Subscreen (>>>) Freeform Subscreen Cursor */
-qr_SUBSCR_PRESS_TO_EQUIP,	/*<<	Subscreen (>>>) Always Press To Equip */
-qr_FAIRY_FLAG_COMPAT,	/*<<	Compatibility (>>>) Inconsistent Fairy Flags */
-qr_MIRROR_PRISM_LAYERS,	/*<<	Combos (>>>) Mirror/Prism Combos Work On All Layers */
-
-//420
-qr_OLD_LENS_LAYEREFFECT,	/*<<	Compatibility (>>>) Old Lens Layer Effects */
-qr_PUSHBLOCK_SPRITE_LAYER,	/*<<	Combos (>>>) Pushable Block Sprite Layer */
-qr_OLD_SUBSCR,	/*<<	Compatibility (>>>) Old Engine Subscreen Quirks */
-qr_ITM_0_INVIS_ON_BTNS,	/*<<	Subscreen (>>>) Item 0 is invisible on buttons */
-qr_NO_BUTTON_VERIFY,	/*<<	Subscreen (>>>) No Button Verification */
-
-//425
-qr_OLD_GAUGE_TILE_LAYOUT,	/*<<	Subscreen (>>>) Old Gauge Tile Layout */
-qr_WALKTHROUGHWALL_NO_DOORSTATE,	/*<<	Compatibility (>>>) 'Walk Through Walls' don't set door state */
-qr_SPOTLIGHT_IGNR_SOLIDOBJ,	/*<<	Compatibility (>>>) Light Beams Ignore Solid Objects */
-qr_BROKEN_LIGHTBEAM_HITBOX,	/*<<	Compatibility (>>>) Broken light beam hitbox */
-qr_BROKEN_SWORD_SPIN_TRIGGERS,	/*<<	Compatibility (>>>) Broken Sword Triggers (spin-related) */
-
-//480
-qr_OLD_SCRIPT_VOLUME = 70 * 8,	/*<<	Compatibility (>>>) Old (Buggy) ZScript Volume Access */
-qr_OLD_DMAP_INTRO_STRINGS,	/*<<	Compatibility (>>>) Old DMap Titles and Intros */
-qr_SCRIPTDRAWSFROZENMSG,	/*<<	ZScript (>>>) Scripts Draw During Frozen Messages */
-
-//640
-qr_PARSER_250DIVISION = 80*8, 		/*<<	ZScript (>>>) 2.50 Division Truncation */
-qr_PARSER_NO_LOGGING, 			/*<<	ZScript (>>>) Disable Tracing */
-qr_PARSER_SHORT_CIRCUIT, 		/*<<	ZScript (>>>) Short-Circuit Boolean Operations */
-qr_SPRITEXY_IS_FLOAT, 		/*<<	ZScript (>>>) Short-Circuit Boolean Operations */
-qr_PARSER_BOOL_TRUE_DECIMAL, 		/*<<	ZScript (>>>) Sprite Coordinates are Float */
-
-//645
-qr_PARSER_TRUE_INT_SIZE, 		/*<<	Compilation (>>>) True MAX_INT sizing */
-qr_WPNANIMFIX, 				/*<< 	Not Implemented : This was in 2.50.2, but never used. */
-qr_NOSCRIPTSDURINGSCROLL, 		/*<< 	Not Implemented : This was in 2.50.2, but never used. */
-qr_OLDSPRITEDRAWS, 			/*<<	Compatibility (>>>) Old (Faster) Sprite Drawing */
-qr_WEAPONSHADOWS,  			/*<<	ZScript (>>>) Draw Shadows on Weapons */
-
-//650
-qr_ITEMSHADOWS, 			/*<<	ZScript (>>>) Draw Shadows on Items */
-qr_OLDEWPNPARENT, 			/*<<	ZScript (>>>) Old eweapon->Parent */
-qr_OLDCREATEBITMAP_ARGS,		/*<<	ZScript (>>>) Old Args for CreateBitmap() and bitmap->Create() */
-qr_OLDQUESTMISC, 			/*<<	ZScript (>>>) Game->Misc[] is not *10000" */
-qr_PARSER_FORCE_INLINE,			/*<<	Compilation (>>>) Inline all possible functions */
-
-//655
-qr_CLEARINITDONSCRIPTCHANGE,		/*<<	ZScript (>>>) Clear InitD[] on Script Change */
-qr_NOFFCWAITDRAW,			/*<<	ZScript (>>>) No FFC Waitdraw() */
-qr_NOITEMWAITDRAW,			/*<<	ZScript (>>>) No Item Script Waitdraw() */
-qr_TRACESCRIPTIDS,			/*<<	ZScript (>>>) Print Script Metadata on Traces */
-qr_FIXDRUNKINPUTS,			/*<<	ZScript (>>>) Writing to INPUT Overrides Drunk State */
-
-//660
-qr_32BIT_BINARY,			/*<<	Compilation (>>>) Binary Operations use true 32-bit Int */
-qr_ALWAYS_DEALLOCATE_ARRAYS,		/*<<	ZScript (>>>) Always Deallocate Arrays */
-qr_ONDEATH_RUNS_AFTER_DEATH_ANIM,	/*<<	ZScript (>>>) Hero OnDeath script runs AFTER engine death animation */
-qr_DISALLOW_SETTING_RAFTING,		/*<<	ZScript (>>>) Don't Allow Setting Action to Rafting */
-qr_WEAPONS_EXTRA_FRAME,			/*<<	ZScript (>>>) Weapons Live One Extra Frame With WDS_DEAD */
-
-//665
-qr_250WRITEEDEFSCRIPT,			/*<<	ZScript (>>>) Writing npc->Defense[NPCD_SCRIPT] Sets All Script Defences */
-qr_SETENEMYWEAPONSPRITESONWPNCHANGE,	/*<<	ZScript (>>>) Writing npc->Weapon Sets its Weapon Sprite */
-qr_BROKENCHARINTDRAWING,		/*<<	ZScript (>>>) Broken DrawInteger and DrawCharacter Scaling */
-qr_WRITING_NPC_WEAPON_UNIQUE_SPRITES,	/*<<	ZScript (>>>) npc->Weapon Uses Sprite 246-255 for EW_CUSTOM* */
-qr_COMBOSCRIPTS_LAYER_0,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 0 */
-
-//670
-qr_COMBOSCRIPTS_LAYER_1,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 1 */
-qr_COMBOSCRIPTS_LAYER_2,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 2 */
-qr_COMBOSCRIPTS_LAYER_3,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 3 */
-qr_COMBOSCRIPTS_LAYER_4,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 4 */
-qr_COMBOSCRIPTS_LAYER_5,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 5 */
-
-//675
-qr_COMBOSCRIPTS_LAYER_6,	/*<<	ZScript (>>>) Combos Run Scripts On Layer 6 */
-qr_OLD_INIT_SCRIPT_TIMING,	/*<<	ZScript (>>>) Use Old Global Init and SaveLoad Timing */
-qr_DO_NOT_DEALLOCATE_INIT_AND_SAVELOAD_ARRAYS,	/*<<	ZScript (>>>) Don't Deallocate Init/SaveLoad Local Arrays */
-qr_BITMAP_AND_FILESYSTEM_PATHS_ALWAYS_RELATIVE, 	/*<<	ZScript (>>>) All bitmap-> and FileSystem-> paths relative to quest 'files' folder */
-qr_PARSER_STRINGSWITCH_INSENSITIVE,	/*<<	Compilation (>>>) Switch/case of strings is case-insensitive */
-
-//680
-qr_SLASH_NEXT_SECRET_BUG,	/*<<	Compatibility (>>>) Bugged ->Next Combos */
-qr_STEP_IS_FLOAT,	/*<<	ZScript (>>>) Sprite->Step uses new, precise values */
-qr_OLDMAPDATAFLAGS,	/*<<	??? (>>>) ??? */
-qr_OLD_PRINTF_ARGS,	/*<<	ZScript (>>>) Old printf() args */
-qr_PASSIVE_SUBSCRIPT_RUNS_WHEN_GAME_IS_FROZEN,	/*<<	ZScript (>>>) Passive Subscreen Script runs during wipes/refills */
-
-//685
-qr_WRITE_ENTRYPOINTS_AFFECTS_HEROCLASS,	/*<<	ZScript (>>>) Writing Screen->EntryX, EntryY Resets Spawn Points */
-qr_LOG_INVALID_UID_LOAD,	/*<<	ZScript (>>>) Log on Loading Invalid UID */
-qr_COMBODATA_INITD_MULT_TENK,	/*<<	ZScript (>>>) Broken Combodata->InitD[] */
-qr_ZS_NO_NEG_ARRAY,	/*<<	ZScript (>>>) Disable accessing negative array indices */
-qr_PRINTF_NO_0FILL,	/*<<	ZScript (>>>) No prinft() 0-fill */
-
-qr_MAX
-};
 //V 1.0
 //Author: EmilyV
 #option SHORT_CIRCUIT on
+
+#include "std_zh/std_constants.zh"
+#include "std_zh/std_functions.zh"
 
 namespace GhostBasedMovement
 {
@@ -33696,6 +34508,7 @@ const int COUNTER_MIN 	= WORD_MIN;
 const int COUNTER_MAX 	= WORD_MAX;
 const int DCOUNTER_MAX 	= SHORT_MAX;
 const int DCOUNTER_MIN 	= SHORT_MIN;#include "ffcscript.zh"
+#include "std_zh/std_constants.zh"
 
 //start NPC
 DEFINE MIN_NPCSCRIPT = 1;
@@ -33929,7 +34742,11 @@ const int OLD_ONSIDEPLATFORM = 0; //Change to 1 to use old OnSidePlatform calls.
 const int OLD_RAND_FUNCS = 0; //Change to 1 to use old Rand() logic
 // Contains required constants for std.zh and ZScript functions.
 
+#include "std_zh/std.cfg"
+#include "std_zh/limits.zh"
+
 //some type shorthands
+typedef const int define;
 typedef const int DEFINE;
 typedef const float DEFINEF;
 typedef const long DEFINEL;
@@ -34264,22 +35081,6 @@ DEFINE SP_WIND 			= 36; //Wind Magic (Enemy)
 
 //User-Defined Sprites Range 088 to 255
 
-//Directions. Use with Link->Dir, etc.
-DEFINE DIR_UP                = 0; //000b
-DEFINE DIR_DOWN              = 1; //001b
-DEFINE DIR_LEFT              = 2; //010b
-DEFINE DIR_RIGHT             = 3; //011b
-DEFINE DIR_LEFTUP            = 4; //100b
-DEFINE DIR_RIGHTUP           = 5; //101b
-DEFINE DIR_LEFTDOWN          = 6; //110b
-DEFINE DIR_RIGHTDOWN         = 7; //111b
-
-//Repeat in DOWN*/UP* format
-DEFINE DIR_UPLEFT            = 4; //100b
-DEFINE DIR_UPRIGHT           = 5; //101b
-DEFINE DIR_DOWNLEFT          = 6; //110b
-DEFINE DIR_DOWNRIGHT         = 7; //111b
-
 
 //Extra Directions. Used with some stuff?
 DEFINE DIR2_UP                = 8;
@@ -34329,28 +35130,6 @@ DEFINEF RAD_DIR_RIGHT 	= 0;
 
 
 
-//Flip Types for Tiles, or Sprites
-DEFINE FLIP_NONE 		= 0;
-DEFINE FLIP_HORIZONTAL 	= 1; //Horizontal Flip
-//!This is already called in stdExtra.zh
-//Fixed
-DEFINE FLIP_VERTICAL 	= 2; //Vertical Flip
-//!This is already called in stdExtra.zh
-//Fixed
-DEFINE FLIP_HV 		= 3; //Horizontal and vertical Flip
-DEFINE FLIP_VH 		= 3;
-DEFINE FLIP_BOTH 		= 3;
-
-//Rotations + Flip
-DEFINE ROT_CW 		= 4;
-DEFINE ROT_CW_FLIP 		= 5;
-DEFINE ROT_CCW_FLIP 		= 6;
-DEFINE ROT_CCW 		= 7; 
-DEFINE ROT_ACW_FLIP 		= 6; //Anticlockwise, please.
-DEFINE ROT_ACW 		= 7; 
-
-
-
 
 //Sprite extending methods. Use with item->Extend,
 //npc->Extend, eweapon->Extend and lweapon->Extend.
@@ -34362,94 +35141,6 @@ DEFINE EXT_EXTENDED          = 3; // Extended
 DEFINE EXT_NOSHADOW          = 4; // Extended; NPC has no shadow.
 
 //! We need some better names for Extend constants. 
-
-//Generic counters. Use with itemclass->Counter, Game->Counter[], Game->MCounter[] and Game->DCounter[]
-enum
-{
-	CR_NONE = -1,
-	CR_LIFE, CR_MONEY, CR_BOMBS, CR_ARROWS, CR_MAGIC,
-	CR_KEYS, CR_SBOMBS, CR_CUSTOM1, CR_CUSTOM2, CR_CUSTOM3,
-	CR_CUSTOM4,  CR_CUSTOM5,  CR_CUSTOM6,  CR_CUSTOM7,  CR_CUSTOM8,
-	CR_CUSTOM9,  CR_CUSTOM10, CR_CUSTOM11, CR_CUSTOM12, CR_CUSTOM13,
-	CR_CUSTOM14, CR_CUSTOM15, CR_CUSTOM16, CR_CUSTOM17, CR_CUSTOM18,
-	CR_CUSTOM19, CR_CUSTOM20, CR_CUSTOM21, CR_CUSTOM22, CR_CUSTOM23,
-	CR_CUSTOM24, CR_CUSTOM25, CR_CUSTOM26, CR_CUSTOM27, CR_CUSTOM28,
-	CR_CUSTOM29, CR_CUSTOM30, CR_CUSTOM31, CR_CUSTOM32, CR_CUSTOM33,
-	CR_CUSTOM34, CR_CUSTOM35, CR_CUSTOM36, CR_CUSTOM37, CR_CUSTOM38,
-	CR_CUSTOM39, CR_CUSTOM40, CR_CUSTOM41, CR_CUSTOM42, CR_CUSTOM43,
-	CR_CUSTOM44, CR_CUSTOM45, CR_CUSTOM46, CR_CUSTOM47, CR_CUSTOM48,
-	CR_CUSTOM49, CR_CUSTOM50, CR_CUSTOM51, CR_CUSTOM52, CR_CUSTOM53,
-	CR_CUSTOM54, CR_CUSTOM55, CR_CUSTOM56, CR_CUSTOM57, CR_CUSTOM58,
-	CR_CUSTOM59, CR_CUSTOM60, CR_CUSTOM61, CR_CUSTOM62, CR_CUSTOM63,
-	CR_CUSTOM64, CR_CUSTOM65, CR_CUSTOM66, CR_CUSTOM67, CR_CUSTOM68,
-	CR_CUSTOM69, CR_CUSTOM70, CR_CUSTOM71, CR_CUSTOM72, CR_CUSTOM73,
-	CR_CUSTOM74, CR_CUSTOM75, CR_CUSTOM76, CR_CUSTOM77, CR_CUSTOM78,
-	CR_CUSTOM79, CR_CUSTOM80, CR_CUSTOM81, CR_CUSTOM82, CR_CUSTOM83,
-	CR_CUSTOM84, CR_CUSTOM85, CR_CUSTOM86, CR_CUSTOM87, CR_CUSTOM88,
-	CR_CUSTOM89, CR_CUSTOM90, CR_CUSTOM91, CR_CUSTOM92, CR_CUSTOM93,
-	CR_CUSTOM94, CR_CUSTOM95, CR_CUSTOM96, CR_CUSTOM97, CR_CUSTOM98,
-	CR_CUSTOM99, CR_CUSTOM100,
-	//
-	CR_SCRIPT1 = CR_CUSTOM1, CR_SCRIPT2, CR_SCRIPT3,
-	CR_SCRIPT4,  CR_SCRIPT5,  CR_SCRIPT6,  CR_SCRIPT7,  CR_SCRIPT8,
-	CR_SCRIPT9,  CR_SCRIPT10, CR_SCRIPT11, CR_SCRIPT12, CR_SCRIPT13,
-	CR_SCRIPT14, CR_SCRIPT15, CR_SCRIPT16, CR_SCRIPT17, CR_SCRIPT18,
-	CR_SCRIPT19, CR_SCRIPT20, CR_SCRIPT21, CR_SCRIPT22, CR_SCRIPT23,
-	CR_SCRIPT24, CR_SCRIPT25, CR_SCRIPT26, CR_SCRIPT27, CR_SCRIPT28,
-	CR_SCRIPT29, CR_SCRIPT30, CR_SCRIPT31, CR_SCRIPT32, CR_SCRIPT33,
-	CR_SCRIPT34, CR_SCRIPT35, CR_SCRIPT36, CR_SCRIPT37, CR_SCRIPT38,
-	CR_SCRIPT39, CR_SCRIPT40, CR_SCRIPT41, CR_SCRIPT42, CR_SCRIPT43,
-	CR_SCRIPT44, CR_SCRIPT45, CR_SCRIPT46, CR_SCRIPT47, CR_SCRIPT48,
-	CR_SCRIPT49, CR_SCRIPT50, CR_SCRIPT51, CR_SCRIPT52, CR_SCRIPT53,
-	CR_SCRIPT54, CR_SCRIPT55, CR_SCRIPT56, CR_SCRIPT57, CR_SCRIPT58,
-	CR_SCRIPT59, CR_SCRIPT60, CR_SCRIPT61, CR_SCRIPT62, CR_SCRIPT63,
-	CR_SCRIPT64, CR_SCRIPT65, CR_SCRIPT66, CR_SCRIPT67, CR_SCRIPT68,
-	CR_SCRIPT69, CR_SCRIPT70, CR_SCRIPT71, CR_SCRIPT72, CR_SCRIPT73,
-	CR_SCRIPT74, CR_SCRIPT75, CR_SCRIPT76, CR_SCRIPT77, CR_SCRIPT78,
-	CR_SCRIPT79, CR_SCRIPT80, CR_SCRIPT81, CR_SCRIPT82, CR_SCRIPT83,
-	CR_SCRIPT84, CR_SCRIPT85, CR_SCRIPT86, CR_SCRIPT87, CR_SCRIPT88,
-	CR_SCRIPT89, CR_SCRIPT90, CR_SCRIPT91, CR_SCRIPT92, CR_SCRIPT93,
-	CR_SCRIPT94, CR_SCRIPT95, CR_SCRIPT96, CR_SCRIPT97, CR_SCRIPT98,
-	CR_SCRIPT99, CR_SCRIPT100,
-	//
-	CR_MAX
-};
-DEFINE CR_RUPEES = CR_MONEY;
-
-//Generic data indices. Use this with Game->Generic[]
-DEFINE GEN_HEARTPIECES        = 0; // Heart Pieces currently possessed
-DEFINE GEN_MAGICDRAINRATE     = 1; // Link's magic usage equals n / 2.
-DEFINE GEN_CANSLASH           = 2; // Link can slash with the sword.
-DEFINE GEN_WARPLEVEL          = 3; // Warp Ring number that a Whirlwind warp will send Link to.
-							  // It is set every time that Link uses the Whistle.
-DEFINE GEN_HCPPERHC           = 4; // How many Pieces of Heart form a complete Heart Container?
-DEFINE GEN_CONTINUEHEARTS     = 5; // Amount of life that Link continues with
-DEFINE GEN_CONTINUEISPERCENT  = 6; // ...Or a percentage of his total life
-DEFINE GEN_HP_PER_HEART       = 7; //How much HP makes a 'heart'
-DEFINE GEN_MP_PER_BLOCK       = 8; //How much MP makes a 'block'
-DEFINE GEN_HERO_DMG_MULT      = 9; //Damage multiplier for damage by Link
-DEFINE GEN_ENEM_DMG_MULT      = 10; //Damage multiplier for damage by enemies
-DEFINE GEN_DITHER_TYPE        = 11; //Type of dithering used with dark rooms
-DEFINE GEN_DITHER_ARG         = 12; //Dithering argument used with dark rooms
-DEFINE GEN_DITHER_PERCENT     = 13; //Percent of light circles taken up by dithering
-DEFINE GEN_DEFAULT_LIGHT_RAD  = 14; //Default light radius initialized to enemies
-DEFINE GEN_TRANS_PERCENT      = 15; //Percent of light circles taken up by transparency
-DEFINE GEN_DARKNESS_COLOR     = 16; //Color of darkness
-
-DEFINE GEN_WATERGRAVITY       = 17; //Y position addition when not moving when sideview swimming,
-                                       //can be negative
-DEFINE GEN_SIDESWIM_STEP_UP   = 18; //Hero step speed when sideview swimming, moving up
-DEFINE GEN_SIDESWIM_STEP_SIDE = 19; //Hero step speed when sideview swimming, moving left and right
-DEFINE GEN_SIDESWIM_STEP_DOWN = 20; //Hero step speed when sideview swimming, moving down
-DEFINE GEN_SIDESWIM_EXITJUMP  = 21; //Jump value when exiting water from the top.
-                                       //If 0, Link can only leave the top of the water via
-                                       //sideview ladder.
-DEFINE GEN_BUNNY_TILEMOD      = 22; //Tile modifier to apply while player is bunnified
-DEFINE GEN_SWITCHHOOK_STYLE   = 23; //Which 'SW_EFF' style to use for the 'Switch w/ Player' enemy defense
-DEFINE GEN_FLICKER_FRAMES     = 24; //How many frames Link / enemies flicker for with the flicker damage effect
-DEFINE GEN_FLICKER_COLOR      = 25; //Color used for the flicker effect
-DEFINE GEN_FLICKER_TRANSP     = 26; //Number of transparency passes for the flicker effect
-DEFINE GEN_MAX                = 27;
 
 //Level item flags. Or (|) these together and use with Game->LItems[]
 DEFINE LI_TRIFORCE           = 0x01; // The Triforce of this Level has been obtained
@@ -34495,142 +35186,6 @@ DEFINE CB_MAX        = 18;
 ////////////////////
 /// Items & Itemdata
 
-//Item class ids. Use as comparisons with Itemdata->Family
-DEFINE IC_SWORD              = 0;
-DEFINE IC_BRANG              = 1;
-DEFINE IC_ARROW              = 2;
-DEFINE IC_CANDLE             = 3;
-DEFINE IC_WHISTLE            = 4;
-DEFINE IC_BAIT               = 5;
-DEFINE IC_LETTER             = 6;
-DEFINE IC_POTION             = 7;
-DEFINE IC_WAND               = 8;
-DEFINE IC_RING               = 9;
-DEFINE IC_WALLET             = 10;
-DEFINE IC_AMULET             = 11;
-DEFINE IC_SHIELD             = 12;
-DEFINE IC_BOW                = 13;
-DEFINE IC_RAFT               = 14;
-DEFINE IC_LADDER             = 15;
-DEFINE IC_BOOK               = 16;
-DEFINE IC_MAGICKEY           = 17;
-DEFINE IC_BRACELET           = 18;
-DEFINE IC_FLIPPERS           = 19;
-DEFINE IC_BOOTS              = 20;
-DEFINE IC_HOOKSHOT           = 21;
-DEFINE IC_LENS               = 22;
-DEFINE IC_HAMMER             = 23;
-DEFINE IC_DINSFIRE           = 24;
-DEFINE IC_FARORESWIND        = 25;
-DEFINE IC_NAYRUSLOVE         = 26;
-DEFINE IC_BOMB               = 27;
-DEFINE IC_SBOMB              = 28;
-DEFINE IC_CLOCK              = 29;
-DEFINE IC_KEY                = 30;
-DEFINE IC_MAGICCONTAINER     = 31;
-DEFINE IC_TRIFORCE           = 32;
-DEFINE IC_MAP                = 33;
-DEFINE IC_COMPASS            = 34;
-DEFINE IC_BOSSKEY            = 35;
-DEFINE IC_QUIVER             = 36;
-DEFINE IC_LEVELKEY           = 37;
-DEFINE IC_CBYRNA             = 38;
-DEFINE IC_RUPEE              = 39;
-DEFINE IC_ARROWAMMO          = 40;
-DEFINE IC_FAIRY              = 41;
-DEFINE IC_MAGIC              = 42;
-DEFINE IC_HEART              = 43;
-DEFINE IC_HEARTCONTAINER     = 44;
-DEFINE IC_HEARTPIECE         = 45;
-DEFINE IC_KILLALL            = 46;
-DEFINE IC_BOMBAMMO           = 47;
-DEFINE IC_BOMBBAG            = 48;
-DEFINE IC_ROCS               = 49;
-DEFINE IC_HOVERBOOTS         = 50;
-DEFINE IC_SPINSCROLL         = 51;
-DEFINE IC_CROSSSCROLL        = 52;
-DEFINE IC_QUAKESCROLL        = 53;
-DEFINE IC_WHISPRING          = 54;
-DEFINE IC_CHARGERING         = 55;
-DEFINE IC_PERILSCROLL        = 56;
-DEFINE IC_WEALTHMEDAL        = 57;
-DEFINE IC_HEARTRING          = 58;
-DEFINE IC_MAGICRING          = 59;
-DEFINE IC_HURRICANESCROLL    = 60;
-DEFINE IC_SQUAKESCROLL       = 61;
-DEFINE IC_STONEAGONY         = 62;
-DEFINE IC_STOMPBOOTS         = 63;
-DEFINE IC_WHIMSICALRING      = 64;
-DEFINE IC_PERILRING          = 65;
-DEFINE IC_MISC               = 66;
-DEFINE IC_CUSTOM1            = 67;
-DEFINE IC_CUSTOM2            = 68;
-DEFINE IC_CUSTOM3            = 69;
-DEFINE IC_CUSTOM4            = 70;
-DEFINE IC_CUSTOM5            = 71;
-DEFINE IC_CUSTOM6            = 72;
-DEFINE IC_CUSTOM7            = 73;
-DEFINE IC_CUSTOM8            = 74;
-DEFINE IC_CUSTOM9            = 75;
-DEFINE IC_CUSTOM10           = 76;
-DEFINE IC_CUSTOM11           = 77;
-DEFINE IC_CUSTOM12           = 78;
-DEFINE IC_CUSTOM13           = 79;
-DEFINE IC_CUSTOM14           = 80;
-DEFINE IC_CUSTOM15           = 81;
-DEFINE IC_CUSTOM16           = 82;
-DEFINE IC_CUSTOM17           = 83;
-DEFINE IC_CUSTOM18           = 84;
-DEFINE IC_CUSTOM19           = 85;
-DEFINE IC_CUSTOM20           = 86;
-DEFINE IC_BOWANDARROW        = 87;
-DEFINE IC_LETTERPOTION       = 88;
-
-// 89-255 free use
-
-// These item classes create a projectile of the 
-// type LW_CUSTOM/LW_SCRIPT, 01 to 10
-DEFINE IC_WPN_CUSTOM_01           = 256;
-DEFINE IC_WPN_SCRIPT_01           = 256;
-DEFINE IC_WPN_CUSTOM_02           = 257;
-DEFINE IC_WPN_SCRIPT_02           = 257;
-DEFINE IC_WPN_CUSTOM_03           = 258;
-DEFINE IC_WPN_SCRIPT_03           = 258;
-DEFINE IC_WPN_CUSTOM_04           = 259;
-DEFINE IC_WPN_SCRIPT_04           = 259;
-DEFINE IC_WPN_CUSTOM_05           = 260;
-DEFINE IC_WPN_SCRIPT_05           = 260;
-DEFINE IC_WPN_CUSTOM_06           = 261;
-DEFINE IC_WPN_SCRIPT_06           = 261;
-DEFINE IC_WPN_CUSTOM_07           = 262;
-DEFINE IC_WPN_SCRIPT_07           = 262;
-DEFINE IC_WPN_CUSTOM_08           = 263;
-DEFINE IC_WPN_SCRIPT_08           = 263;
-DEFINE IC_WPN_CUSTOM_09           = 264;
-DEFINE IC_WPN_SCRIPT_09           = 264;
-DEFINE IC_WPN_CUSTOM_10           = 265;
-DEFINE IC_WPN_SCRIPT_10           = 265;
-
-DEFINE IC_ICEROD          	     = 266; //Not Implemented
-
-DEFINE IC_ATKRING                 = 267;
-DEFINE IC_LANTERN                 = 268;
-DEFINE IC_PEARL                   = 269;
-DEFINE IC_BOTTLE                  = 270;
-DEFINE IC_BOTTLE_FILL             = 271;
-DEFINE IC_BUG_NET                 = 272;
-DEFINE IC_MIRRORS                 = 273;
-DEFINE IC_SWITCHHOOK              = 274;
-DEFINE IC_ITEM_BUNDLE             = 275;
-DEFINE IC_PROGRESSIVE             = 276;
-DEFINE IC_NOTE                    = 277;
-DEFINE IC_REFILL                  = 278;
-DEFINE IC_LIFTGLOVE               = 279;
-
-//Itemclasses not less than this are reserved for future engine itemclasses
-DEFINE IC_MAXUSABLE               = 280;
-
-DEFINE IC_MAX                     = 512; //Last of enum. All itemclassesare < this.
 
 
 
@@ -34867,94 +35422,6 @@ DEFINE WDS_BOUNCE            = 1;  // Use with LW_BRANGs or LW_HOOKSHOTs to
 
 ////////////////////
 /// NPCs and Enemies
-
-
-//NPC Types. Compare against npc->Type.
-DEFINE NPCT_GUY			= 0;
-DEFINE NPCT_WALK			= 1;
-DEFINE NPCT_TEKTITE			= 3;
-DEFINE NPCT_LEEVER			= 4;
-DEFINE NPCT_PEAHAT			= 5;
-DEFINE NPCT_ZORA			= 6;
-DEFINE NPCT_ROCK			= 7;
-DEFINE NPCT_GHINI			= 8;
-DEFINE NPCT_ARMOS			= 9;
-DEFINE NPCT_KEESE			= 10;
-DEFINE NPCT_TRAP			= 15;
-DEFINE NPCT_WALLMASTER		= 16;
-DEFINE NPCT_WIZZROBE			= 21;
-DEFINE NPCT_AQUAMENTUS		= 22;
-DEFINE NPCT_MOLDORM			= 23;
-DEFINE NPCT_DODONGO			= 24;
-DEFINE NPCT_MANHANDLA		= 25;
-DEFINE NPCT_GLEEOK			= 26;
-DEFINE NPCT_DIGDOGGER		= 27;
-DEFINE NPCT_GOHMA			= 28;
-DEFINE NPCT_LANMOLA			= 29;
-DEFINE NPCT_PATRA			= 30;
-DEFINE NPCT_GANON			= 31;
-DEFINE NPCT_PROJECTILE		= 32;
-DEFINE NPCT_SPINTILE			= 37;
-DEFINE NPCT_NONE			= 38;
-DEFINE NPCT_FAIRY			= 39;
-DEFINE NPCT_OTHERFLOAT		= 40;
-DEFINE NPCT_OTHER			= 41;
-
-DEFINE NPCT_CUSTOM_01		= 43;
-DEFINE NPCT_SCRIPT_01		= 43;
-DEFINE NPCT_CUSTOM_02		= 44;
-DEFINE NPCT_SCRIPT_02		= 44;
-DEFINE NPCT_CUSTOM_03		= 45;
-DEFINE NPCT_SCRIPT_03		= 45;
-DEFINE NPCT_CUSTOM_04		= 46;
-DEFINE NPCT_SCRIPT_04		= 46;
-DEFINE NPCT_CUSTOM_05		= 47;
-DEFINE NPCT_SCRIPT_05		= 47;
-DEFINE NPCT_CUSTOM_06		= 48;
-DEFINE NPCT_SCRIPT_06		= 48;
-DEFINE NPCT_CUSTOM_07		= 49;
-DEFINE NPCT_SCRIPT_07		= 49;
-DEFINE NPCT_CUSTOM_08		= 50;
-DEFINE NPCT_SCRIPT_08		= 50;
-DEFINE NPCT_CUSTOM_09		= 51;
-DEFINE NPCT_SCRIPT_09		= 51;
-DEFINE NPCT_CUSTOM_10		= 52;
-DEFINE NPCT_SCRIPT_10		= 52;
-
-DEFINE NPCT_CUSTOM_11		= 53;
-DEFINE NPCT_SCRIPT_11		= 53;
-DEFINE NPCT_CUSTOM_12		= 54;
-DEFINE NPCT_SCRIPT_12		= 54;
-DEFINE NPCT_CUSTOM_13		= 55;
-DEFINE NPCT_SCRIPT_13		= 55;
-DEFINE NPCT_CUSTOM_14		= 56;
-DEFINE NPCT_SCRIPT_14		= 56;
-DEFINE NPCT_CUSTOM_15		= 57;
-DEFINE NPCT_SCRIPT_15		= 57;
-DEFINE NPCT_CUSTOM_16		= 58;
-DEFINE NPCT_SCRIPT_16		= 58;
-DEFINE NPCT_CUSTOM_17		= 59;
-DEFINE NPCT_SCRIPT_17		= 59;
-DEFINE NPCT_CUSTOM_18		= 60;
-DEFINE NPCT_SCRIPT_18		= 60;
-DEFINE NPCT_CUSTOM_19		= 61;
-DEFINE NPCT_SCRIPT_19		= 61;
-DEFINE NPCT_CUSTOM_20		= 62;
-DEFINE NPCT_SCRIPT_20		= 62;
-
-DEFINE NPCT_FRIENDLY_01		= 63;
-DEFINE NPCT_FRIENDLY_02		= 64;
-DEFINE NPCT_FRIENDLY_03		= 65;
-DEFINE NPCT_FRIENDLY_04		= 66;
-DEFINE NPCT_FRIENDLY_05		= 67;
-DEFINE NPCT_FRIENDLY_06		= 68;
-DEFINE NPCT_FRIENDLY_07		= 69;
-DEFINE NPCT_FRIENDLY_08		= 70;
-DEFINE NPCT_FRIENDLY_09		= 71;
-DEFINE NPCT_FRIENDLY_10		= 72;
-
-
-
 
 //Guy IDs. Use with CreateNPC().
 DEFINE NPC_ABEI              = 1;
@@ -35337,119 +35804,6 @@ DEFINE NPCA_TEKTITE_JUMP_START 	= 0;
 DEFINE NPCA_TEKTITE_JUMP_CONT 	= 1;
 DEFINE NPCA_TEKTITE_JUMP_VELOCITY 	= 2;
 
-//NPC Defenses. Use as indices to npc->Defense[].
-DEFINE NPCD_ARROW            = 3;
-DEFINE NPCD_BEAM             = 10;
-DEFINE NPCD_BRANG            = 0;
-DEFINE NPCD_BOMB             = 1;
-DEFINE NPCD_BYRNA            = 16;
-DEFINE NPCD_FIRE             = 4;
-DEFINE NPCD_HAMMER           = 8;
-DEFINE NPCD_HOOKSHOT         = 7;
-DEFINE NPCD_MAGIC            = 6;
-DEFINE NPCD_REFBEAM          = 11;
-DEFINE NPCD_REFMAGIC         = 12;
-DEFINE NPCD_REFFIREBALL      = 13;
-DEFINE NPCD_REFROCK          = 14;
-DEFINE NPCD_SBOMB            = 2;
-DEFINE NPCD_SCRIPT           = 17;
-DEFINE NPCD_STOMP            = 15;
-DEFINE NPCD_SWITCHHOOK       = 36;
-DEFINE NPCD_SWORD            = 9;
-DEFINE NPCD_THROWN           = 37;
-DEFINE NPCD_WAND             = 5;
-DEFINE NPCD_WHISTLE          = 35; //whistle lweapon
-DEFINE NPCD_REFARROW         = 38;
-DEFINE NPCD_REFFIRE          = 39;
-DEFINE NPCD_REFFIRE2          = 40;
-
-//NPC Script Weapon Defences
-DEFINE NPCD_SCRIPT1 = 20;
-DEFINE NPCD_SCRIPT2 = 21;
-DEFINE NPCD_SCRIPT3 = 22;
-DEFINE NPCD_SCRIPT4 = 23;
-DEFINE NPCD_SCRIPT5 = 24;
-DEFINE NPCD_SCRIPT6 = 25;
-DEFINE NPCD_SCRIPT7 = 26;
-DEFINE NPCD_SCRIPT8 = 27;
-DEFINE NPCD_SCRIPT9 = 28;
-DEFINE NPCD_SCRIPT10 = 29;
-
-
-/* Unimplemented
-DEFINE NPCD_ICE = 30;
-DEFINE NPCD_BAIT = 31;
-DEFINE NPCD_WIND = 32;
-DEFINE NPCD_SPARKLE = 33;
-DEFINE NPCD_SONIC = 34;
-//35 to 42 reserved, but non-descript in zdefs.
-//the following are defined, but unused. 
-DEFINE NPCD_ETHER = 43;
-DEFINE NPCD_BOMBOS = 44;
-DEFINE NPCD_POT = 45;
-DEFINE NPCD_THROWNROCK = 46;
-DEFINE NPCD_ELECTRICITY = 47;
-DEFINE NPCD_SHIELD = 48;
-DEFINE NPCD_TROWEL = 49;
-DEFINE NPCD_SPINATTACK = 50;
-DEFINE NPCD_Z3SWORD = 51;
-DEFINE NPCD_GBSWORD = 52;
-*/
-
-
-//NPC Defense types. Use with npc->Defense[].
-DEFINE NPCDT_NONE			= 0;
-DEFINE NPCDT_HALFDAMAGE		= 1;
-DEFINE NPCDT_QUARTERDAMAGE		= 2;
-DEFINE NPCDT_STUN			= 3;
-DEFINE NPCDT_STUNORBLOCK		= 4;
-DEFINE NPCDT_STUNORIGNORE		= 5;
-DEFINE NPCDT_BLOCK1			= 6;
-DEFINE NPCDT_BLOCK2			= 7;
-DEFINE NPCDT_BLOCK4			= 8;
-DEFINE NPCDT_BLOCK6			= 9;
-DEFINE NPCDT_BLOCK8			= 10;
-DEFINE NPCDT_BLOCK			= 11;
-DEFINE NPCDT_IGNORE1			= 12;
-DEFINE NPCDT_IGNORE			= 13;
-DEFINE NPCDT_ONEHITKILL		= 14;
-DEFINE NPCDT_BLOCK10			= 15;
-DEFINE NPCDT_2XDAMAGE		= 16;
-DEFINE NPCDT_3XDAMAGE		= 17;
-DEFINE NPCDT_4XDAMAGE		= 18;
-DEFINE NPCDT_HEAL			= 19;
-DEFINE NPCDT_TRIGGERSECRETS		= 20;
-DEFINE NPCDT_SWITCH		= 50;
-
-/*
-DEFINE NPCDT_FREEZE			= 21; //not implemented
-DEFINE NPCDT_LVLDAMAGE			= 24; //not implemented
-DEFINE NPCDT_LVLREDUCTION			= 25; //not implemented
-DEFINE NPCDT_SPLIT				= 26; //not implemented
-DEFINE NPCDT_REPLACE				= 27; //not implemented
-DEFINE NPCDT_LVLBLOCK2			= 28; //not implemented
-DEFINE NPCDT_LVLBLOCK3			= 29 //not implemented
-DEFINE NPCDT_LVLBLOCK4			= 30; //not implemented
-DEFINE NPCDT_LVLBLOCK5			= 31; //not implemented
-DEFINE NPCDT_SHOCK				= 32; //not implemented
-DEFINE NPCDT_EXPLODESMALL			= 33; //not implemented
-DEFINE NPCDT_EXPLODELARGE			= 34; //not implemented
-DEFINE NPCDT_TURNTOSTONE			= 35; //not implemented
-DEFINE NPCDT_BREAKSHIELD			= 36; //not implemented
-DEFINE NPCDT_RESTORESHIELD			= 37; //not implemented
-DEFINE NPCDT_SPECIALDROP			= 38; //not implemented
-DEFINE NPCDT_INCREASECOUNTER			= 39; //not implemented
-DEFINE NPCDT_EXPLODEHARMLESS			= 40; //not implemented
-DEFINE NPCDT_KILLNOSPLIOT			= 41; //not implemented
-DEFINE NPCDT_TRIBBLE				= 42; //not implemented
-DEFINE NPCDT_FIREBALL			= 43; //not implemented
-DEFINE NPCDT_FIREBALLLARGE			= 44; //not implemented
-DEFINE NPCDT_SUMMON				= 45; //not implemented
-DEFINE NPCDT_WINGAME				= 46; //not implemented
-DEFINE NPCDT_JUMP				= 47; //not implemented
-DEFINE NPCDT_EATLINK				= 48; //not implemented
-*/
-
 //NPC Misc. Flags
 DEFINE NPCMF_0POWERWEAPS 		= 0x0001; //Damaged by 0-Power Weapons
 DEFINE NPCMF_ISINVISIBLE 		= 0x0002; //Is Invisible
@@ -35486,58 +35840,6 @@ DEFINE NPCSF_GRAVE			= 0x0800; //Spawned by Grave Combo Type
 DEFINE NPCSF_GANONROOM		= 0x1000; //Spawned by Ganon Room Type
 DEFINE NPCSF_SPAWNANIM		= 0x2000; //Spawn Animation Type
 
-//Enemy projectile weapon selections. Use with npc->Weapon.
-//Note: Don't use these with Screen->CreateEWeapon! Use the EW_ constants instead.
-DEFINE WPN_NONE              = 0;
-DEFINE WPN_ENEMYFLAME        = 140;
-DEFINE WPN_ENEMYWIND         = 141;
-DEFINE WPN_ENEMYFIREBALL     = 129;
-DEFINE WPN_ENEMYARROW        = 130;
-DEFINE WPN_ENEMYBRANG        = 131;
-DEFINE WPN_ENEMYSWORD        = 132;
-DEFINE WPN_ENEMYROCK         = 133;
-DEFINE WPN_ENEMYMAGIC        = 134;
-DEFINE WPN_ENEMYBOMB         = 135;
-DEFINE WPN_ENEMYSBOMB        = 136;
-DEFINE WPN_ENEMYLITBOMB      = 137;
-DEFINE WPN_ENEMYLITSBOMB     = 138;
-DEFINE WPN_ENEMYFIRETRAIL    = 139;
-DEFINE WPN_ENEMYFLAME2       = 142;
-DEFINE WPN_ENEMYFLAME2TRAIL  = 143; // Not implemented
-DEFINE WPN_ENEMYICE          = 144; // Not implemented
-DEFINE WPN_ENEMYFIREBALL2    = 145; // A fireball that doesn't fly toward Link
-
-//Default item drop sets. Use with npc->ItemSet
-DEFINE IS_NONE               = 0;
-DEFINE IS_DEFAULT            = 1;
-DEFINE IS_BOMBS              = 2;
-DEFINE IS_MONEY              = 3;
-DEFINE IS_LIFE               = 4;
-DEFINE IS_BOMB100            = 5; // Used by Dodongos
-DEFINE IS_SBOMB100           = 6; // Used by Dodongos
-DEFINE IS_MAGIC              = 7;
-DEFINE IS_MAGICBOMBS         = 8;
-DEFINE IS_MAGICMONEY         = 9;
-DEFINE IS_MAGICLIFE          = 10;
-DEFINE IS_MAGIC2             = 11;
-DEFINE IS_COMBOS		= 12; // Used by Tall Grass / Bush / Slash combos.
-
-//Boss palettes. Use with npc->BossPal
-DEFINE BPAL_AQUA             = 0;
-DEFINE BPAL_GLEEOK           = 1;
-DEFINE BPAL_DODONGO          = 2;
-DEFINE BPAL_GANON            = 3;
-DEFINE BPAL_BROWN            = 4;
-DEFINE BPAL_PILE             = 5;  // Used for the Dust Pile.
-DEFINE BPAL_BLUE             = 6;
-DEFINE BPAL_RED              = 7;
-DEFINE BPAL_GOLD             = 8;
-DEFINE BPAL_ICON1            = 9;  // Used for Quest Icon 1.
-DEFINE BPAL_ICON2            = 10; // Used for Quest Icon 2.
-DEFINE BPAL_ICON3            = 11; // Used for Quest Icon 3.
-DEFINE BPAL_ICON4            = 12; // Used for Quest Icon 4.
-DEFINE BPAL_GLEEOKF          = 13;
-DEFINE BPAL_FROZEN           = 14; // Unused
 
 
 
@@ -35545,31 +35847,6 @@ DEFINE BPAL_FROZEN           = 14; // Unused
 
 ///////////////////
 /// Script Drawing
-
-//Draw styles. Use with item->DrawStyle
-DEFINE DS_NORMAL             = 0;
-DEFINE DS_PHANTOM            = 1;
-DEFINE DS_CLOAKED            = 2;
-DEFINE DS_LINK               = 3;
-
-enum ShadowType //For '->DrawString()'
-{
-	SHD_NORMAL, //No Shadow
-	//These draw ONLY a shadow, no actual text
-	SHD_SHADOW,
-	SHD_SHADOWU,
-	SHD_OUTLINE8,
-	SHD_OUTLINEPLUS,
-	SHD_OUTLINEX,
-	//These draw a shadow behind the actual text
-	SHD_SHADOWED,
-	SHD_SHADOWEDU,
-	SHD_OUTLINED8,
-	SHD_OUTLINEDPLUS,
-	SHD_OUTLINEDX,
-	//Max number; not an actual value to use
-	SHD_MAX
-};
 
 // Font types. Use with Screen->DrawCharacter *note -some of these fonts may not represent normal ascii characters,
 //and all of these are completely undocumented. Use at your own peril
@@ -36405,185 +36682,6 @@ DEFINE CF_SECRETS_NEXT       = 165; //Secrets->Next
 
 // 200 :  Reserved for CF_STEP from TheRandomHeader.zh
 
-
-//Combo types. Use with Screen->ComboT[]
-DEFINE CT_NONE               = 0;
-DEFINE CT_STAIR              = 1;
-DEFINE CT_CAVE               = 2;
-DEFINE CT_WATER              = 3;
-DEFINE CT_ARMOS              = 4;
-DEFINE CT_GRAVE              = 5;
-DEFINE CT_DOCK               = 6;
-DEFINE CT_PUSHWAIT           = 8;
-DEFINE CT_PUSHHEAVY          = 9;
-DEFINE CT_PUSHHEAVYWAIT      = 10;
-DEFINE CT_LEFTSTATUE         = 11;
-DEFINE CT_RIGHTSTATUE        = 12;
-DEFINE CT_WALKSLOW           = 13;
-DEFINE CT_CVUP               = 14;
-DEFINE CT_CVDOWN             = 15;
-DEFINE CT_CVLEFT             = 16;
-DEFINE CT_CVRIGHT            = 17;
-DEFINE CT_SWIMWARP           = 18;
-DEFINE CT_DIVEWARP           = 19;
-DEFINE CT_LADDERHOOKSHOT     = 20;
-DEFINE CT_TRIGNOFLAG         = 21;
-DEFINE CT_TRIGFLAG           = 22;
-DEFINE CT_ZELDA              = 23;
-DEFINE CT_SLASH              = 24;
-DEFINE CT_SLASHITEM          = 25;
-DEFINE CT_PUSHHEAVY2         = 26;
-DEFINE CT_PUSHHEAVY2WAIT     = 27;
-DEFINE CT_POUND              = 28;
-DEFINE CT_HSGRAB             = 29;
-DEFINE CT_HSBRIDGE           = 30;
-DEFINE CT_DAMAGE1            = 31;
-DEFINE CT_DAMAGE2            = 32;
-DEFINE CT_DAMAGE3            = 33;
-DEFINE CT_DAMAGE4            = 34;
-DEFINE CT_CENTRESTATUE       = 35;
-DEFINE CT_TRAPH              = 36;
-DEFINE CT_TRAPV              = 37;
-DEFINE CT_TRAP4WAY           = 38;
-DEFINE CT_TRAPLEFTRIGHT      = 39;
-DEFINE CT_TRAPUPDOWN         = 40;
-DEFINE CT_PIT                = 41;
-DEFINE CT_HOOKSHOTONLY       = 42;
-DEFINE CT_OVERHEAD           = 43;
-DEFINE CT_NOFLYZONE          = 44;
-DEFINE CT_MIRROR             = 45;
-DEFINE CT_MIRRORSLASH        = 46;
-DEFINE CT_MIRRORBACKSLASH    = 47;
-DEFINE CT_MAGICPRISM         = 48;
-DEFINE CT_MAGICPRISM4WAY     = 49;
-DEFINE CT_BLOCKMAGIC         = 50;
-DEFINE CT_CAVE2              = 51;
-DEFINE CT_EYEBALLA           = 52;
-DEFINE CT_EYEBALLB           = 53;
-DEFINE CT_NOJUMPZONE         = 54;
-DEFINE CT_BUSH               = 55;
-DEFINE CT_FLOWERS            = 56;
-DEFINE CT_TALLGRASS          = 57;
-DEFINE CT_SHALLOWWATER       = 58;
-DEFINE CT_LOCKBLOCK          = 59;
-DEFINE CT_LOCKBLOCK2         = 60;
-DEFINE CT_BOSSLOCKBLOCK      = 61;
-DEFINE CT_BOSSLOCKBLOCK2     = 62;
-DEFINE CT_LADDERONLY         = 63;
-DEFINE CT_BSGRAVE            = 64;
-DEFINE CT_CHEST              = 65;
-DEFINE CT_CHEST2             = 66;
-DEFINE CT_LOCKEDCHEST        = 67;
-DEFINE CT_LOCKEDCHEST2       = 68;
-DEFINE CT_BOSSCHEST          = 69;
-DEFINE CT_BOSSCHEST2         = 70;
-DEFINE CT_RESET              = 71;
-DEFINE CT_SAVE               = 72;
-DEFINE CT_SAVE2              = 73;
-DEFINE CT_CAVEB              = 74;
-DEFINE CT_CAVEC              = 75;
-DEFINE CT_CAVED              = 76;
-DEFINE CT_STAIRB             = 77;
-DEFINE CT_STAIRC             = 78;
-DEFINE CT_STAIRD             = 79;
-DEFINE CT_PITB               = 80;
-DEFINE CT_PITC               = 81;
-DEFINE CT_PITD               = 82;
-DEFINE CT_CAVE2B             = 83;
-DEFINE CT_CAVE2C             = 84;
-DEFINE CT_CAVE2D             = 85;
-DEFINE CT_SWIMWARPB          = 86;
-DEFINE CT_SWIMWARPC          = 87;
-DEFINE CT_SWIMWARPD          = 88;
-DEFINE CT_DIVEWARPB          = 89;
-DEFINE CT_DIVEWARPC          = 90;
-DEFINE CT_DIVEWARPD          = 91;
-DEFINE CT_STAIRR             = 92;
-DEFINE CT_PITR               = 93;
-DEFINE CT_AWARPA             = 94;
-DEFINE CT_AWARPB             = 95;
-DEFINE CT_AWARPC             = 96;
-DEFINE CT_AWARPD             = 97;
-DEFINE CT_AWARPR             = 98;
-DEFINE CT_SWARPA             = 99;
-DEFINE CT_SWARPB             = 100;
-DEFINE CT_SWARPC             = 101;
-DEFINE CT_SWARPD             = 102;
-DEFINE CT_SWARPR             = 103;
-DEFINE CT_STRIGNOFLAG        = 104;
-DEFINE CT_STRIGFLAG          = 105;
-DEFINE CT_STEP               = 106;
-DEFINE CT_STEPSAME           = 107;
-DEFINE CT_STEPALL            = 108;
-DEFINE CT_STEPCOPY           = 109;
-DEFINE CT_NOENEMY            = 110;
-DEFINE CT_BLOCKARROW1        = 111;
-DEFINE CT_BLOCKARROW2        = 112;
-DEFINE CT_BLOCKARROW3        = 113;
-DEFINE CT_BLOCKBRANG1        = 114;
-DEFINE CT_BLOCKBRANG2        = 115;
-DEFINE CT_BLOCKBRANG3        = 116;
-DEFINE CT_BLOCKSWORDBEAM     = 117;
-DEFINE CT_BLOCKALL           = 118;
-DEFINE CT_BLOCKFIREBALL      = 119;
-DEFINE CT_DAMAGE5            = 120;
-DEFINE CT_DAMAGE6            = 121;
-DEFINE CT_DAMAGE7            = 122;
-DEFINE CT_SPINTILE1          = 124;
-DEFINE CT_SPINTILE2          = 125;
-DEFINE CT_SCREENFREEZE       = 126;
-DEFINE CT_SCREENFREEZEFF     = 127;
-DEFINE CT_NOGROUNDENEMY      = 128;
-DEFINE CT_SLASHNEXT          = 129;
-DEFINE CT_SLASHNEXTITEM      = 130;
-DEFINE CT_BUSHNEXT           = 131;
-DEFINE CT_SLASHC             = 132;
-DEFINE CT_SLASHITEMC         = 133;
-DEFINE CT_BUSHC              = 134;
-DEFINE CT_FLOWERSC           = 135;
-DEFINE CT_TALLGRASSC         = 136;
-DEFINE CT_SLASHNEXTC         = 137;
-DEFINE CT_SLASHNEXTITEMC     = 138;
-DEFINE CT_BUSHNEXTC          = 139;
-DEFINE CT_EYEBALL4WAY        = 140;
-DEFINE CT_TALLGRASSNEXT      = 141;
-DEFINE CT_SCRIPT1            = 142;
-DEFINE CT_SCRIPT2            = 143;
-DEFINE CT_SCRIPT3            = 144;
-DEFINE CT_SCRIPT4            = 145;
-DEFINE CT_SCRIPT5            = 146;
-DEFINE CT_SCRIPT6            = 147;
-DEFINE CT_SCRIPT7            = 148;
-DEFINE CT_SCRIPT8            = 149;
-DEFINE CT_SCRIPT9            = 150;
-DEFINE CT_SCRIPT10           = 151;
-DEFINE CT_SCRIPT11           = 152;
-DEFINE CT_SCRIPT12           = 153;
-DEFINE CT_SCRIPT13           = 154;
-DEFINE CT_SCRIPT14           = 155;
-DEFINE CT_SCRIPT15           = 156;
-DEFINE CT_SCRIPT16           = 157;
-DEFINE CT_SCRIPT17           = 158;
-DEFINE CT_SCRIPT18           = 159;
-DEFINE CT_SCRIPT19           = 160;
-DEFINE CT_SCRIPT20           = 161;
-DEFINE CT_GENERIC            = 162;
-DEFINE CT_PITFALL            = 163;
-DEFINE CT_STEPFX             = 164;
-DEFINE CT_BRIDGE             = 165;
-DEFINE CT_SIGNPOST           = 166;
-DEFINE CT_SWITCH             = 167;
-DEFINE CT_SWITCHBLOCK        = 168;
-DEFINE CT_LANTERN            = 169;
-DEFINE CT_SPOTLIGHT          = 170;
-DEFINE CT_GLASS              = 171;
-DEFINE CT_LIGHT_TARGET       = 172;
-DEFINE CT_SWITCHHOOK_BLOCK   = 173;
-DEFINE CT_CUSTOM_BLOCKER     = 174;
-DEFINE CT_SHOOTER            = 175;
-DEFINE CT_MAX                = 176;
-
-
 //////////////////
 /// FFC Properties
 
@@ -36628,24 +36726,6 @@ DEFINE AT_ANGULAR		= 3;
 DEFINE AT_RAND4DIR		= 4;
 DEFINE AT_RAND8DIR		= 5;
 DEFINE AT_RANDANGULAR	= 6;
-
-//Tile and Side Warps
-DEFINE TILEWARP_A        = 0;
-DEFINE TILEWARP_B        = 1;
-DEFINE TILEWARP_C        = 2;
-DEFINE TILEWARP_D        = 3;
-
-DEFINE SIDEWARP_NONE     = -1;
-DEFINE SIDEWARP_A        = 0;
-DEFINE SIDEWARP_B        = 1;
-DEFINE SIDEWARP_C        = 2;
-DEFINE SIDEWARP_D        = 3;
-
-DEFINE WARP_NONE         = -1;
-DEFINE WARP_A            = 0;
-DEFINE WARP_B            = 1;
-DEFINE WARP_C            = 2;
-DEFINE WARP_D            = 3;
 
 
 //Game Over Screen
@@ -36760,13 +36840,6 @@ DEFINE MOUSE_Z = 2;
 DEFINE MOUSE_LEFT = 3;
 DEFINE MOUSE_RIGHT = 4;
 DEFINE MOUSE_MIDDLE = 5;
-
-//Game->MouseCursor values
-enum
-{
-	ZCM_CUSTOM, ZCM_BLANK, ZCM_NORMAL,
-	ZCM_MAX
-};
 
 //MapData
 
@@ -36960,19 +37033,6 @@ DEFINE RTC_DAYOFYEAR	= 7;
 DEFINE RTC_DAYLIGHTTIME	= 8;
 DEFINE RTC_LAST		= 9;
 
-//Warp types. Use with Screen->SetSideWarp
-//and Link->WarpEx()
-DEFINE WT_CAVE			= 0;
-DEFINE WT_PASSAGE			= 1;
-DEFINE WT_ENTRANCEEXIT		= 2;
-DEFINE WT_SCROLLING			= 3;
-DEFINE WT_IWARP			= 4;
-DEFINE WT_IWARPBLACKOUT		= 5;
-DEFINE WT_IWARPOPENWIPE		= 6;
-DEFINE WT_IWARPZAP			= 7;
-DEFINE WT_IWARPWAVE		  	= 8;
-DEFINE WT_NOWARP			= 9;
-
 //Warp Effects for Link->WarpEx
 DEFINE WARPEFFECT_NONE = 0;
 DEFINE WARPEFFECT_ZAP = 1;
@@ -37092,17 +37152,6 @@ enum
  DEFINE SRAM_DMAPDATA 	=	0x10;
  DEFINE SRAM_MAPDATA 	=	0x20;
 
-enum EnemyPattern
-{
-	PATTERN_STANDARD,
-	PATTERN_SIDES,
-	PATTERN_SIDES_RANDOM,
-	PATTERN_CEILING,
-	PATTERN_CEILING_RANDOM,
-	PATTERN_STANDARD_RANDOM,
-	PATTERN_NO_SPAWNING
-};
-
 //MIDI values, used for 'Screen->MIDI', 'dmapdata->MIDI', 'mapdata->MIDI', 'Audio->PlayMIDI'
 enum
 {
@@ -37163,12 +37212,6 @@ enum {
 	susptLAST };
 
 
-enum openingWipeShape
-{
-	WIPE_CIRCLE, WIPE_OVAL, WIPE_TRIANGLE,
-	WIPE_SMAS, WIPE_FADEBLACK, WIPE_MAX
-};
-
 define NOCARRY_B_SECRET =			0x2000;
 define NOCARRY_B_ITEM =				0x0010;
 define NOCARRY_B_SPECIALITEM =		0x0020;
@@ -37190,23 +37233,6 @@ define NORESET_B_DOOR_B_UP =		0x0001;
 define NORESET_B_DOOR_B_DOWN =		0x0002;
 define NORESET_B_DOOR_B_LEFT =		0x0004;
 define NORESET_B_DOOR_B_RIGHT =		0x0008;
-
-enum //Indexes for Game->Gravity[]
-{
-	GR_STRENGTH,
-	GR_TERMINALV,
-	GR_SPRLAYER,
-	GR_AIRDRAG
-};
-
-enum //Indexes for Game->Scrolling[]
-{
-	SCROLL_DIR,
-	SCROLL_NX,
-	SCROLL_NY,
-	SCROLL_OX,
-	SCROLL_OY
-};
 
 enum //Indexes for messagedata->Flags
 {
@@ -37297,26 +37323,6 @@ enum WeaponMoveFlag
 	WPNMV_NO_REAL_Z
 };
 
-enum NPCMoveFlag
-{
-	NPCMV_OBEYS_GRAVITY,
-	NPCMV_CAN_PITFALL,
-	NPCMV_CAN_PIT_WALK,
-	NPCMV_CAN_WATERDROWN,
-	NPCMV_CAN_WATER_WALK,
-	NPCMV_ONLY_WATER_WALK,
-	NPCMV_ONLY_SHALLOW_WATER_WALK,
-	NPCMV_ONLY_PIT_WALK,
-	NPCMV_NO_FAKE_Z,
-	NPCMV_NO_REAL_Z,
-	NPCMV_USE_FAKE_Z,
-	NPCMV_IGNORE_SOLIDITY,
-	NPCMV_IGNORE_BLOCKFLAGS,
-	NPCMV_IGNORE_SCREENEDGE,
-	NPCMV_USE_SCRIPTED_MOVEMENT_ENGINE,
-	NPCMV_NOT_PUSHABLE_BY_SOLIDS
-};
-
 define CHRT_VISITED = 10000000b;
 define CHRT_UP =      00000001b;
 define CHRT_DOWN =    00000010b;
@@ -37328,12 +37334,6 @@ enum NPCWalkType
 {
 	SPW_NONE, SPW_DOOR, SPW_CLIPRIGHT, SPW_FLOATER, SPW_TRAP, SPW_HALFSTEP, 
 	SPW_WATER, SPW_WIZZROBE, SPW_CLIPBOTTOMRIGHT
-};
-
-// death & fade defs
-enum NPCFadeType
-{
-	NPCF_NONE, NPCF_FLICKER, NPCF_INVISIBLE, NPCF_FLASH, NPCF_POOF
 };
 
 enum NPCMoveStatus
@@ -37594,39 +37594,6 @@ DEFINEL L_BLOCKFLAG_SCRIPT8      = 0x00020000L;
 DEFINEL L_BLOCKFLAG_SCRIPT9      = 0x00040000L;
 DEFINEL L_BLOCKFLAG_SCRIPT10     = 0x00080000L;
 
-enum SwitchEffect
-{
-	SW_EFF_POOF,
-	SW_EFF_FLICKER,
-	SW_EFF_RISE
-};
-
-enum miscSpr
-{
-	MISCSPR_FALL,
-	MISCSPR_DROWN,
-	MISCSPR_LAVADROWN,
-	MISCSPR_SWITCHPOOF,
-	
-	MISCSPR_MAX
-};
-
-enum miscSFX
-{
-	MISCSFX_BUSH,
-	MISCSFX_SWITCHED,
-	MISCSFX_LOWHEART,
-	MISCSFX_ERROR,
-	MISCSFX_PLAYER_HURT,
-	MISCSFX_HAMMER_PEG,
-	MISCSFX_SUBSCR_ITEM_ASSIGN,
-	MISCSFX_SUBSCR_CURSOR_MOVE,
-	MISCSFX_REFILL,
-	MISCSFX_RUPEEDRAIN,
-	
-	MISCSFX_MAX
-};
-
 enum scr_timing
 {
 	SCR_TIMING_INIT = -1,
@@ -37761,21 +37728,6 @@ enum //constants for 'GENEV_HEROHIT_HITTYPE' / 'GENEV_HEROHIT_HITTYPE2'
 	NUM_OBJTYPE
 };
 
-enum //*weapon->Flags[] indexes
-{
-	WFLAG_PICKUP_ITEMS,
-	WFLAG_BREAKS_ON_LANDING,
-	WFLAG_BREAKS_ON_SOLID,
-	WFLAG_BURN_ANYFIRE,
-	WFLAG_BURN_STRONGFIRE,
-	WFLAG_BURN_MAGICFIRE,
-	WFLAG_BURN_DIVINEFIRE,
-	WFLAG_STOP_ON_LANDING,
-	WFLAG_STOP_ON_SOLID,
-	WFLAG_UPDATE_BURNSPR,
-	WFLAG_MAX
-};
-
 //For Screen->LoadNPC() and etc; the screen index of the thing
 DEFINE HIT_BY_NPC                   = 0; //Player only
 DEFINE HIT_BY_EWEAPON               = 1; //Player only
@@ -37790,7 +37742,7 @@ DEFINE HIT_BY_FFC_UID               = 7; //Unimplemented
 DEFINE HIT_BY_LWEAPON_PARENT_ID     = 8;
 //Returns the item class of the item that the weapon that hit came from (see IC_ constants); -1 if the lweapon is script created
 DEFINE HIT_BY_LWEAPON_PARENT_FAMILY = 9;
-//Returns the enemy class of the enemy that hit the player (see NPCT_ constants)
+//Returns the enemy class of the enemy that hit the player (see [NpcType] (`NPCT_`) constants)
 DEFINE HIT_BY_NPC_TYPE              = 10; //Player only
 //Returns the ID of the weapon that hit (see LW_ and EW_ constants)
 DEFINE HIT_BY_EWEAPON_TYPE          = 11; //Player only
@@ -37880,12 +37832,6 @@ enum //Light shapes for torch combos, lantern itemdata, and GlowShape variables
 	LIGHT_SQUARE
 };
 
-enum
-{
-	SHLD_FRONT, SHLD_BACK, SHLD_LEFT, SHLD_RIGHT,
-	SHLD_CAN_BREAK
-};
-
 //Override Flag constants, compare with itemdata->OverrideFlags, itemdata->WeaponOverrideFlags and npcdata->OverrideFlags. These correspond to the "Enabled" checkboxes in the Graphics->Size tab in the Item and Enemy Editors. Add or OR (|) these together 
 const int SZOF_TILEWIDTH      = 1;     //0000000001b, 0x001
 const int SZOF_TILEHEIGHT     = 2;     //0000000010b, 0x002
@@ -37952,16 +37898,6 @@ enum
 DEFINE CIID_FLAG_CHECKCOST     = 0x01;
 DEFINE CIID_FLAG_CHECKJINX     = 0x02;
 DEFINE CIID_FLAG_CHECKBUNNY    = 0x04;
-
-enum
-{
-	WPN_SPRITE_BASE,
-	WPN_SPRITE_BURN_ANY,
-	WPN_SPRITE_BURN_STRONG,
-	WPN_SPRITE_BURN_MAGIC,
-	WPN_SPRITE_BURN_DIVINE,
-	WPN_SPRITE_MAX
-};
 
 enum
 {
@@ -38287,26 +38223,8 @@ enum // Flags for SUBWIDG_BTNCOUNTER
 
 //} End section for subscreen type-specific flag constants
 //} End section for engine subscreen stuff
+#include "std_zh/std_functions.zh"
 
-enum //Hero->Sliding constants
-{
-	SLD_NONE,
-	SLD_ICE,
-	SLD_AIR,
-	SLD_MAX
-};
-
-enum = long {
-    WEBSOCKET_STATE_CONNECTING,
-    WEBSOCKET_STATE_OPEN,
-    WEBSOCKET_STATE_CLOSING,
-    WEBSOCKET_STATE_CLOSED
-};
-
-enum = long {
-    WEBSOCKET_MESSAGE_TYPE_TEXT = 1L,
-    WEBSOCKET_MESSAGE_TYPE_BINARY = 2L
-};
 //A
 
 //Returns the Nth combo index of a combo based on a central point, and a direction.
@@ -41654,7 +41572,10 @@ bool Xor(bool valA, bool valB)
 
 //NOTES
 
-//ProximityX also could use precise variation. //Returns if Link is above an npc.
+//ProximityX also could use precise variation. #include "std_zh/std_constants.zh"
+#include "std_zh/script_runners.zh"
+
+//Returns if Link is above an npc.
 bool Above(npc n){ return Link->Y < n->Y; }
 
 //Returns if Link is above, below, left of, or right of an ffc.
@@ -44280,7 +44201,7 @@ int NumLWeaponsOf(int type)
 	return ret;
 }
 
-//Use NPCT_* constants.
+// Valid values for [type]: [NpcType] (`NPCT_`).
 int NumNPCsOf(int type)
 {
 	int ret = 0;
@@ -45752,6 +45673,9 @@ void SetLevelSwitchState(int level, int switchNum, bool state)
 }
 
 
+#include "std_zh/std_constants.zh"
+#include "std_zh/string/string_constants.zh"
+
 /* 
 Constants that define the keyboard layout. I need to check an EU and a US keyboard 
 visually to verify if I set the proper symbols;  and I do not think that ZScript
@@ -46245,7 +46169,9 @@ const int KB_INALTSEQ_FLAG 	= 0x0800;
 const int KB_ACCENT1_FLAG 	= 0x1000; 
 const int KB_ACCENT2_FLAG 	= 0x2000; 
 const int KB_ACCENT3_FLAG 	= 0x4000; 
-const int KB_ACCENT4_FLAG 	= 0x8000; const bool ONSIDEVIEWPLATFORM_CHECK_OBJ_WIDTH = true;
+const int KB_ACCENT4_FLAG 	= 0x8000; #include "std_zh/std_functions.zh"
+
+const bool ONSIDEVIEWPLATFORM_CHECK_OBJ_WIDTH = true;
 const int ONSIDEVIEWPLATFORM_OVERHANG_DEPTH = 4;
 
 
@@ -46656,6 +46582,9 @@ const char32 CHAR_thorn 			= 254; //Lowercase thorn �
 const char32 CHAR_y_UMLAUT			= 255; //Lowercase y with Diaeresis �
 const char32 CHAR_y_DIAERESIS		= 255; //Lowercase y with Diaeresis �
 //ZScript string handling functions, akin to those found in C
+
+#include "std_zh/std_functions.zh"
+#include "std_zh/string/string_constants.zh"
 
 //Returns the number of chracters of a given type in a specified string.
 int NumCharsOf(char32[] ptr, char32 chr)
