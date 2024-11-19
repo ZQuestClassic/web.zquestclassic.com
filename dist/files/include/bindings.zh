@@ -16,6 +16,9 @@
 ░░░░░░░▀▀▀▀▀▀▀▀▀▀░░░░░░░
 */
 
+import "bindings/common.zh"
+import "bindings/sprite.zh"
+
 import "bindings/audio.zh"
 import "bindings/bitmap.zh"
 import "bindings/bottledata.zh"
@@ -33,6 +36,7 @@ import "bindings/game.zh"
 import "bindings/genericdata.zh"
 import "bindings/global.zh"
 import "bindings/graphics.zh"
+import "bindings/hero.zh"
 import "bindings/input.zh"
 import "bindings/itemdata.zh"
 import "bindings/itemsprite.zh"
@@ -42,7 +46,6 @@ import "bindings/messagedata.zh"
 import "bindings/npc.zh"
 import "bindings/npcdata.zh"
 import "bindings/paldata.zh"
-import "bindings/player.zh"
 import "bindings/portal.zh"
 import "bindings/randgen.zh"
 import "bindings/region.zh"

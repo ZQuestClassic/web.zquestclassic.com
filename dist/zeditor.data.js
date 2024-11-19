@@ -20,7 +20,7 @@
         // web worker
         PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = '/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zeditor.data';
+      var PACKAGE_NAME = '/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data';
       var REMOTE_PACKAGE_BASE = 'zeditor.data';
       if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
         Module['locateFile'] = Module['locateFilePackage'];
@@ -301,10 +301,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zeditor.data');
+          }          Module['removeRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data');
 
       };
-      Module['addRunDependency']('datafile_/home/runner/work/ZeldaClassic/ZeldaClassic/build_emscripten/Release/zeditor.data');
+      Module['addRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data');
 
       if (!Module.preloadResults) Module.preloadResults = {};
 
@@ -348,6 +348,6 @@ Module['FS_createPath']("/modules", "classic", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 0, "end": 8012}, {"filename": "/docs/zquest.txt", "start": 8012, "end": 197522}, {"filename": "/docs/zstrings.txt", "start": 197522, "end": 205308}, {"filename": "/modules/classic/classic_zquest.dat", "start": 205308, "end": 281600}], "remote_package_size": 281600, "package_uuid": "sha256-9e35e12dd3b94d454c9d7e93990f6bc254b2acfea5c7377afbaade8b3ab10d6e"});
+    loadPackage({"files": [{"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 0, "end": 8012}, {"filename": "/docs/zquest.txt", "start": 8012, "end": 197560}, {"filename": "/docs/zstrings.txt", "start": 197560, "end": 205342}, {"filename": "/modules/classic/classic_zquest.dat", "start": 205342, "end": 282323}], "remote_package_size": 282323, "package_uuid": "sha256-9bf6f0830ec691abaaf24c76450a74944467f120990704538dd6611de972efea"});
 
   })();

@@ -1,7 +1,3 @@
-// ghost.zh
-// Version 2.8.15
-
-
 int FindSpawnPoint(bool landOK, bool wallsOK, bool waterOK, bool pitsOK)
 {
     int tileRatings[176];
@@ -627,7 +623,7 @@ void __DeathAnimSFX(int id, int x)
     npc deathSFXNPC=Screen->CreateNPC(id);
     deathSFXNPC->X=x; // For panning
     deathSFXNPC->Y=176;
-    deathSFXNPC->ItemSet=0;
+    deathSFXNPC->ItemSet=IS_NONE;
     deathSFXNPC->HP=0;
     deathSFXNPC->Misc[__GHI_NPC_DATA]=0x10000;
 }

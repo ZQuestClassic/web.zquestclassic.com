@@ -1,3 +1,10 @@
+// Represents a single map screen.
+//
+// Depending on how the `mapdata` was loaded, it may represent:
+// - a temporary copy of the current screen ([Game->LoadTempScreen])
+// - a temporary copy of a scrolling screen ([Game->LoadScrollingScreen])
+// - the canonical copy of a screen ([Game->LoadMapData])
+//
 // @zasm_ref REFMAPDATA
 class mapdata {
 	// @delete
@@ -7,7 +14,6 @@ class mapdata {
 	// default blue background in ZQuest are 'invalid'. Modifying a combo on a
 	// screen makes it become 'valid'. If a layer is 'invalid', it will not be
 	// drawn.
-	//
 	// @zasm_var MAPDATAVALID
 	internal int Valid;
 
@@ -34,7 +40,7 @@ class mapdata {
 	// The Tile Warp type for Tile Warps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// See std_constants.zh WT_* constants for valid types.
+	// Valid values: [WarpType] (`WT_`).
 	//
 	// @zasm_var MAPDATATILEWARPTYPE
 	internal int TileWarpType[];
@@ -96,7 +102,9 @@ class mapdata {
 	// @zasm_var MAPDATACOLOUR
 	internal int Palette;
 
-	// The 4 door states of the screen, indexed with the `DIR_` constants.
+	// The 4 door states of the screen.
+	//
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
 	//
 	// @zasm_var MAPDATADOOR
 	internal int Door[];
@@ -121,8 +129,9 @@ class mapdata {
 	// @zasm_var MAPDATAENEMY
 	internal int Enemy[];
 
-	// The spawn pattern for the screen enemies. Use the `PATTERN_` constants
-	// for the value.
+	// The spawn pattern for the screen enemies.
+	//
+	// Valid values: [EnemyPattern] (`PATTERN_`).
 	//
 	// @zasm_var MAPDATAPATTERN
 	internal int Pattern;
@@ -130,7 +139,7 @@ class mapdata {
 	// The Sidewarp type for Sidewarps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// See std_constants.zh WT_* constants for valid types.
+	// Valid values: [WarpType] (`WT_`).
 	//
 	// @zasm_var MAPDATASIDEWARPTYPE
 	internal int SideWarpType[];
@@ -151,8 +160,9 @@ class mapdata {
 	// @zasm_var MAPDATAWARPARRIVALY
 	internal int WarpArrivalY;
 
-	// The four directions you must go for the maze path. Use the `DIR_`
-	// constants for the values.
+	// The four directions you must go for the maze path.
+	//
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
 	//
 	// @zasm_var MAPDATAPATH
 	internal int MazePath[];
@@ -162,24 +172,22 @@ class mapdata {
 	// @zasm_var MAPDATASIDEWARPSC
 	internal int SideWarpScreen[];
 
-	// Returns the sidewarp ID for a given screen edge, as SideWarpID[dir];
+	// Returns the sidewarp ID for a given screen edge, as `SideWarpID[dir]`;
 	//
-	// Returns -1 if there is no sidewarp in that direction.
+	// Returns [SIDEWARP_NONE] if there is no sidewarp in that direction.
 	//
-	// Use the SIDEWARP_* constants in std.zh for the value of this (read return
-	// value, or write value).
-	//
-	// Use the DIR_* constants in std.zh for the index values.
+	// Valid indices: [DIR_UP], [DIR_DOWN], [DIR_LEFT], [DIR_RIGHT]
+	// Valid values: [SideWarpIndex] (`SIDEWARP_`)
 	//
 	// @zasm_var MAPDATASIDEWARPID
 	internal int SideWarpID[];
 
-	// The return square (A->D) used by Tile Warp[A->D].
+	// The return square used by the Tile Warp (A, B, C, D).
 	//
 	// @zasm_var MAPDATATWARPRETSQR
 	internal int TileWarpReturnSquare[];
 
-	// The return square (A->D) used by Side Warp[A->D].
+	// The return square used by the Side Warp (A, B, C, D).
 	//
 	// @zasm_var MAPDATASWARPRETSQR
 	internal int SideWarpReturnSquare[];
@@ -366,14 +374,14 @@ class mapdata {
 
 	// The TileWidth variable for each of the ffcs on the screen.
 	//
-	// See [ffc::TilwWidth] for more details.
+	// See [ffc::TileWidth] for more details.
 	//
 	// @zasm_var MAPDATAFFWIDTH
 	internal int FFCTileWidth[];
 
 	// The TileHeighr variable for each of the ffcs on the screen.
 	//
-	// See [ffc::TilwHeight] for more details.
+	// See [ffc::TileHeight] for more details.
 	//
 	// @zasm_var MAPDATAFFHEIGHT
 	internal int FFCTileHeight[];
@@ -577,33 +585,21 @@ class mapdata {
 
 	// The warp return IDs.
 	//
-	// @deprecated by [SideWarpID[]].
+	// @deprecated by [SideWarpID].
 	// @zasm_var MAPDATASIDEWARPINDEX
 	internal int SideWarpIndex;
 
-	// @deprecated
+	// @deprecated Use [Hero->RespawnX] instead!
 	// @zasm_var MAPDATAENTRYX
 	internal int EntryX;
 
-	// @deprecated
+	// @deprecated Use [Hero->RespawnY] instead!
 	// @zasm_var MAPDATAENTRYY
 	internal int EntryY;
 
 	// @deprecated
 	// @zasm_var MAPDATANUMFF
 	internal const bool NumFFCs[];
-
-	// @deprecated
-	// @zasm_var MAPDATASCRIPTENTRY
-	internal int ScriptEntry;
-
-	// @deprecated
-	// @zasm_var MAPDATASCRIPTOCCUPANCY
-	internal int ScriptOccupancy;
-
-	// @deprecated
-	// @zasm_var MAPDATASCRIPTEXIT
-	internal int ExitScript;
 
 	// @deprecated
 	// @zasm_var MAPDATALENSLAYER
@@ -634,10 +630,6 @@ class mapdata {
 	// This needs to be converted to the type 'untyped' to comply with the
 	// change of float ffc->InitD[] to untyped ffc->InitD[]
 	//
-	// Note: Expressed as a function due to lack of 2D arrays in ZScript.
-	//
-	// With 2D arrays, this would simply be FFCInitD[32][8].
-	//
 	// @zasm
 	//   POP D1
 	//   POP D0
@@ -650,10 +642,6 @@ class mapdata {
 	//
 	// 'int value' needs to be converted to the type 'untyped' to comply with
 	// the change of float ffc->InitD[] to untyped ffc->InitD[]
-	//
-	// Note: Expressed as a function due to lack of 2D arrays in ZScript.
-	//
-	// With 2D arrays, this would simply be FFCInitD[32][8].
 	//
 	// @zasm
 	//   POP D6
@@ -679,33 +667,4 @@ class mapdata {
 	//   SETR MAPDATAEXDOOR D2
 	//   POPARGS D5 0.0003
 	internal void SetExDoor(int dir, int index, bool state);
-
-	// Returns the value of InitA[n] for the ffc on the screen with an ID of
-	// ffc_index.
-	//
-	// Note: Expressed as a function due to lack of 2D arrays in ZScript.
-	//
-	// With 2D arrays, this would simply be FFCInitA[32][2].
-	//
-	// @zasm
-	//   POP D1
-	//   POP D0
-	//   POP REFMAPDATA
-	//   SETR D2 MAPDATAINITA
-	internal int GetFFCInitA(int ffc_index, int n);
-
-	// Sets the value of InitA[n] for the ffc on the screen with an ID of
-	// ffc_index.
-	//
-	// Note: Expressed as a function due to lack of 2D arrays in ZScript.
-	//
-	// With 2D arrays, this would simply be FFCInitA[32][2].
-	//
-	// @zasm
-	//   POP D6
-	//   POP D1
-	//   POP D0
-	//   POP REFMAPDATA
-	//   SETR MAPDATAINITA D6
-	internal int SetFFCInitA(int ffc_index, int init_a, int value);
 }

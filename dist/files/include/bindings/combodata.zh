@@ -77,24 +77,24 @@ class combodata {
 	// @zasm_var COMBODASPEED
 	internal int ASpeed;
 
-	// The combo's flip value. Use the `FLIP_` or `ROT_` constants from
-	// `std_constants.zh` for this value.
+	// How to flip (or rotate) the combo.
+	//
+	// Valid values: [TransformationType] (`FLIP_` or `ROT_`).
 	//
 	// @zasm_var COMBODFLIP
 	internal int Flip;
 
-	// The solidity bitmask of the combo (same as [Screen->ComboS[]])
+	// The solidity bitmask of the combo (same as [Screen->ComboS])
 	//
 	// @zasm_var COMBODWALK
 	internal int Walk;
 
-	// The effect bitmask of the combo (same as [Screen->ComboE[]])
+	// The effect bitmask of the combo (same as [Screen->ComboE])
 	//
 	// @zasm_var COMBODEFFECT
 	internal int Effect;
 
-	// The combo type of the combo. Use the `CT_` constants from
-	// `std_constants.zh`.
+	// Valid values: [ComboType] (`CT_`).
 	//
 	// @zasm_var COMBODTYPE
 	internal int Type;
@@ -109,7 +109,7 @@ class combodata {
 	internal int CSet2;
 
 	// Bitwise access to the 4 corners of the cset2 square.
-	// <todo>Untested!</todo>
+	// TODO: Untested!
 	//
 	// @zasm_var COMBODCSET2FLAGS
 	internal int CSet2Flags;
@@ -209,9 +209,9 @@ class combodata {
 
 	// The amount the combo will change by when triggered.
 	//
-	// Ex. '1' acts as '->Next', '-1' acts as '->Prev'.
+	// Ex. `1` acts as '->Next', `-1` acts as '->Prev'.
 	//
-	// If '0', no change occurs.
+	// If `0`, no change occurs.
 	//
 	// @zasm_var COMBODTRIGGERCHANGECMB
 	internal int TrigChange;
@@ -224,8 +224,8 @@ class combodata {
 	// 0 means any beams, 1-32 mean only matching beams.
 	//
 	// Related:
-	// - TriggerFlags[TRIGFLAG_LIGHTON] (trigger when hit by matching light)
-	// - TriggerFlags[TRIGFLAG_LIGHTOFF] (trigger when NOT hit by matching
+	// - `TriggerFlags[TRIGFLAG_LIGHTON]` (trigger when hit by matching light)
+	// - `TriggerFlags[TRIGFLAG_LIGHTOFF]` (trigger when NOT hit by matching
 	// light)
 	//
 	// @zasm_var COMBODTRIGGERLIGHTBEAM
@@ -388,31 +388,31 @@ class combodata {
 	// @zasm_var COMBODTRIGWAVYTIME
 	internal int TrigWavyTimer;
 
-	// The duration to Sword Jinx the player for. -2 for none, -1 for 'until
+	// The duration to Sword Jinx the [Hero] for. -2 for none, -1 for 'until
 	// cured', 0 to cure.
 	//
 	// @zasm_var COMBODTRIGSWORDJINX
 	internal int TrigSwordJinx;
 
-	// The duration to Item Jinx the player for. -2 for none, -1 for 'until
+	// The duration to Item Jinx the [Hero] for. -2 for none, -1 for 'until
 	// cured', 0 to cure.
 	//
 	// @zasm_var COMBODTRIGITEMJINX
 	internal int TrigItemJinx;
 
-	// The duration to Shield Jinx the player for. -2 for none, -1 for 'until
+	// The duration to Shield Jinx the [Hero] for. -2 for none, -1 for 'until
 	// cured', 0 to cure.
 	//
 	// @zasm_var COMBODTRIGSHIELDJINX
 	internal int TrigShieldJinx;
 
-	// The duration to Stun the player for. -2 for none, -1 for 'until cured', 0
+	// The duration to Stun the [Hero] for. -2 for none, -1 for 'until cured', 0
 	// to cure.
 	//
 	// @zasm_var COMBODTRIGSTUN
 	internal int TrigStun;
 
-	// The duration to Bunny the player for. -2 for none, -1 for 'until cured',
+	// The duration to Bunny the [Hero] for. -2 for none, -1 for 'until cured',
 	// 0 to cure.
 	//
 	// @zasm_var COMBODTRIGBUNNY
@@ -492,7 +492,7 @@ class combodata {
 	// @zasm_var COMBODLIFTBREAKSFX
 	internal int LiftBreakSFX;
 
-	// The height above the player's head to lift the object.
+	// The height above the [Hero]'s head to lift the object.
 	//
 	// @zasm_var COMBODLIFTHEIGHT
 	internal int LiftHeight;
