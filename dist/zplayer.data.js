@@ -1,11 +1,8 @@
 
   var Module = typeof Module != 'undefined' ? Module : {};
 
-  if (!Module.expectedDataFileDownloads) {
-    Module.expectedDataFileDownloads = 0;
-  }
-
-  Module.expectedDataFileDownloads++;
+  Module['expectedDataFileDownloads'] ??= 0;
+  Module['expectedDataFileDownloads']++;
   (() => {
     // Do not attempt to redownload the virtual filesystem data when in a pthread or a Wasm Worker context.
     var isPthread = typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD;
@@ -15,67 +12,70 @@
 
       var PACKAGE_PATH = '';
       if (typeof window === 'object') {
-        PACKAGE_PATH = window['encodeURIComponent'](window.location.pathname.toString().substring(0, window.location.pathname.toString().lastIndexOf('/')) + '/');
+        PACKAGE_PATH = window['encodeURIComponent'](window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/');
       } else if (typeof process === 'undefined' && typeof location !== 'undefined') {
         // web worker
-        PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
+        PACKAGE_PATH = encodeURIComponent(location.pathname.substring(0, location.pathname.lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = '/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data';
+      var PACKAGE_NAME = '/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data';
       var REMOTE_PACKAGE_BASE = 'zplayer.data';
-      if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
-        Module['locateFile'] = Module['locateFilePackage'];
-        err('warning: you defined Module.locateFilePackage, that has been renamed to Module.locateFile (using your locateFilePackage for now)');
-      }
       var REMOTE_PACKAGE_NAME = Module['locateFile'] ? Module['locateFile'](REMOTE_PACKAGE_BASE, '') : REMOTE_PACKAGE_BASE;
 var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
 
       function fetchRemotePackage(packageName, packageSize, callback, errback) {
         
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', packageName, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onprogress = function(event) {
-          var url = packageName;
-          var size = packageSize;
-          if (event.total) size = event.total;
-          if (event.loaded) {
-            if (!xhr.addedTotal) {
-              xhr.addedTotal = true;
-              if (!Module.dataFileDownloads) Module.dataFileDownloads = {};
-              Module.dataFileDownloads[url] = {
-                loaded: event.loaded,
-                total: size
-              };
-            } else {
-              Module.dataFileDownloads[url].loaded = event.loaded;
+        Module['dataFileDownloads'] ??= {};
+        fetch(packageName)
+          .catch((cause) => Promise.reject(new Error(`Network Error: ${packageName}`, {cause}))) // If fetch fails, rewrite the error to include the failing URL & the cause.
+          .then((response) => {
+            if (!response.ok) {
+              return Promise.reject(new Error(`${response.status}: ${response.url}`));
             }
-            var total = 0;
-            var loaded = 0;
-            var num = 0;
-            for (var download in Module.dataFileDownloads) {
-            var data = Module.dataFileDownloads[download];
-              total += data.total;
-              loaded += data.loaded;
-              num++;
+
+            if (!response.body && response.arrayBuffer) { // If we're using the polyfill, readers won't be available...
+              return response.arrayBuffer().then(callback);
             }
-            total = Math.ceil(total * Module.expectedDataFileDownloads/num);
-            Module['setStatus']?.(`Downloading data... (${loaded}/${total})`);
-          } else if (!Module.dataFileDownloads) {
+
+            const reader = response.body.getReader();
+            const iterate = () => reader.read().then(handleChunk).catch((cause) => {
+              return Promise.reject(new Error(`Unexpected error while handling : ${response.url} ${cause}`, {cause}));
+            });
+
+            const chunks = [];
+            const headers = response.headers;
+            const total = Number(headers.get('Content-Length') ?? packageSize);
+            let loaded = 0;
+
+            const handleChunk = ({done, value}) => {
+              if (!done) {
+                chunks.push(value);
+                loaded += value.length;
+                Module['dataFileDownloads'][packageName] = {loaded, total};
+
+                let totalLoaded = 0;
+                let totalSize = 0;
+
+                for (const download of Object.values(Module['dataFileDownloads'])) {
+                  totalLoaded += download.loaded;
+                  totalSize += download.total;
+                }
+
+                Module['setStatus']?.(`Downloading data... (${totalLoaded}/${totalSize})`);
+                return iterate();
+              } else {
+                const packageData = new Uint8Array(chunks.map((c) => c.length).reduce((a, b) => a + b, 0));
+                let offset = 0;
+                for (const chunk of chunks) {
+                  packageData.set(chunk, offset);
+                  offset += chunk.length;
+                }
+                callback(packageData.buffer);
+              }
+            };
+
             Module['setStatus']?.('Downloading data...');
-          }
-        };
-        xhr.onerror = function(event) {
-          throw new Error("NetworkError for: " + packageName);
-        }
-        xhr.onload = function(event) {
-          if (xhr.status == 200 || xhr.status == 304 || xhr.status == 206 || (xhr.status == 0 && xhr.response)) { // file URLs can return 0
-            var packageData = xhr.response;
-            callback(packageData);
-          } else {
-            throw new Error(xhr.statusText + " : " + xhr.responseURL);
-          }
-        };
-        xhr.send(null);
+            return iterate();
+          });
       };
 
       function handleError(error) {
@@ -127,15 +127,6 @@ Module['FS_createPath']("/modules", "classic", true, true);
       }
 
         var PACKAGE_UUID = metadata['package_uuid'];
-        var indexedDB;
-        if (typeof window === 'object') {
-          indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-        } else if (typeof location !== 'undefined') {
-          // worker
-          indexedDB = self.indexedDB;
-        } else {
-          throw 'using IndexedDB to cache data can only be done on a web page or in a web worker';
-        }
         var IDB_RO = "readonly";
         var IDB_RW = "readwrite";
         var DB_NAME = "EM_PRELOAD_CACHE";
@@ -143,12 +134,21 @@ Module['FS_createPath']("/modules", "classic", true, true);
         var METADATA_STORE_NAME = 'METADATA';
         var PACKAGE_STORE_NAME = 'PACKAGES';
         function openDatabase(callback, errback) {
+          var indexedDB;
+          if (typeof window === 'object') {
+            indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+          } else if (typeof location !== 'undefined') {
+            // worker
+            indexedDB = self.indexedDB;
+          } else {
+            throw 'using IndexedDB to cache data can only be done on a web page or in a web worker';
+          }
           try {
             var openRequest = indexedDB.open(DB_NAME, DB_VERSION);
           } catch (e) {
             return errback(e);
           }
-          openRequest.onupgradeneeded = function(event) {
+          openRequest.onupgradeneeded = (event) => {
             var db = /** @type {IDBDatabase} */ (event.target.result);
 
             if (db.objectStoreNames.contains(PACKAGE_STORE_NAME)) {
@@ -161,13 +161,11 @@ Module['FS_createPath']("/modules", "classic", true, true);
             }
             var metadata = db.createObjectStore(METADATA_STORE_NAME);
           };
-          openRequest.onsuccess = function(event) {
+          openRequest.onsuccess = (event) => {
             var db = /** @type {IDBDatabase} */ (event.target.result);
             callback(db);
           };
-          openRequest.onerror = function(error) {
-            errback(error);
-          };
+          openRequest.onerror = (error) => errback(error);
         };
 
         // This is needed as chromium has a limit on per-entry files in IndexedDB
@@ -197,7 +195,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
               `package/${packageName}/${chunkId}`
             );
             chunkSliceStart = nextChunkSliceStart;
-            putPackageRequest.onsuccess = function(event) {
+            putPackageRequest.onsuccess = (event) => {
               finishedChunks++;
               if (finishedChunks == chunkCount) {
                 var transaction_metadata = db.transaction(
@@ -212,17 +210,11 @@ Module['FS_createPath']("/modules", "classic", true, true);
                   },
                   `metadata/${packageName}`
                 );
-                putMetadataRequest.onsuccess = function(event) {
-                  callback(packageData);
-                };
-                putMetadataRequest.onerror = function(error) {
-                  errback(error);
-                };
+                putMetadataRequest.onsuccess = (event) =>  callback(packageData);
+                putMetadataRequest.onerror = (error) => errback(error);
               }
             };
-            putPackageRequest.onerror = function(error) {
-              errback(error);
-            };
+            putPackageRequest.onerror = (error) => errback(error);
           }
         }
 
@@ -231,7 +223,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var transaction = db.transaction([METADATA_STORE_NAME], IDB_RO);
           var metadata = transaction.objectStore(METADATA_STORE_NAME);
           var getRequest = metadata.get(`metadata/${packageName}`);
-          getRequest.onsuccess = function(event) {
+          getRequest.onsuccess = (event) => {
             var result = event.target.result;
             if (!result) {
               return callback(false, null);
@@ -239,9 +231,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
               return callback(PACKAGE_UUID === result['uuid'], result);
             }
           };
-          getRequest.onerror = function(error) {
-            errback(error);
-          };
+          getRequest.onerror = (error) => errback(error);
         }
 
         function fetchCachedPackage(db, packageName, metadata, callback, errback) {
@@ -255,7 +245,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
 
           for (var chunkId = 0; chunkId < chunkCount; chunkId++) {
             var getRequest = packages.get(`package/${packageName}/${chunkId}`);
-            getRequest.onsuccess = function(event) {
+            getRequest.onsuccess = (event) => {
               if (!event.target.result) {
                 errback(new Error(`CachedPackageNotFound for: ${packageName}`));
                 return;
@@ -286,9 +276,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
                 }
               }
             };
-            getRequest.onerror = function(error) {
-              errback(error);
-            };
+            getRequest.onerror = (error) => errback(error);
           }
         }
 
@@ -302,12 +290,12 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data');
+          }          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
 
       };
-      Module['addRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zplayer.data');
+      Module['addRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
 
-      if (!Module.preloadResults) Module.preloadResults = {};
+      Module['preloadResults'] ??= {};
 
         function preloadFallback(error) {
           console.error(error);
@@ -316,26 +304,23 @@ Module['FS_createPath']("/modules", "classic", true, true);
         };
 
         openDatabase(
-          function(db) {
-            checkCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME,
-              function(useCached, metadata) {
-                Module.preloadResults[PACKAGE_NAME] = {fromCache: useCached};
+          (db) => checkCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME,
+              (useCached, metadata) => {
+                Module['preloadResults'][PACKAGE_NAME] = {fromCache: useCached};
                 if (useCached) {
                   fetchCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME, metadata, processPackageData, preloadFallback);
                 } else {
                   fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE,
-                    function(packageData) {
+                    (packageData) => {
                       cacheRemotePackage(db, PACKAGE_PATH + PACKAGE_NAME, packageData, {uuid:PACKAGE_UUID}, processPackageData,
-                        function(error) {
+                        (error) => {
                           console.error(error);
                           processPackageData(packageData);
                         });
                     }
                   , preloadFallback);
                 }
-              }
-            , preloadFallback);
-          }
+              }, preloadFallback)
         , preloadFallback);
 
         Module['setStatus']?.('Downloading...');
@@ -344,11 +329,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
     if (Module['calledRun']) {
       runWithFS(Module);
     } else {
-      if (!Module['preRun']) Module['preRun'] = [];
-      Module["preRun"].push(runWithFS); // FS is not initialized yet, wait for it
+      (Module['preRun'] ??= []).push(runWithFS); // FS is not initialized yet, wait for it
     }
 
     }
-    loadPackage({"files": [{"filename": "/Classic.nsf", "start": 0, "end": 61568}, {"filename": "/allegro5.cfg", "start": 61568, "end": 69226}, {"filename": "/assets/cursor.bmp", "start": 69226, "end": 70560}, {"filename": "/assets/dungeon.mid", "start": 70560, "end": 73066}, {"filename": "/assets/ending.mid", "start": 73066, "end": 85139}, {"filename": "/assets/gameover.mid", "start": 85139, "end": 85824}, {"filename": "/assets/gui_pal.bmp", "start": 85824, "end": 87158}, {"filename": "/assets/level9.mid", "start": 87158, "end": 90515}, {"filename": "/assets/overworld.mid", "start": 90515, "end": 98919}, {"filename": "/assets/title.mid", "start": 98919, "end": 107520}, {"filename": "/assets/triforce.mid", "start": 107520, "end": 108178}, {"filename": "/assets/zc/ZC_Forever_HD.mp3", "start": 108178, "end": 4097515, "audio": 1}, {"filename": "/assets/zc/ZC_Icon_Medium_Player.png", "start": 4097515, "end": 4105522}, {"filename": "/assets/zc/ZC_Logo.png", "start": 4105522, "end": 4132713}, {"filename": "/base_config/zc.cfg", "start": 4132713, "end": 4136792}, {"filename": "/base_config/zcl.cfg", "start": 4136792, "end": 4137461}, {"filename": "/base_config/zquest.cfg", "start": 4137461, "end": 4141034}, {"filename": "/base_config/zscript.cfg", "start": 4141034, "end": 4141269}, {"filename": "/etc/2MGM.cfg", "start": 4141269, "end": 4148705}, {"filename": "/etc/freepats.cfg", "start": 4148705, "end": 4153226}, {"filename": "/etc/oot.cfg", "start": 4153226, "end": 4155471}, {"filename": "/etc/ppl160.cfg", "start": 4155471, "end": 4159639}, {"filename": "/etc/ultra.cfg", "start": 4159639, "end": 4164062}, {"filename": "/etc/zc.cfg", "start": 4164062, "end": 4169586}, {"filename": "/modules/classic.zmod", "start": 4169586, "end": 4184425}, {"filename": "/modules/classic/classic_fonts.dat", "start": 4184425, "end": 4287190}, {"filename": "/modules/classic/default.qst", "start": 4287190, "end": 7436869}, {"filename": "/modules/classic/title_gfx.dat", "start": 7436869, "end": 7575925}, {"filename": "/modules/classic/zelda.nsf", "start": 7575925, "end": 7580857}, {"filename": "/sfx.dat", "start": 7580857, "end": 8829990}, {"filename": "/zc.png", "start": 8829990, "end": 8858875}, {"filename": "/zc_web.cfg", "start": 8858875, "end": 8859231}, {"filename": "/zquest_web.cfg", "start": 8859231, "end": 8859285}], "remote_package_size": 8859285, "package_uuid": "sha256-e1c54925d3766b88b94351e3b6eacac782fc696eb61d1b6d019e275a5e965a4a"});
+    loadPackage({"files": [{"filename": "/Classic.nsf", "start": 0, "end": 61568}, {"filename": "/allegro5.cfg", "start": 61568, "end": 69226}, {"filename": "/assets/cursor.bmp", "start": 69226, "end": 70560}, {"filename": "/assets/dungeon.mid", "start": 70560, "end": 73066}, {"filename": "/assets/ending.mid", "start": 73066, "end": 85139}, {"filename": "/assets/gameover.mid", "start": 85139, "end": 85824}, {"filename": "/assets/gui_pal.bmp", "start": 85824, "end": 87158}, {"filename": "/assets/level9.mid", "start": 87158, "end": 90515}, {"filename": "/assets/overworld.mid", "start": 90515, "end": 98919}, {"filename": "/assets/title.mid", "start": 98919, "end": 107520}, {"filename": "/assets/triforce.mid", "start": 107520, "end": 108178}, {"filename": "/assets/zc/ZC_Forever_HD.mp3", "start": 108178, "end": 4097515, "audio": 1}, {"filename": "/assets/zc/ZC_Icon_Medium_Player.png", "start": 4097515, "end": 4105522}, {"filename": "/assets/zc/ZC_Logo.png", "start": 4105522, "end": 4132713}, {"filename": "/base_config/zc.cfg", "start": 4132713, "end": 4136868}, {"filename": "/base_config/zcl.cfg", "start": 4136868, "end": 4137487}, {"filename": "/base_config/zquest.cfg", "start": 4137487, "end": 4141010}, {"filename": "/base_config/zscript.cfg", "start": 4141010, "end": 4141228}, {"filename": "/etc/2MGM.cfg", "start": 4141228, "end": 4148664}, {"filename": "/etc/freepats.cfg", "start": 4148664, "end": 4153185}, {"filename": "/etc/oot.cfg", "start": 4153185, "end": 4155430}, {"filename": "/etc/ppl160.cfg", "start": 4155430, "end": 4159598}, {"filename": "/etc/ultra.cfg", "start": 4159598, "end": 4164021}, {"filename": "/etc/zc.cfg", "start": 4164021, "end": 4169545}, {"filename": "/modules/classic/classic_fonts.dat", "start": 4169545, "end": 4272310}, {"filename": "/modules/classic/default.qst", "start": 4272310, "end": 7421989}, {"filename": "/modules/classic/title_gfx.dat", "start": 7421989, "end": 7561045}, {"filename": "/modules/classic/zelda.nsf", "start": 7561045, "end": 7565977}, {"filename": "/sfx.dat", "start": 7565977, "end": 8815110}, {"filename": "/zc.png", "start": 8815110, "end": 8843995}, {"filename": "/zc_web.cfg", "start": 8843995, "end": 8844351}, {"filename": "/zquest_web.cfg", "start": 8844351, "end": 8844405}], "remote_package_size": 8844405, "package_uuid": "sha256-321a1d496ecc9af58c8d7ba6fe097cd7a7a6520aad1e7d8a5cdc9f0e58ce10a1"});
 
   })();

@@ -1,10 +1,21 @@
+enum SubscreenItemButton
+{
+	ITMBTN_A,
+	ITMBTN_B,
+	ITMBTN_X,
+	ITMBTN_Y,
+	NUM_ITMBTN
+};
+
 // @zasm_ref REFSUBSCREENWIDG
 class subscreenwidget {
 	// @delete
 	internal subscreenwidget();
 
-	// The widget's type, using [SubscreenWidgetType] (`SUBWIDG_`) constants.
+	// The widget's type.
 	//
+	// @value [enum SubscreenWidgetType]
+
 	// @zasm_var SUBWIDGTYPE
 	internal const int Type;
 
@@ -43,10 +54,9 @@ class subscreenwidget {
 
 	// The 4 directional positions for the selector.
 	//
-	// Use the 'DIR_' constants to index.
-	//
 	// Only used if the widget is selectable (see [GenFlags]).
 	//
+	// @index [enum Direction]
 	// @zasm_var SUBWIDGPOSES
 	internal int PosDirs[];
 
@@ -248,7 +258,7 @@ class subscreenwidget {
 	// @zasm_var SUBWIDGPRESSINITD
 	internal untyped PressInitD[];
 
-	// Use the [InteractButton] (`INTBTN_`) constants to index this array.
+	// Use [InteractButton] to index this array.
 	//
 	// The 'true' buttons here, when pressed while this widget is selected, run
 	// the press script.
@@ -256,7 +266,7 @@ class subscreenwidget {
 	// @zasm_var SUBWIDGBTNPRESS
 	internal bool BtnPressScript[];
 
-	// Use the [InteractButton] (`INTBTN_`) constants to index this array.
+	// Use [InteractButton] to index this array.
 	//
 	// The 'true' buttons here, when pressed while this widget is selected,
 	// change the current page based on [PageMode].
@@ -334,7 +344,7 @@ class subscreenwidget {
 	// @zasm_var SUBWIDGTY_TILE
 	internal int Tile[];
 
-	// The widget's Font, use the 'FONT_' constants.
+	// The widget's font.
 	//
 	// - [SUBWIDG_TEXT]
 	// - [SUBWIDG_TEXTBOX]
@@ -345,10 +355,12 @@ class subscreenwidget {
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
 	//
+	// @value [enum Font]
+
 	// @zasm_var SUBWIDGTY_FONT
 	internal int Font;
 
-	// The widget's Alignment, use the 'TF_' constants.
+	// The widget's text alignment.
 	//
 	// - [SUBWIDG_TEXT]
 	// - [SUBWIDG_TEXTBOX]
@@ -358,13 +370,13 @@ class subscreenwidget {
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
 	//
+	// @value [enum TextAlignment]
+
 	// @zasm_var SUBWIDGTY_ALIGN
 	internal int Align;
 
 	// The widget's Shadow Type.
 	//
-	// Valid values: [ShadowType] (`SHD_`).
-	//
 	// - [SUBWIDG_TEXT]
 	// - [SUBWIDG_TEXTBOX]
 	// - [SUBWIDG_TIME]
@@ -374,6 +386,8 @@ class subscreenwidget {
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
 	//
+	// @value [enum ShadowType]
+
 	// @zasm_var SUBWIDGTY_SHADOWTY
 	internal int ShadowType;
 
@@ -391,6 +405,14 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_TXT
 	internal int ColorText;
+	
+	// The widget's color index used for Text when the counter is full
+	//
+	// - [SUBWIDG_COUNTER]
+	// - [SUBWIDG_BTNCOUNTER]
+	//
+	// @zasm_var SUBWIDGTY_COLOR_TXT2
+	internal int ColorFullText;
 
 	// The widget's color index used for Shadows
 	//
@@ -405,6 +427,14 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_SHD
 	internal int ColorShadow;
+	
+	// The widget's color index used for Shadows when the counter is full
+	//
+	// - [SUBWIDG_COUNTER]
+	// - [SUBWIDG_BTNCOUNTER]
+	//
+	// @zasm_var SUBWIDGTY_COLOR_SHD2
+	internal int ColorFullShadow;
 
 	// The widget's color index used for background
 	//
@@ -420,6 +450,14 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_BG
 	internal int ColorBG;
+	
+	// The widget's color index used for background when the counter is full
+	//
+	// - [SUBWIDG_COUNTER]
+	// - [SUBWIDG_BTNCOUNTER]
+	//
+	// @zasm_var SUBWIDGTY_COLOR_BG2
+	internal int ColorFullBG;
 
 	// The widget's color index used for outline
 	//
@@ -439,21 +477,19 @@ class subscreenwidget {
 
 	// The item button associated with the widget.
 	//
-	// Use the 'ITMBTN_' constants for this value.
-	//
 	// - [SUBWIDG_BTNITM]
 	// - [SUBWIDG_BTNCOUNTER]
 	//
+	// @value [enum SubscreenItemButton]
+
 	// @zasm_var SUBWIDGTY_BUTTON
 	internal int Button;
 
 	// The counter(s) associated with the widget.
 	//
-	// Use the 'CR_' constants for the values.
-	//
-	// - [SUBWIDG_COUNTER] - 3 values
-	// - [SUBWIDG_MISCGAUGE] - 1 values
-	//
+	// @length [SUBWIDG_COUNTER] - 3 values, [SUBWIDG_MISCGAUGE] - 1 value
+	// @value [enum CounterIndex]
+
 	// @zasm_var SUBWIDGTY_COUNTERS
 	internal int Counter[];
 
@@ -530,12 +566,12 @@ class subscreenwidget {
 	// @zasm_var SUBWIDGTY_COLOR_ROOM
 	internal int ColorRoom;
 
-	// The itemclass used by the widget (0 <= ItemClass < IC_MAXUSABLE)
+	// The itemclass used by the widget (0 <= ItemType < IC_MAXUSABLE)
 	//
 	// - [SUBWIDG_ITEMSLOT]
 	//
 	// @zasm_var SUBWIDGTY_ITEMCLASS
-	internal int ItemClass;
+	internal int ItemType;
 
 	// The item ID used by the widget (-1 <= ItemID < NUM_ITEMDATA)
 	//

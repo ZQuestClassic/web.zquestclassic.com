@@ -3,30 +3,16 @@ class ZInfo {
 	// @delete
 	internal ZInfo();
 
-	// Copies the name of the specified itemclass (use `IC_` constants) into the
-	// buffer.
+	// Copies the name of the specified item class into the buffer.
 	//
+	// @param [ItemType] itemclass_id
 	// @zasm
 	//   POP D2
 	//   POP D3
 	//   MODULEGETIC D3 D2
-	internal void GetItemClass(char32 buffer, int itemclass_id);
-
-	// @deprecated no longer supported!
-	// @zasm
-	//   POP D1
-	//   POP D0
-	//   SETR D2 MODULEGETINT
-	internal int GetInt(char32 arg1, char32 arg2);
-
-	// @deprecated no longer supported!
-	// @zasm
-	//   POP D6
-	//   POP D1
-	//   POP D0
-	//   SETR MODULEGETSTR D6
-	internal void GetString(char32 arg1, char32 arg2, char32 arg3);
+	internal void GetItemType(char32[] buffer, int itemclass_id);
 }
 
+internal const ZInfo ZInfo;
+// @deprecated Use [ZInfo]
 internal const ZInfo Module;
-internal const ZInfo ZInfo; // @deprecated Use Module->

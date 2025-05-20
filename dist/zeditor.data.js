@@ -1,11 +1,8 @@
 
   var Module = typeof Module != 'undefined' ? Module : {};
 
-  if (!Module.expectedDataFileDownloads) {
-    Module.expectedDataFileDownloads = 0;
-  }
-
-  Module.expectedDataFileDownloads++;
+  Module['expectedDataFileDownloads'] ??= 0;
+  Module['expectedDataFileDownloads']++;
   (() => {
     // Do not attempt to redownload the virtual filesystem data when in a pthread or a Wasm Worker context.
     var isPthread = typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD;
@@ -15,67 +12,70 @@
 
       var PACKAGE_PATH = '';
       if (typeof window === 'object') {
-        PACKAGE_PATH = window['encodeURIComponent'](window.location.pathname.toString().substring(0, window.location.pathname.toString().lastIndexOf('/')) + '/');
+        PACKAGE_PATH = window['encodeURIComponent'](window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/');
       } else if (typeof process === 'undefined' && typeof location !== 'undefined') {
         // web worker
-        PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
+        PACKAGE_PATH = encodeURIComponent(location.pathname.substring(0, location.pathname.lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = '/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data';
+      var PACKAGE_NAME = '/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data';
       var REMOTE_PACKAGE_BASE = 'zeditor.data';
-      if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
-        Module['locateFile'] = Module['locateFilePackage'];
-        err('warning: you defined Module.locateFilePackage, that has been renamed to Module.locateFile (using your locateFilePackage for now)');
-      }
       var REMOTE_PACKAGE_NAME = Module['locateFile'] ? Module['locateFile'](REMOTE_PACKAGE_BASE, '') : REMOTE_PACKAGE_BASE;
 var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
 
       function fetchRemotePackage(packageName, packageSize, callback, errback) {
         
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', packageName, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onprogress = function(event) {
-          var url = packageName;
-          var size = packageSize;
-          if (event.total) size = event.total;
-          if (event.loaded) {
-            if (!xhr.addedTotal) {
-              xhr.addedTotal = true;
-              if (!Module.dataFileDownloads) Module.dataFileDownloads = {};
-              Module.dataFileDownloads[url] = {
-                loaded: event.loaded,
-                total: size
-              };
-            } else {
-              Module.dataFileDownloads[url].loaded = event.loaded;
+        Module['dataFileDownloads'] ??= {};
+        fetch(packageName)
+          .catch((cause) => Promise.reject(new Error(`Network Error: ${packageName}`, {cause}))) // If fetch fails, rewrite the error to include the failing URL & the cause.
+          .then((response) => {
+            if (!response.ok) {
+              return Promise.reject(new Error(`${response.status}: ${response.url}`));
             }
-            var total = 0;
-            var loaded = 0;
-            var num = 0;
-            for (var download in Module.dataFileDownloads) {
-            var data = Module.dataFileDownloads[download];
-              total += data.total;
-              loaded += data.loaded;
-              num++;
+
+            if (!response.body && response.arrayBuffer) { // If we're using the polyfill, readers won't be available...
+              return response.arrayBuffer().then(callback);
             }
-            total = Math.ceil(total * Module.expectedDataFileDownloads/num);
-            Module['setStatus']?.(`Downloading data... (${loaded}/${total})`);
-          } else if (!Module.dataFileDownloads) {
+
+            const reader = response.body.getReader();
+            const iterate = () => reader.read().then(handleChunk).catch((cause) => {
+              return Promise.reject(new Error(`Unexpected error while handling : ${response.url} ${cause}`, {cause}));
+            });
+
+            const chunks = [];
+            const headers = response.headers;
+            const total = Number(headers.get('Content-Length') ?? packageSize);
+            let loaded = 0;
+
+            const handleChunk = ({done, value}) => {
+              if (!done) {
+                chunks.push(value);
+                loaded += value.length;
+                Module['dataFileDownloads'][packageName] = {loaded, total};
+
+                let totalLoaded = 0;
+                let totalSize = 0;
+
+                for (const download of Object.values(Module['dataFileDownloads'])) {
+                  totalLoaded += download.loaded;
+                  totalSize += download.total;
+                }
+
+                Module['setStatus']?.(`Downloading data... (${totalLoaded}/${totalSize})`);
+                return iterate();
+              } else {
+                const packageData = new Uint8Array(chunks.map((c) => c.length).reduce((a, b) => a + b, 0));
+                let offset = 0;
+                for (const chunk of chunks) {
+                  packageData.set(chunk, offset);
+                  offset += chunk.length;
+                }
+                callback(packageData.buffer);
+              }
+            };
+
             Module['setStatus']?.('Downloading data...');
-          }
-        };
-        xhr.onerror = function(event) {
-          throw new Error("NetworkError for: " + packageName);
-        }
-        xhr.onload = function(event) {
-          if (xhr.status == 200 || xhr.status == 304 || xhr.status == 206 || (xhr.status == 0 && xhr.response)) { // file URLs can return 0
-            var packageData = xhr.response;
-            callback(packageData);
-          } else {
-            throw new Error(xhr.statusText + " : " + xhr.responseURL);
-          }
-        };
-        xhr.send(null);
+            return iterate();
+          });
       };
 
       function handleError(error) {
@@ -88,10 +88,9 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
         if (!check) throw msg + new Error().stack;
       }
 Module['FS_createPath']("/", "assets", true, true);
+Module['FS_createPath']("/assets", "editor", true, true);
 Module['FS_createPath']("/assets", "zc", true, true);
 Module['FS_createPath']("/", "docs", true, true);
-Module['FS_createPath']("/", "modules", true, true);
-Module['FS_createPath']("/modules", "classic", true, true);
 
       /** @constructor */
       function DataRequest(start, end, audio) {
@@ -126,15 +125,6 @@ Module['FS_createPath']("/modules", "classic", true, true);
       }
 
         var PACKAGE_UUID = metadata['package_uuid'];
-        var indexedDB;
-        if (typeof window === 'object') {
-          indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-        } else if (typeof location !== 'undefined') {
-          // worker
-          indexedDB = self.indexedDB;
-        } else {
-          throw 'using IndexedDB to cache data can only be done on a web page or in a web worker';
-        }
         var IDB_RO = "readonly";
         var IDB_RW = "readwrite";
         var DB_NAME = "EM_PRELOAD_CACHE";
@@ -142,12 +132,21 @@ Module['FS_createPath']("/modules", "classic", true, true);
         var METADATA_STORE_NAME = 'METADATA';
         var PACKAGE_STORE_NAME = 'PACKAGES';
         function openDatabase(callback, errback) {
+          var indexedDB;
+          if (typeof window === 'object') {
+            indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+          } else if (typeof location !== 'undefined') {
+            // worker
+            indexedDB = self.indexedDB;
+          } else {
+            throw 'using IndexedDB to cache data can only be done on a web page or in a web worker';
+          }
           try {
             var openRequest = indexedDB.open(DB_NAME, DB_VERSION);
           } catch (e) {
             return errback(e);
           }
-          openRequest.onupgradeneeded = function(event) {
+          openRequest.onupgradeneeded = (event) => {
             var db = /** @type {IDBDatabase} */ (event.target.result);
 
             if (db.objectStoreNames.contains(PACKAGE_STORE_NAME)) {
@@ -160,13 +159,11 @@ Module['FS_createPath']("/modules", "classic", true, true);
             }
             var metadata = db.createObjectStore(METADATA_STORE_NAME);
           };
-          openRequest.onsuccess = function(event) {
+          openRequest.onsuccess = (event) => {
             var db = /** @type {IDBDatabase} */ (event.target.result);
             callback(db);
           };
-          openRequest.onerror = function(error) {
-            errback(error);
-          };
+          openRequest.onerror = (error) => errback(error);
         };
 
         // This is needed as chromium has a limit on per-entry files in IndexedDB
@@ -196,7 +193,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
               `package/${packageName}/${chunkId}`
             );
             chunkSliceStart = nextChunkSliceStart;
-            putPackageRequest.onsuccess = function(event) {
+            putPackageRequest.onsuccess = (event) => {
               finishedChunks++;
               if (finishedChunks == chunkCount) {
                 var transaction_metadata = db.transaction(
@@ -211,17 +208,11 @@ Module['FS_createPath']("/modules", "classic", true, true);
                   },
                   `metadata/${packageName}`
                 );
-                putMetadataRequest.onsuccess = function(event) {
-                  callback(packageData);
-                };
-                putMetadataRequest.onerror = function(error) {
-                  errback(error);
-                };
+                putMetadataRequest.onsuccess = (event) =>  callback(packageData);
+                putMetadataRequest.onerror = (error) => errback(error);
               }
             };
-            putPackageRequest.onerror = function(error) {
-              errback(error);
-            };
+            putPackageRequest.onerror = (error) => errback(error);
           }
         }
 
@@ -230,7 +221,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var transaction = db.transaction([METADATA_STORE_NAME], IDB_RO);
           var metadata = transaction.objectStore(METADATA_STORE_NAME);
           var getRequest = metadata.get(`metadata/${packageName}`);
-          getRequest.onsuccess = function(event) {
+          getRequest.onsuccess = (event) => {
             var result = event.target.result;
             if (!result) {
               return callback(false, null);
@@ -238,9 +229,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
               return callback(PACKAGE_UUID === result['uuid'], result);
             }
           };
-          getRequest.onerror = function(error) {
-            errback(error);
-          };
+          getRequest.onerror = (error) => errback(error);
         }
 
         function fetchCachedPackage(db, packageName, metadata, callback, errback) {
@@ -254,7 +243,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
 
           for (var chunkId = 0; chunkId < chunkCount; chunkId++) {
             var getRequest = packages.get(`package/${packageName}/${chunkId}`);
-            getRequest.onsuccess = function(event) {
+            getRequest.onsuccess = (event) => {
               if (!event.target.result) {
                 errback(new Error(`CachedPackageNotFound for: ${packageName}`));
                 return;
@@ -285,9 +274,7 @@ Module['FS_createPath']("/modules", "classic", true, true);
                 }
               }
             };
-            getRequest.onerror = function(error) {
-              errback(error);
-            };
+            getRequest.onerror = (error) => errback(error);
           }
         }
 
@@ -301,12 +288,12 @@ Module['FS_createPath']("/modules", "classic", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data');
+          }          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data');
 
       };
-      Module['addRunDependency']('datafile_/home/runner/work/ZQuestClassic/ZQuestClassic/build_emscripten/Release/zeditor.data');
+      Module['addRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data');
 
-      if (!Module.preloadResults) Module.preloadResults = {};
+      Module['preloadResults'] ??= {};
 
         function preloadFallback(error) {
           console.error(error);
@@ -315,26 +302,23 @@ Module['FS_createPath']("/modules", "classic", true, true);
         };
 
         openDatabase(
-          function(db) {
-            checkCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME,
-              function(useCached, metadata) {
-                Module.preloadResults[PACKAGE_NAME] = {fromCache: useCached};
+          (db) => checkCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME,
+              (useCached, metadata) => {
+                Module['preloadResults'][PACKAGE_NAME] = {fromCache: useCached};
                 if (useCached) {
                   fetchCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME, metadata, processPackageData, preloadFallback);
                 } else {
                   fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE,
-                    function(packageData) {
+                    (packageData) => {
                       cacheRemotePackage(db, PACKAGE_PATH + PACKAGE_NAME, packageData, {uuid:PACKAGE_UUID}, processPackageData,
-                        function(error) {
+                        (error) => {
                           console.error(error);
                           processPackageData(packageData);
                         });
                     }
                   , preloadFallback);
                 }
-              }
-            , preloadFallback);
-          }
+              }, preloadFallback)
         , preloadFallback);
 
         Module['setStatus']?.('Downloading...');
@@ -343,11 +327,10 @@ Module['FS_createPath']("/modules", "classic", true, true);
     if (Module['calledRun']) {
       runWithFS(Module);
     } else {
-      if (!Module['preRun']) Module['preRun'] = [];
-      Module["preRun"].push(runWithFS); // FS is not initialized yet, wait for it
+      (Module['preRun'] ??= []).push(runWithFS); // FS is not initialized yet, wait for it
     }
 
     }
-    loadPackage({"files": [{"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 0, "end": 8012}, {"filename": "/docs/zquest.txt", "start": 8012, "end": 197560}, {"filename": "/docs/zstrings.txt", "start": 197560, "end": 205342}, {"filename": "/modules/classic/classic_zquest.dat", "start": 205342, "end": 282323}], "remote_package_size": 282323, "package_uuid": "sha256-9bf6f0830ec691abaaf24c76450a74944467f120990704538dd6611de972efea"});
+    loadPackage({"files": [{"filename": "/assets/editor/arrows.bmp", "start": 0, "end": 3598}, {"filename": "/assets/editor/engravings.bmp", "start": 3598, "end": 155096}, {"filename": "/assets/editor/icons.bmp", "start": 155096, "end": 165834}, {"filename": "/assets/editor/mouse.bmp", "start": 165834, "end": 181264}, {"filename": "/assets/editor/pal.bmp", "start": 181264, "end": 182598}, {"filename": "/assets/editor/select.bmp", "start": 182598, "end": 184324}, {"filename": "/assets/editor/tunes.mid", "start": 184324, "end": 382948}, {"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 382948, "end": 390960}, {"filename": "/docs/zquest.txt", "start": 390960, "end": 580508}, {"filename": "/docs/zstrings.txt", "start": 580508, "end": 588290}], "remote_package_size": 588290, "package_uuid": "sha256-eab6da8d4fef6ef02069361e0fe1c0948f350ce3e3962f846a518f75eb5635b3"});
 
   })();
