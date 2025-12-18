@@ -1,27 +1,18 @@
-#!/bin/bash
+# bash update.sh path/to/zc
 
 set -ex
 
-mkdir -p .tmp
+ZC_DIR="${1:-$HOME/code/ZQuestClassic}"
 
-# TODO restore automation
-# rm -fr dist && cp -r ~/code/ZeldaClassic-secondary/build_emscripten/Release/packages/web dist && rm dist/index.html && cp _headers _redirects dist
-exit 0
-# curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/latest > .tmp/latest.json
-# curl -L https://api.github.com/repos/ZQuestClassic/ZQuestClassic/releases/tags/3.0.0-prerelease.105+2025-05-19 > .tmp/latest.json
-VERSION=$(jq -r '.tag_name' .tmp/latest.json)
+cd "$ZC_DIR"
+VERSION=$(git describe --tags --abbrev=0 --match "*.*.*")
+echo "building $VERSION ..."
+export ZC_EMCC_CMAKE_EXTRA_FLAGS="-DZC_OFFICIAL=ON -DZC_VERSION=$VERSION -DRELEASE_CHANNEL=web -DREPO=ZQuestClassic/ZQuestClassic"
+echo "$ZC_EMCC_CMAKE_EXTRA_FLAGS"
+bash scripts/configure_emscripten.sh
+rm -fr "build_emscripten/Release/packages/web/"
+cmake --build build_emscripten --config Release -t web web_zscript_playground
+cd -
 
-if [ ! -d ".tmp/release-$VERSION" ]; then
-    URL=$(jq -r '.assets[] | select(.name|endswith("web.zip")) | .browser_download_url' .tmp/latest.json)
-    wget $URL -O .tmp/web.zip
-    mkdir -p ".tmp/release-$VERSION"
-    unzip .tmp/web.zip -d ".tmp/release-$VERSION"
-    rm ".tmp/release-$VERSION/index.html"
-fi
-
-rm -rf .tmp/web.zip .tmp/latest.json
-
-rm -rf dist
-mkdir dist
-cp -r ".tmp/release-$VERSION"/* dist
-cp _headers _redirects dist
+rsync -r --delete --exclude _headers --exclude _redirects "$ZC_DIR/build_emscripten/Release/packages/web/" dist/
+echo "$VERSION" > dist/version

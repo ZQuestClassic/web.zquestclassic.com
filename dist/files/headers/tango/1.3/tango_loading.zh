@@ -6,7 +6,6 @@ const int __TANGO_PAD_ORDINAL = 9;
 const int __TANGO_PAD_SAVENAME = 8;
 // @string's padding is customizable, so it's in the main tango.zh file.
 
-
 // Loads a ZScript string into a text slot.
 void Tango_LoadString(int slot, char32[] string)
 {
@@ -64,10 +63,15 @@ void __Tango_LoadString(int slot, char32[] str, bool append, int startChar)
         __Tango_Buffer[destPtr]=NULL;
         return;
     }
-    
-    int strStart=__Tango_FindSrcStart(str, startChar);
-    
-    __Tango_LoadIntoBuffer(str, strStart, destPtr);
+
+    // Go through messagedata so we can parse commands via messagedata::Segments[].
+    // Just need to grab a potentially in-use messagedata and restore it after.
+    messagedata md = Game->LoadMessageData(1);
+    char32 old_str[0];
+    md->Get(old_str);
+    md->Set(str);
+    __Tango_LoadMessage(slot, 1, append, startChar);
+    md->Set(old_str);
 }
 
 void __Tango_LoadMessage(int slot, int msg, bool append, int startChar)
@@ -84,12 +88,20 @@ void __Tango_LoadMessage(int slot, int msg, bool append, int startChar)
         __Tango_Buffer[destPtr]=NULL;
         return;
     }
-    
-    int buffer[256];
-    Game->GetMessage(msg, buffer);
-    int srcPtr=__Tango_FindSrcStart(buffer, startChar);
-    
+
+    // Tango expects the binary encoding. Temporarily set the QR to that if needed.
+    bool isUsingBinaryEncoding = Game->FFRules[qr_OLD_SCRIPTS_MESSAGE_DATA_BINARY_ENCODING];
+    if (!isUsingBinaryEncoding)
+        Game->FFRules[qr_OLD_SCRIPTS_MESSAGE_DATA_BINARY_ENCODING] = true;
+
+    char32 buffer[0];
+    messagedata md = Game->LoadMessageData(msg);
+    md->Get(buffer);
+    int srcPtr = __Tango_FindSrcStart(buffer, startChar);
     __Tango_LoadIntoBuffer(buffer, srcPtr, destPtr);
+
+    if (!isUsingBinaryEncoding)
+        Game->FFRules[qr_OLD_SCRIPTS_MESSAGE_DATA_BINARY_ENCODING] = false;
 }
 
 // Find the position after the start character or 0 if it's not in the string.

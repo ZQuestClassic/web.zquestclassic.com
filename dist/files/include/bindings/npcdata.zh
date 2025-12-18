@@ -198,9 +198,11 @@ enum NPCFade
 	NPCF_POOF
 };
 
-// Metadata for a specific npc type (not an instance of one). Load with [Game->LoadNPCData].
+// Metadata for a specific npc type (not an instance of one).
+// 
+// Load with [Game->LoadNPCData].
 //
-// @zasm_ref REFNPCCLASS
+// @zasm_ref REFNPCDATA
 class npcdata {
 	// @delete
 	internal npcdata();
@@ -208,24 +210,15 @@ class npcdata {
 	// The type, or 'npc class' of the npc.
 	//
 	// @value [enum NPCType]
-
-	// @zasm_var NPCDATAFAMILY
+	// @zasm_var NPCDATATYPE
 	internal int Type;
-
-	// Exactly the same as [Type], use that instead.
-	//
-	// @value [enum NPCType]
-
-	// @zasm_var NPCDATAFAMILY
-	internal int Family;
 
 	// The base tile used by the npc.
 	//
 	// @zasm_var NPCDATATILE
 	internal int Tile;
 
-	// Undocumented. Refer to https://github.com/ZQuestClassic/ZQuestClassic/blob/main/src/base/flags.h#L31
-	//
+	// @index [enum NPCFlags]
 	// @zasm_var NPCDATAFLAG
 	internal bool Flags[];
 
@@ -522,12 +515,29 @@ class npcdata {
 	//
 	// @zasm_var NPCDDEATHSPR
 	internal int DeathSprite;
+	
+	// The [npc]'s default movement flags.
+	//
+	// @value [enum MoveFlag]
+	// @zasm_var NPCDATAMOVEFLAGS
+	internal bool MoveFlags[];
+	
+	// The fired [eweapon]'s default movement flags.
+	//
+	// @value [enum MoveFlag]
+	// @zasm_var NPCDATAWMOVEFLAGS
+	internal bool WeaponMoveFlags[];
 
 	// Puts the text of the npc name into string 'ptr'.
 	//
 	// @zasm
 	//   POP D2
-	//   POP REFNPCCLASS
+	//   POP REFNPCDATA
 	//   NPCDATAGETNAME D2
 	internal void GetName(char32[] ptr);
+
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum NPCType]
+	// @zasm_var NPCDATATYPE
+	internal int Family;
 }

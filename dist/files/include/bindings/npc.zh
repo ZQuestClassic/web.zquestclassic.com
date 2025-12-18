@@ -175,6 +175,43 @@ enum NPCMiscBitflags
 	NPCMF_HAMMERBREAKS             = 0x2000, // Hammer Can break Shield.
 };
 
+enum NPCFlags
+{
+	NPCF_0POWERWEAPS, // Damaged by 0-Power Weapons.
+	NPCF_ISINVISIBLE, // Is Invisible.
+	NPCF_NEVERRETURNS, // Never Returns After Death.
+	NPCF_NOT_BEATABLE, // Doesn't Count as beatable Enemy.
+	NPCF_SPAWNFLICKER, // Flicker in when spawning
+	NPCF_SPAWNINSTANT, // Spawn instantly
+	// some unused indexes
+	NPCF_SHIELD_FRONT = 24, // Shielded on Front
+	NPCF_SHIELD_LEFT, // Shielded on Left
+	NPCF_SHIELD_RIGHT, // Shielded on Right
+	NPCF_SHIELD_BACK, // Shielded on Back
+	NPCF_SHIELD_BREAKABLE, // Shield is breakable
+	// some unused indexes
+	NPCF_ONLY_LENS = 31, // Only visible to lens
+	NPCF_FLASHING, // Is flashing
+	NPCF_IS_FISH, // Is spawned by 'Fish' flags
+	NPCF_IS_FALLING_ROCK, // Is spawned by 'Falling Rock' flags
+	NPCF_IS_CORNER_TRAP, // Is spawned by 'Corner Traps' flags
+	NPCF_IS_HORZ_TRAP, // Is spawned by 'Horz Trap' flags
+	NPCF_IS_VERT_TRAP, // Is spawned by 'Vert Trap' flags
+	NPCF_IS_4WAY_TRAP, // Is spawned by '4-Way Trap' flags
+	NPCF_IS_LR_TRAP, // Is spawned by 'LR Trap' flags
+	NPCF_IS_UD_TRAP, // Is spawned by 'UD Trap' flags
+	NPCF_IS_MIDDLE_TRAP, // Is spawned by 'Middle Traps' flags
+	NPCF_IS_SHOOTING_STATUE, // Is spawned by 'Shooting Statues' flags
+	NPCF_IS_LIVING_STATUE, // Is spawned by 'Armos' combo type
+	NPCF_IS_GRAVE_SPAWNED, // Is spawned by 'Grave' combo type
+	NPCF_IS_BIG_BOSS, // Is spawned by 'Ganon' room type
+	NPCF_FLICKERING, // Is flickering
+	NPCF_TRANSLUCENT, // Is translucent
+	NPCF_IGNORE_TEMP_NO_RETURN, // Ignores temp no return
+	NPCF_IGNORE_KILL_ALL, // Ignores kill all enemies
+	NPCF_MAX
+};
+
 // Default item drop sets.
 enum ItemSet
 {
@@ -225,6 +262,8 @@ enum NPCMoveStatus
 	NPCMS_PAUSED, NPCMS_SPEEDUP, NPCMS_NORMAL, NPCMS_SLOWDOWN
 };
 
+// Load with [Screen->NPCs], [Screen->LoadNPC], [eweapon::Parent], [Screen->CreateNPC]
+//
 // @zasm_ref REFNPC
 // @extends sprite
 class npc {
@@ -232,23 +271,14 @@ class npc {
 	internal npc();
 
 	// @value [enum NPCID]
-
 	// @zasm_var NPCID
 	internal const int ID;
 
 	// The type, or 'npc class' of the npc.
 	//
 	// @value [enum NPCType]
-
 	// @zasm_var NPCTYPE
 	internal int Type;
-
-	// Exactly the same as [Type], use that instead.
-	//
-	// @value [enum NPCType]
-
-	// @zasm_var NPCTYPE
-	internal int Family;
 
 	// The current frame of the npc's animation.
 	//
@@ -257,6 +287,7 @@ class npc {
 
 	// Returns the max number of npcs currently allowed.
 	//
+	// @deprecated_getter Max
 	// @zasm_var SPRITEMAXNPC
 	internal int Max;
 
@@ -295,7 +326,6 @@ class npc {
 	// The movement status of an npc, usually flying.
 	//
 	// @value [enum NPCMoveStatus]
-
 	// @zasm_var NPCMOVESTATUS
 	internal int MoveStatus;
 
@@ -322,14 +352,12 @@ class npc {
 	// The weapon type used by the npc.
 	//
 	// @value [enum NPCWeapon]
-
 	// @zasm_var NPCWEAPON
 	internal int Weapon;
 
 	// The Dropset ID that this npc will drop from when killed.
 	//
 	// @value [enum ItemSet]
-
 	// @zasm_var NPCITEMSET
 	internal int ItemSet;
 
@@ -348,7 +376,7 @@ class npc {
 	// @zasm_var NPCBGSFX
 	internal int SFX;
 
-	// the weapon's total visual Y-offset.
+	// Total visual Y-offset.
 	//
 	// @zasm_var NPCTOTALDYOFFS
 	internal const int TotalDYOffset;
@@ -363,10 +391,15 @@ class npc {
 	// @zasm_var NPCDD
 	internal untyped Attributes[];
 
+	// @deprecated Use [Flags] instead.
 	// @value [enum NPCMiscBitflags]
-
 	// @zasm_var NPCMFLAGS
 	internal int MiscFlags;
+	
+	// The flags of the enemy.
+	// @index [enum NPCFlags]
+	// @zasm_var NPCFLAGS
+	internal bool Flags[];
 
 	// @zasm_var NPCCOLLDET
 	internal bool CollDetection;
@@ -386,7 +419,6 @@ class npc {
 	//
 	// @index [enum NPCDefenseIndex]
 	// @value [enum NPCDefenseType]
-
 	// @zasm_var NPCDEFENSED
 	internal int Defense[];
 
@@ -564,14 +596,6 @@ class npc {
 	// @deprecated
 	// @zasm_var NPCPARENTUID
 	internal int ParentUID;
-
-	// Returns the max number of npcs currently allowed.
-	//
-	// @deprecated Use [Max] instead!
-	// @zasm
-	//   POP REFNPC
-	//   SETR D2 SPRITEMAXNPC
-	internal int Max();
 
 	// Sets the max number of npcs allowed to a new value. Range `1-1024`.
 	//
@@ -870,20 +894,21 @@ class npc {
 
 	// Similar to Screen->CreateNPC(), except:
 	//
-	// (1) It uses an arry literal for its args, with varying size.
+	// - It uses an arry literal for its args, with varying size:
+	//   a) {id}
+	//   b) {id, x, y}
+	// - It works based on an existing pointer
 	//
-	// (2) You can either create an npc only by its ID, or you can do
+	// For example:
 	//
-	// that and set its spawn coordinates at the same time.
+	// ```
+	// npc n;
+	// n->Create({NPC_ARMOS}));
+	// // or...
+	// n->Create({NPC_ARMOS, 100, 50}));
+	// ```
 	//
-	// (3) It works based on an existing pointer, such as:
-	//
-	// npc n; n->Create{args});
-	//
-	// { int id }
-	//
-	// { int id, int x, int y }
-	//
+	// @see [NPCID]
 	// @reassign_ptr
 	// @zasm
 	//   POP D2
@@ -1015,67 +1040,8 @@ class npc {
 	//   NPCISFLICKERFRAME
 	internal bool isFlickerFrame();
 
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_BITMAP D2 0.0007
-	internal void Own(bitmap b);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_PALDATA D2 0.0007
-	internal void Own(paldata b);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_FILE D2 0.0007
-	internal void Own(file b);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_DIR D2 0.0007
-	internal void Own(directory b);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_STACK D2 0.0007
-	internal void Own(stack b);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_RNG D2 0.0007
-	internal void Own(randgen b);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_ARRAY D2 0.0007
-	internal void OwnArray(untyped array);
-
-	// Grants 'Ownership' of the parameter object to the npc.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFNPC
-	//   OBJ_OWN_CLASS D2 0.0007
-	internal void OwnObject(untyped object);
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum NPCType]
+	// @zasm_var NPCTYPE
+	internal int Family;
 }

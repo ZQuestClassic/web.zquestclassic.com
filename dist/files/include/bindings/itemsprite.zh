@@ -2,7 +2,7 @@ typedef itemsprite item;
 
 // An active item on the screen.
 //
-// See [Screen->LoadItem] and [Screen->CreateItem].
+// Load with [Screen->Items], [Screen->LoadItem], or [Screen->CreateItem].
 //
 // @zasm_ref REFITEM
 // @extends sprite
@@ -11,22 +11,16 @@ class itemsprite {
 	internal itemsprite();
 
 	// @value [enum ItemID]
-
 	// @zasm_var ITEMID
 	internal int ID;
 
 	// @value [enum ItemType]
-
-	// @zasm_var ITEMFAMILY
+	// @zasm_var ITEMTYPE
 	internal int Type;
-
-	// Exactly the same as [Type] - use that instead.
-	//
-	// @zasm_var ITEMFAMILY
-	internal int Family;
 
 	// Max number of itemsprites currently allowed.
 	//
+	// @deprecated_getter
 	// @zasm_var SPRITEMAXITEM
 	internal int Max;
 
@@ -133,20 +127,6 @@ class itemsprite {
 	// @zasm_var ITEMSCRIPTUID
 	internal const int UID;
 
-	// Bitflags that determines how internal engine sizing of items is applied.
-	//
-	// @deprecated Never implemented.
-	// @zasm_var ITEMOVERRIDEFLAGS
-	internal int SizeFlags;
-
-	// Returns the max number of itemsprites currently allowed.
-	//
-	// @deprecated Use [Max] instead!
-	// @zasm
-	//   POP REFITEM
-	//   SETR D2 SPRITEMAXITEM
-	internal int Max();
-
 	// Sets the max number of itemsprites allowed to a new value. Range
 	// `1-1024`.
 	//
@@ -190,67 +170,7 @@ class itemsprite {
 	//   SWITCHITM D2
 	internal bool Switch(int effect);
 
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_BITMAP D2 0.0011
-	internal void Own(bitmap b);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_PALDATA D2 0.0011
-	internal void Own(paldata b);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_FILE D2 0.0011
-	internal void Own(file b);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_DIR D2 0.0011
-	internal void Own(directory b);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_STACK D2 0.0011
-	internal void Own(stack b);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_RNG D2 0.0011
-	internal void Own(randgen b);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_ARRAY D2 0.0011
-	internal void OwnArray(untyped array);
-
-	// Grants 'Ownership' of the parameter object to the itemsprite.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFITEM
-	//   OBJ_OWN_CLASS D2 0.0011
-	internal void OwnObject(untyped object);
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @zasm_var ITEMTYPE
+	internal int Family;
 }

@@ -262,9 +262,13 @@ enum ItemType {
 	IC_NOTE                    = 277,
 	IC_REFILL                  = 278,
 	IC_LIFTGLOVE               = 279,
+	IC_GRAVITY_BOOTS           = 280,
+	IC_GRAVITY_UP_BOOTS        = 281,
+	IC_GRAVITY_DOWN_BOOTS      = 282,
+	IC_COOLDOWN_RING           = 283,
 
 	//Itemclasses not less than this are reserved for future engine itemclasses
-	IC_MAXUSABLE               = 280,
+	IC_MAXUSABLE               = 284,
 
 	IC_MAX                     = 512 //Last of enum. All itemclassesare < this.
 };
@@ -365,29 +369,22 @@ enum ItemScriptRunMode
 	ISCR_PERPETUAL,
 };
 
-// Metadata for a specific item type (not an instance of one). Load with [Game->LoadItemData].
+// Metadata for a specific item type (not an instance of one).
+// 
+// Load with [Game->LoadItemData].
 //
-// @zasm_ref REFITEMCLASS
+// @zasm_ref REFITEMDATA
 class itemdata {
 	// @delete
 	internal itemdata();
 
 	// @value [enum ItemID]
-
 	// @zasm_var IDATAID
 	internal const int ID;
 
 	// @value [enum ItemType]
-
-	// @zasm_var IDATAFAMILY
+	// @zasm_var IDATATYPE
 	internal int Type;
-
-	// Exactly the same as [Type] - use that instead.
-	//
-	// @value [enum ItemType]
-
-	// @zasm_var IDATAFAMILY
-	internal int Family;
 
 	// @zasm_var IDATALEVEL
 	internal int Level;
@@ -418,7 +415,6 @@ class itemdata {
 	// The counter to increase when this item is picked up.
 	//
 	// @value [enum CounterIndex]
-
 	// @zasm_var IDATACOUNTER
 	internal int Counter;
 
@@ -439,13 +435,9 @@ class itemdata {
 
 	// The item power. Usage depends on itemclass.
 	//
+	// @alias Damage
 	// @zasm_var IDATAPOWER
 	internal int Power;
-
-	// The item power. Usage depends on itemclass.
-	//
-	// @zasm_var IDATAPOWER
-	internal int Damage;
 
 	// The 8 InitD values shared by the item's Action, Pickup, and Sprite
 	// scripts.
@@ -509,6 +501,11 @@ class itemdata {
 	//
 	// @zasm_var IDATACOSTCOUNTER2
 	internal int CostCounter2;
+
+	// After using the item, it goes on cooldown unable to be used again for this many frames.
+	//
+	// @zasm_var IDATACOOLDOWN
+	internal int Cooldown;
 
 	// The number of max hearts required to pick up the item.
 	//
@@ -726,15 +723,25 @@ class itemdata {
 	// The item pickup bitflags.
 	//
 	// @value [enum ItemPickupBitflags]
-
 	// @zasm_var IDATAPICKUP
 	internal int Pickup;
+	
+	// The Level Items that will be granted when the item is collected. See [PickupLItemLevel].
+	//
+	// @value [enum LevelItemBitflags]
+	// @zasm_var IDATAPICKUPLITEMS
+	internal int PickupLItems;
+	
+	// The Level that [PickupLItems] will be granted for when the item is collected.
+	//
+	// @value -1 for 'current level', otherwise number of a specific 'level' (-1 <= x < [NUM_LEVELS])
+	// @zasm_var IDATAPICKUPLITEMLEVEL
+	internal int PickupLItemLevel;
 
 	// Bitflags representing all the checkboxes for which sizes to
 	// apply from the itemdata.
 	//
 	// @value [enum SizeOverrideBitflags]
-
 	// @zasm_var IDATAOVERRIDEFL
 	internal int SizeFlags;
 
@@ -742,7 +749,6 @@ class itemdata {
 	// apply from the itemdata, for any [lweapon] created by this item.
 	//
 	// @value [enum SizeOverrideBitflags]
-
 	// @zasm_var IDATAOVERRIDEFLWEAP
 	internal int WeaponSizeFlags;
 
@@ -839,16 +845,13 @@ class itemdata {
 	// @zasm_var IDATAMISC
 	internal int Flash;
 
-	// @deprecated Use [Defense] instead!
-	// @zasm_var IDATAUSEDEF
-	internal int Defence;
-
 	// The default defense resolution (e.g. OHKO) that the weapon uses
 	// when it strikes an enemy.
 	//
 	// If `> -1`, and the enemy had a defense resolution of `None`, the default
 	// defense resolution is used in place of `None`.
 	//
+	// @deprecated_alias Defence
 	// @zasm_var IDATAUSEDEF
 	internal int Defense;
 
@@ -902,12 +905,25 @@ class itemdata {
 	//
 	// @zasm_var IDATAMISCD
 	internal untyped WeaponMisc[];
+	
+	// The [itemsprite]'s default movement flags.
+	//
+	// @value [enum MoveFlag]
+	// @zasm_var IDATAMOVEFLAGS
+	internal bool MoveFlags[];
+	
+	// The fired [lweapon]'s default movement flags.
+	// Does not apply to some weapon types (ex. Sword, Hammer, Wand)
+	//
+	// @value [enum MoveFlag]
+	// @zasm_var IDATAWMOVEFLAGS
+	internal bool WeaponMoveFlags[];
 
 	// Fills the buffer with the item's Name.
 	//
 	// @zasm
 	//   POP D2
-	//   POP REFITEMCLASS
+	//   POP REFITEMDATA
 	//   ITEMNAME D2
 	internal void GetName(char32[] buf);
 
@@ -915,7 +931,7 @@ class itemdata {
 	//
 	// @zasm
 	//   POP D2
-	//   POP REFITEMCLASS
+	//   POP REFITEMDATA
 	//   ITEMGETDISPLAYNAME D2
 	internal void GetDisplayName(int buf);
 
@@ -923,7 +939,7 @@ class itemdata {
 	//
 	// @zasm
 	//   POP D2
-	//   POP REFITEMCLASS
+	//   POP REFITEMDATA
 	//   ITEMSETDISPLAYNAME D2
 	internal void SetDisplayName(int buf);
 
@@ -933,7 +949,7 @@ class itemdata {
 	//
 	// @zasm
 	//   POP D2
-	//   POP REFITEMCLASS
+	//   POP REFITEMDATA
 	//   ITEMGETSHOWNNAME D2
 	internal void GetShownName(int buf);
 
@@ -942,7 +958,12 @@ class itemdata {
 	// @param [ItemScriptRunMode] mode
 	// @zasm
 	//   POP D2
-	//   POP REFITEMCLASS
+	//   POP REFITEMDATA
 	//   RUNITEMSCRIPT D2
 	internal void RunScript(int mode = ISCR_PERPETUAL);
+
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum ItemType]
+	// @zasm_var IDATATYPE
+	internal int Family;
 }

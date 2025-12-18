@@ -7,6 +7,17 @@ enum GravityIndex
 	GR_AIRDRAG
 };
 
+// Used with [Game->LayerZThresholds]
+enum LayerZIndex
+{
+	LAYERZ_GROUND,
+	LAYERZ_3,
+	LAYERZ_4,
+	LAYERZ_OVERHEAD,
+	LAYERZ_5,
+	LAYERZ_MAX,
+};
+
 // Used with [Game->Scrolling].
 enum ScrollingIndex
 {
@@ -102,16 +113,20 @@ enum GenericIndex
 	// Jump value when exiting water from the top.
 	// If 0, Link can only leave the top of the water via
 	// sideview ladder.
-	GEN_SIDESWIM_EXITJUMP  = 21,
-	GEN_BUNNY_TILEMOD      = 22, //Tile modifier to apply while [Hero] is bunnified
-	GEN_SWITCHHOOK_STYLE   = 23, //Which 'SW_EFF' style to use for the 'Switch w/ Hero' enemy defense
-	GEN_FLICKER_FRAMES     = 24, //How many frames Link / enemies flicker for with the flicker damage effect
-	GEN_FLICKER_COLOR      = 25, //Color used for the flicker effect
-	GEN_FLICKER_TRANSP     = 26, //Number of transparency passes for the flicker effect
-	GEN_LIGHT_WAVE_RATE    = 27,
-	GEN_LIGHT_WAVE_SIZE    = 28,
-	GEN_REGION_MAPPING     = 29, //Which [RegionMapping] (method of mapping) is used for regions
-	GEN_MAX                = 30
+	GEN_SIDESWIM_EXITJUMP    = 21,
+	GEN_BUNNY_TILEMOD        = 22, //Tile modifier to apply while [Hero] is bunnified
+	GEN_SWITCHHOOK_STYLE     = 23, //Which 'SW_EFF' style to use for the 'Switch w/ Hero' enemy defense
+	GEN_FLICKER_FRAMES       = 24, //How many frames Link / enemies flicker for with the flicker damage effect
+	GEN_FLICKER_COLOR        = 25, //Color used for the flicker effect
+	GEN_FLICKER_TRANSP       = 26, //Number of transparency passes for the flicker effect
+	GEN_LIGHT_WAVE_RATE      = 27,
+	GEN_LIGHT_WAVE_SIZE      = 28,
+	GEN_REGION_MAPPING       = 29, //Which [RegionMapping] (method of mapping) is used for regions
+	GEN_ITEM_SPAWN_FLICKER   = 30, // The duration of flickering after an item spawns
+	GEN_ITEM_TIMEOUT_DUR     = 31, // The duration before disappearing items vanish
+	GEN_ITEM_TIMEOUT_FLICKER = 32, // The duration disappearing items flicker before they vanish
+	GEN_ITEM_FLICKER_SPEED   = 33, // The speed items flicker at
+	GEN_MAX                  = 34
 };
 
 enum RegionMapping
@@ -134,11 +149,23 @@ enum MouseCursor
 @Bitflags("int")
 enum LevelItemBitflags
 {
-	LI_TRIFORCE                    = 0x01, // The Triforce of this Level has been obtained.
-	LI_MAP                         = 0x02, // The Dungeon Map of this Level has been obtained.
-	LI_COMPASS                     = 0x04, // The Compass of this Level has been obtained.
-	LI_BOSS                        = 0x08, // A "Dungeon Boss" enemy has been slain.
-	LI_BOSSKEY                     = 0x10, // The Boss Key of this Level has been obtained.
+	LI_MCGUFFIN                    = 0x0001, // The McGuffin of this Level has been obtained.
+	LI_TRIFORCE                    = LI_MCGUFFIN, // @deprecated
+	LI_MAP                         = 0x0002, // The Dungeon Map of this Level has been obtained.
+	LI_COMPASS                     = 0x0004, // The Compass of this Level has been obtained.
+	LI_BOSS                        = 0x0008, // A "Dungeon Boss" enemy has been slain.
+	LI_BOSSKEY                     = 0x0010, // The Boss Key of this Level has been obtained.
+	LI_CUSTOM01                    = 0x0020, // The Custom01 flag of this Level has been set.
+	LI_CUSTOM02                    = 0x0040, // The Custom02 flag of this Level has been set.
+	LI_CUSTOM03                    = 0x0080, // The Custom03 flag of this Level has been set.
+	LI_CUSTOM04                    = 0x0100, // The Custom04 flag of this Level has been set.
+	LI_CUSTOM05                    = 0x0200, // The Custom05 flag of this Level has been set.
+	LI_CUSTOM06                    = 0x0400, // The Custom06 flag of this Level has been set.
+	LI_CUSTOM07                    = 0x0800, // The Custom07 flag of this Level has been set.
+	LI_CUSTOM08                    = 0x1000, // The Custom08 flag of this Level has been set.
+	LI_CUSTOM09                    = 0x2000, // The Custom09 flag of this Level has been set.
+	LI_CUSTOM10                    = 0x4000, // The Custom10 flag of this Level has been set.
+	LI_CUSTOM11                    = 0x8000, // The Custom11 flag of this Level has been set.
 };
 
 // Used with [Game->GameOverScreen].
@@ -369,6 +396,16 @@ class Game {
 	// @zasm_var GAMEMAXCHEAT
 	internal int MaxCheat;
 
+	// The [save_menu] ID used when pressing F6. If 0, the default F6 menu will be used.
+	//
+	// @zasm_var GAME_SAVEMENU_F6
+	internal int SaveMenuF6;
+	
+	// The [save_menu] ID used when dying. If 0, the default game over menu will be used.
+	//
+	// @zasm_var GAME_SAVEMENU_GAMEOVER
+	internal int SaveMenuGameOver;
+
 	// Speed multiplier for the engine subscreen rise/fall. Default 1. Max 85.
 	//
 	// @zasm_var ACTIVESSSPEED
@@ -484,6 +521,11 @@ class Game {
 	// @zasm_var GAMESTANDALONE
 	internal bool Standalone;
 
+	// True if running in test mode ('Quest->Test' from the editor).
+	//
+	// @zasm_var DEBUGTESTING
+	internal const bool Testing;
+
 	// The last entrance point the [Hero] used, and will be reset to by some
 	// mechanics.
 	//
@@ -534,6 +576,7 @@ class Game {
 
 	// The number of maps in the quest.
 	//
+	// @deprecated_getter MapCount
 	// @zasm_var GAMEMAXMAPS
 	internal const int MapCount;
 
@@ -582,6 +625,13 @@ class Game {
 	// @index [enum GravityIndex]
 	// @zasm_var GAMEGRAVITY
 	internal int Gravity[];
+
+	// The Z values where sprites change what layer they are drawn on.
+	// See 'Init Data->Vars->Draw Order'
+	//
+	// @index [LayerZIndex]
+	// @zasm_var GAMELAYERZTHRESHOLDS
+	internal int LayerZThresholds[];
 
 	// An array of values related to scrolling. See [ScrollingIndex] for specifics. If not
 	// scrolling, all values are 0 unless otherwise stated.
@@ -633,13 +683,15 @@ class Game {
 
 	// Returns the number of saved portals that currently exist.
 	//
+	// @deprecated_getter NumSavedPortals
 	// @zasm_var SAVEDPORTALCOUNT
 	internal const int NumSavedPortals;
 
-	// A 0-indexed Internal Array pointer referencing the saved portal objects.
+	// All the saved portal objects.
+	//
 	// Cannot access the Magic Mirror's portal.
 	//
-	// @zasm_internal_array 6
+	// @zasm_var GAME_SAVED_PORTALS
 	internal const savedportal SavedPortals[];
 
 	// The 256 'Trigger Group' values for the current screen.
@@ -665,6 +717,11 @@ class Game {
 	// @zasm_var GAMEASUBOPEN
 	internal const bool ActiveSubscreenOpen;
 
+	// True if the map subscreen is currently open.
+	//
+	// @zasm_var GAMEMSUBOPEN
+	internal const bool MapSubscreenOpen;
+
 	// The Y offset of the active subscreen, used while it is opening/closing.
 	//
 	// Value is `-224` if subscreen is closed, `-56` if it is open, or the
@@ -687,6 +744,11 @@ class Game {
 	//
 	// @zasm_var GAMENUMOSUB
 	internal int NumOverlaySubscreens;
+
+	// Returns the total number of overlay subscreens
+	//
+	// @zasm_var GAMENUMMSUB
+	internal int NumMapSubscreens;
 
 	// Returns the highest valid ID of the strings in the ZQuest String Editor.
 	//
@@ -741,11 +803,11 @@ class Game {
 
 	// @deprecated Use [dmapdata::Offset] instead!
 	// @zasm_var DMAPOFFSET
-	internal int DMapOffset[];
+	internal const int DMapOffset[];
 
 	// @deprecated Use [dmapdata::Map] instead!
 	// @zasm_var DMAPMAP
-	internal int DMapMap[];
+	internal const int DMapMap[];
 
 	// @zasm_var SETGAMEOVERELEMENT
 	internal int GameOverScreen[];
@@ -848,7 +910,7 @@ class Game {
 	// @zasm
 	//   POP D2
 	//   LOADITEMDATAR D2
-	//   SETR D2 REFITEMCLASS
+	//   SETR D2 REFITEMDATA
 	internal itemdata LoadItemData(int item);
 
 	// @deprecated Use [Audio->MIDI] instead!
@@ -1068,13 +1130,6 @@ class Game {
 	//   GETGENERICSCRIPT D2
 	internal int GetGenericScript(char32[] name);
 
-	// The number of maps in the quest.
-	//
-	// @deprecated Use [MapCount] instead!
-	// @zasm
-	//   SETR D2 GAMEMAXMAPS
-	internal int MapCount();
-
 	// Loads an Enemy Editor table data ref for NPC [id], to a [npcdata]
 	// pointer.
 	//
@@ -1082,7 +1137,7 @@ class Game {
 	// @zasm
 	//   POP D2
 	//   LOADNPCDATAR D2
-	//   SETR D2 REFNPCCLASS
+	//   SETR D2 REFNPCDATA
 	internal npcdata LoadNPCData(int id);
 
 	// Loads a Combo Editor table data ref for combo [id], to a [combodata]
@@ -1227,7 +1282,7 @@ class Game {
 	// @zasm
 	//   POP D2
 	//   LOADDROPSETR D2
-	//   SETR D2 REFDROPS
+	//   SETR D2 REFDROPSETDATA
 	internal dropsetdata LoadDropset(int id);
 
 	// @deprecated Use `new randgen()` instead.
@@ -1266,6 +1321,16 @@ class Game {
 	//   LOADBSHOPDATA D2
 	//   SETR D2 REFBOTTLESHOP
 	internal bottleshopdata LoadBottleShopData(int id);
+
+	// Loads a [save_menu] ref for save_menu number [id] to a
+	// 'save_menu' typed pointer.
+	//
+	// Range 1-32
+	//
+	// @zasm
+	//   POP D2
+	//   LOADSAVEMENU D2
+	internal save_menu LoadSaveMenu(int id);
 
 	// Loads the [genericdata] pointer referencing the specified generic
 	// [scriptslot].
@@ -1325,13 +1390,6 @@ class Game {
 								  bool sys_recolor = false,
 								  bool user_scale = false);
 
-	// Returns the number of saved portals that currently exist.
-	//
-	// @deprecated Use [NumSavedPortals] instead!
-	// @zasm
-	//   SETR D2 SAVEDPORTALCOUNT
-	internal int NumSavedPortals();
-
 	// Loads a 'Saved Portal' pointer. Use 1 <= [saved_portal_id] <=
 	// [NumSavedPortals], OR [saved_portal_id] == -1 to access the Magic
 	// Mirror's portal.
@@ -1361,9 +1419,9 @@ class Game {
 	internal int CurrentItemID(int itemtype, int bitflags = 1L);
 
 	// Loads the [subscreendata] pointer for the specified
-	// active/passive/overlay subscreen.
+	// active subscreen.
 	//
-	// Use id `-1` to load the current subscreen of the type.
+	// Use id `-1` to load the current active subscreen.
 	//
 	// @zasm
 	//   POP D2
@@ -1371,9 +1429,9 @@ class Game {
 	internal subscreendata LoadASubData(int id);
 
 	// Loads the [subscreendata] pointer for the specified
-	// active/passive/overlay subscreen.
+	// passivesubscreen.
 	//
-	// Use id `-1` to load the current subscreen of the type.
+	// Use id `-1` to load the current passive subscreen.
 	//
 	// @zasm
 	//   POP D2
@@ -1381,14 +1439,24 @@ class Game {
 	internal subscreendata LoadPSubData(int id);
 
 	// Loads the [subscreendata] pointer for the specified
-	// active/passive/overlay subscreen.
+	// overlay subscreen.
 	//
-	// Use id `-1` to load the current subscreen of the type.
+	// Use id `-1` to load the current overlay subscren.
 	//
 	// @zasm
 	//   POP D2
 	//   LOADSUBDATARV D2 2
 	internal subscreendata LoadOSubData(int id);
+
+	// Loads the [subscreendata] pointer for the specified
+	// map subscreen.
+	//
+	// Use id `-1` to load the current map subscreen.
+	//
+	// @zasm
+	//   POP D2
+	//   LOADSUBDATARV D2 3
+	internal subscreendata LoadMSubData(int id);
 
 	// @zasm
 	//   SWAPSUBSCREENV 0

@@ -45,11 +45,17 @@ class sprite {
 
 	// The screen index this sprite was created on. Does not update as the sprite moves around a region.
 	//
-	// [Hero]: Actually does update as the player moves around. Equivalent to [Game->HeroScreen].
+	// [Hero]: This is always equal to the top-left screen of the current region, equivalent to [Game->CurScreen].
 	//
 	// @versionadded 3.0
 	// @zasm_var SPRITE_SPAWN_SCREEN
 	internal const int SpawnScreen;
+
+	// The screen index this sprite is currently on, updating as it moves around.
+	//
+	// @versionadded 3.0
+	// @zasm_var SPRITE_CURRENT_SCREEN
+	internal const int CurrentScreen;
 
 	// @zasm_var SPRITE_X
 	internal int X;
@@ -203,6 +209,26 @@ class sprite {
 	//
 	// @zasm_var SPRITE_GRAVITY
 	internal bool Gravity;
+	
+	// The current strength of gravity on this sprite.
+	//
+	// @zasm_var SPRITE_GRAVITY_STRENGTH
+	internal const int GravityStrength;
+	
+	// The current terminal velocity of this sprite.
+	//
+	// @zasm_var SPRITE_TERMINAL_VELOCITY
+	internal const int TerminalVelocity;
+	
+	// If non-zero, overrides the current [GravityStrength].
+	//
+	// @zasm_var SPRITE_CUSTOM_GRAVITY_STRENGTH
+	internal int CustomGravityStrength;
+	
+	// If non-zero, overrides the current [TerminalVelocity].
+	//
+	// @zasm_var SPRITE_CUSTOM_TERMINAL_VELOCITY
+	internal int CustomTerminalVelocity;
 
 	// How to flip (or rotate) the sprite.
 	//
@@ -281,7 +307,6 @@ class sprite {
 	// The sprite's movement flags.
 	//
 	// @value [enum MoveFlag]
-
 	// @zasm_var SPRITE_MOVE_FLAGS
 	internal bool MoveFlags[];
 
@@ -293,7 +318,6 @@ class sprite {
 	// The shape of light emitted by this sprite.
 	//
 	// @value [enum LightShape]
-
 	// @zasm_var SPRITE_LIGHT_SHAPE
 	internal int LightShape;
 
@@ -307,7 +331,6 @@ class sprite {
 	// The [spritedata] ID to use for the sprite's shadow.
 	//
 	// @value [enum SpriteID]
-
 	// @zasm_var SPRITE_SHADOW_SPR
 	internal int ShadowSprite;
 
@@ -339,4 +362,68 @@ class sprite {
 	//
 	// @zasm_var SPRITE_MISCD
 	internal untyped Misc[];
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_BITMAP D2 0
+	internal void Own(bitmap b);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_PALDATA D2 0
+	internal void Own(paldata b);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_FILE D2 0
+	internal void Own(file b);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_DIR D2 0
+	internal void Own(directory b);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_STACK D2 0
+	internal void Own(stack b);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_RNG D2 0
+	internal void Own(randgen b);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_ARRAY D2 0
+	internal void OwnArray(untyped array);
+
+	// Grants 'Ownership' of the parameter object to this sprite.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSPRITE
+	//   OBJ_OWN_CLASS D2 0
+	internal void OwnObject(untyped object);
 }

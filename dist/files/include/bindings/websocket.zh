@@ -32,7 +32,7 @@ class websocket {
 	internal const WebsocketType MessageType;
 
 	// @zasm_var WEBSOCKET_URL
-	internal char32 URL;
+	internal const char32[] URL;
 
 	// Gets the current websocket error message (if any).
 	//
@@ -55,8 +55,6 @@ class websocket {
 	// representing the next message in the queue. If there is no message, returns NULL.
 	//
 	// Calling this function again will overwrite the contents of this array.
-	//
-	// The array is destroyed automatically when the websocket is freed.
 	//
 	// @zasm
 	//   POP REFWEBSOCKET

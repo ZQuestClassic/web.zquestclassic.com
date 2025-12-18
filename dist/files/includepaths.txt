@@ -1,0 +1,1 @@
+/Users/connorclark/code/ZeldaClassic-secondary/resources/include;/Users/connorclark/code/ZeldaClassic-secondary/resources/headers;/Users/connorclark/code/ZeldaClassic-secondary/tests/scripts/playground;/Users/connorclark/code/ZeldaClassic-secondary/tests/scripts

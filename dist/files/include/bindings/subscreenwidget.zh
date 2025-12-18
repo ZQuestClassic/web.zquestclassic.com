@@ -1,5 +1,6 @@
 enum SubscreenItemButton
 {
+	ITMBTN_NONE = -1,
 	ITMBTN_A,
 	ITMBTN_B,
 	ITMBTN_X,
@@ -7,6 +8,22 @@ enum SubscreenItemButton
 	NUM_ITMBTN
 };
 
+enum ConditionType
+{
+	CONDTY_NONE,
+	CONDTY_EQ, // ==
+	CONDTY_NEQ, // !=
+	CONDTY_GREATER, // >
+	CONDTY_GREATEREQ, // >=
+	CONDTY_LESS, // <
+	CONDTY_LESSEQ, // <=
+	NUM_CONDTY
+};
+
+// An individual widget on an engine subscreen. What variables are available depends on the [subscreenwidget::Type].
+// 
+// Load with [subscreenpage::Widgets], [subscreenpage::GetWidget], [subscreenpage::FindWidget], or [subscreenpage::CreateWidget]
+//
 // @zasm_ref REFSUBSCREENWIDG
 class subscreenwidget {
 	// @delete
@@ -135,7 +152,8 @@ class subscreenwidget {
 
 	// The general flags for subscreen widgets.
 	// These are usually applicable regardless of widget type.
-	// Use the 'SUBW_GENFL_' constants to access.
+	//
+	// @index [enum SubscreenWidgetGenFlag]
 	//
 	// @zasm_var SUBWIDGGENFLAG
 	internal bool GenFlags[];
@@ -146,7 +164,147 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGFLAG
 	internal bool Flags[];
-
+	
+	// Any items set true here must be owned for the widget to be active/visible.
+	//
+	// @index [enum ItemID]
+	//
+	// @zasm_var SUBWIDGREQOWNITEMS
+	internal bool RequiredOwnedItems[];
+	
+	// Any items set true here must NOT be owned for the widget to be active/visible.
+	//
+	// @index [enum ItemID]
+	//
+	// @zasm_var SUBWIDGREQUNOWNITEMS
+	internal bool RequiredUnownedItems[];
+	
+	// The current dmap's [dmapdata::Floor] must be true in this array (or every index of
+	// this array must be false) for the widget to be active/visible.
+	//
+	// @length 256
+	//
+	// @zasm_var SUBWIDGREQ_DMAP_FLOOR
+	internal bool RequiredDMapFloors[];
+	
+	// The current dmap's [dmapdata::Level] must be true in this array (or every index of
+	// this array must be false) for the widget to be active/visible.
+	//
+	// @length [NUM_LEVELS]
+	//
+	// @zasm_var SUBWIDGREQ_DMAP_LEVEL
+	internal bool RequiredDMapLevels[];
+	
+	// The current dmap's [dmapdata::ID] must be true in this array (or every index of
+	// this array must be false) for the widget to be active/visible.
+	//
+	// @length [MAX_DMAPS]
+	//
+	// @zasm_var SUBWIDGREQ_DMAP
+	internal bool RequiredDMaps[];
+	
+	// The current map's index must be true in this array (or every index of
+	// this array must be false) for the widget to be active/visible.
+	//
+	// @length [Game->MapCount]
+	//
+	// @zasm_var SUBWIDGREQ_MAP
+	internal bool RequiredMaps[];
+	
+	// The current screen's index must be true in this array (or every index of
+	// this array must be false) for the widget to be active/visible.
+	//
+	// @length 128
+	//
+	// @zasm_var SUBWIDGREQ_SCREEN
+	internal bool RequiredScreens[];
+	
+	// The counter this widget requires to be active/visible.
+	// Must relate to the [RequiredCounterValue] based on the [RequiredCounterCond].
+	// - If [CR_NONE], no requirement will be checked.
+	// - If [SUBW_GENFL_REQ_COUNTER_PERC] is set, then the percentage this counter is full will be compared
+	// - Otherwise, if [SUBW_GENFL_REQ_COUNTER_MAX] is set, then the max value of this counter will be compared
+	// - Otherwise, this counter's value will be compared
+	//
+	// @value [enum CounterIndex]
+	//
+	// @zasm_var SUBWIDGREQCOUNTER
+	internal int RequiredCounter;
+	
+	// The counter operation this widget requires to be active/visible.
+	// The [RequiredCounter] must relate to the [RequiredCounterValue] by this operation.
+	// If [CONDTY_NONE], no requirement will be checked.
+	//
+	// @value [enum ConditionType]
+	//
+	// @zasm_var SUBWIDGREQCOUNTERCOND
+	internal int RequiredCounterCond;
+	
+	// The counter value this widget requires to be active/visible.
+	// The [RequiredCounter] must relate to this value based on the [RequiredCounterCond].
+	//
+	// @zasm_var SUBWIDGREQCOUNTERVAL
+	internal int RequiredCounterValue;
+	
+	// The Level Items that are required to be owned (or unowned, if [SUBW_GENFL_REQ_INVERT_LITEM] is set)
+	// If [SUBW_GENFL_REQ_ANY_LITEM] is set, any state is required instead of every state.
+	//
+	// @value [enum LevelItemBitflags]
+	//
+	// @zasm_var SUBWIDGREQLITEMS
+	internal int RequiredLItems;
+	
+	// The Level that [RequiredLItems] are checked for. If set to '-1', uses the
+	// current level.
+	//
+	// @zasm_var SUBWIDGREQLITEMLEVEL
+	internal int RequiredLItemLevel;
+	
+	// The Level States that are required to be set (or unset, if [SUBW_GENFL_REQ_INVERT_LSTATE] is set)
+	// If [SUBW_GENFL_REQ_ANY_LSTATE] is set, any state is required instead of every state.
+	//
+	// @index 0-31
+	//
+	// @zasm_var SUBWIDGREQ_LEVEL_STATE
+	internal bool RequiredLStates[];
+	
+	// The Level that [RequiredLStates] are checked for. If set to '-1', uses the
+	// current level.
+	//
+	// @zasm_var SUBWIDGREQ_LEVEL_STATE_LEVEL
+	internal int RequiredLStateLevel;
+	
+	// The Map to require screen states or exstates for.
+	//
+	// @zasm_var SUBWIDGREQ_SCRSTATE_MAP
+	internal int RequiredScreenStateMap;
+	
+	// The Map to require screen states or exstates for. If '-1', uses the current map+screen, ignoring [RequiredScreenStateMap].
+	//
+	// @zasm_var SUBWIDGREQ_SCRSTATE_SCREEN
+	internal int RequiredScreenStateScreen;
+	
+	// The Screen States that are required to be set (or unset, if [SUBW_GENFL_REQ_INVERT_SCRSTATE] is set)
+	// If [SUBW_GENFL_REQ_ANY_SCRSTATE] is set, any state is required instead of every state.
+	//
+	// @index [enum ScreenState]
+	//
+	// @zasm_var SUBWIDGREQ_SCRSTATE_STATE
+	internal bool RequiredScreenStates[];
+	
+	// The Screen ExStates that are required to be set (or unset, if [SUBW_GENFL_REQ_INVERT_SCRSTATE] is set)
+	// If [SUBW_GENFL_REQ_ANY_SCRSTATE] is set, any state is required instead of every state.
+	//
+	// @index 0-31
+	//
+	// @zasm_var SUBWIDGREQ_SCRSTATE_EXSTATE
+	internal bool RequiredScreenExStates[];
+	
+	// If set to 'true', the widget will not be active/visible.
+	//
+	// @zasm_var SUBWIDGREQSCRIPTDISABLED
+	internal bool ScriptDisabled;
+	
 	// The X/Y/W/H offsets for the selector on this widget, if the selector is
 	// overridden (see [GenFlags]).
 	//
@@ -323,6 +481,7 @@ class subscreenwidget {
 	// - [SUBWIDG_TILEBLOCK] - 1 values
 	// - [SUBWIDG_MINITILE] - 1 values
 	// - [SUBWIDG_MISCGAUGE] - 4 values
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE] - 4 values
 	// - [SUBWIDG_LGAUGE] - 4 values
 	// - [SUBWIDG_MGAUGE] - 4 values
 	//
@@ -338,6 +497,7 @@ class subscreenwidget {
 	// - [SUBWIDG_TILEBLOCK] - 1 values
 	// - [SUBWIDG_MINITILE] - 1 values
 	// - [SUBWIDG_MISCGAUGE] - 4 values
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE] - 4 values
 	// - [SUBWIDG_LGAUGE] - 4 values
 	// - [SUBWIDG_MGAUGE] - 4 values
 	//
@@ -354,6 +514,7 @@ class subscreenwidget {
 	// - [SUBWIDG_BTNCOUNTER]
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @value [enum Font]
 
@@ -369,6 +530,7 @@ class subscreenwidget {
 	// - [SUBWIDG_BTNCOUNTER]
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @value [enum TextAlignment]
 
@@ -385,6 +547,7 @@ class subscreenwidget {
 	// - [SUBWIDG_BTNCOUNTER]
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @value [enum ShadowType]
 
@@ -402,6 +565,7 @@ class subscreenwidget {
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
 	// - [SUBWIDG_MCGUFF_FRAME]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @zasm_var SUBWIDGTY_COLOR_TXT
 	internal int ColorText;
@@ -424,6 +588,7 @@ class subscreenwidget {
 	// - [SUBWIDG_BTNCOUNTER]
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @zasm_var SUBWIDGTY_COLOR_SHD
 	internal int ColorShadow;
@@ -447,6 +612,8 @@ class subscreenwidget {
 	// - [SUBWIDG_MMAPTITLE]
 	// - [SUBWIDG_SELECTEDTEXT]
 	// - [SUBWIDG_BGCOLOR]
+	// - [SUBWIDG_COUNTERPERCBAR]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @zasm_var SUBWIDGTY_COLOR_BG
 	internal int ColorBG;
@@ -471,6 +638,7 @@ class subscreenwidget {
 	// The widget's color index used for fill
 	//
 	// - [SUBWIDG_RECT]
+	// - [SUBWIDG_COUNTERPERCBAR]
 	//
 	// @zasm_var SUBWIDGTY_COLOR_FILL
 	internal int ColorFill;
@@ -479,6 +647,8 @@ class subscreenwidget {
 	//
 	// - [SUBWIDG_BTNITM]
 	// - [SUBWIDG_BTNCOUNTER]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @value [enum SubscreenItemButton]
 
@@ -487,7 +657,7 @@ class subscreenwidget {
 
 	// The counter(s) associated with the widget.
 	//
-	// @length [SUBWIDG_COUNTER] - 3 values, [SUBWIDG_MISCGAUGE] - 1 value
+	// @length [SUBWIDG_COUNTER] - 3 values, [SUBWIDG_MISCGAUGE] - 1 value, [SUBWIDG_COUNTERPERCBAR] - 1 value
 	// @value [enum CounterIndex]
 
 	// @zasm_var SUBWIDGTY_COUNTERS
@@ -569,6 +739,8 @@ class subscreenwidget {
 	// The itemclass used by the widget (0 <= ItemType < IC_MAXUSABLE)
 	//
 	// - [SUBWIDG_ITEMSLOT]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @zasm_var SUBWIDGTY_ITEMCLASS
 	internal int ItemType;
@@ -576,6 +748,8 @@ class subscreenwidget {
 	// The item ID used by the widget (-1 <= ItemID < NUM_ITEMDATA)
 	//
 	// - [SUBWIDG_ITEMSLOT]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @zasm_var SUBWIDGTY_ITEMID
 	internal int ItemID;
@@ -630,6 +804,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE] - 4 values
 	// - [SUBWIDG_MGAUGE] - 4 values
 	// - [SUBWIDG_MISCGAUGE] - 4 values
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE] - 4 values
 	//
 	// @zasm_var SUBWIDGTY_CORNER
 	internal int Corner[];
@@ -639,6 +814,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_FRAMES
 	internal int Frames;
@@ -648,6 +824,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_SPEED
 	internal int Speed;
@@ -657,6 +834,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_DELAY
 	internal int Delay;
@@ -666,6 +844,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_CONTAINER
 	internal int Container;
@@ -675,6 +854,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_GAUGE_WID
 	internal int GaugeWid;
@@ -684,6 +864,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_GAUGE_HEI
 	internal int GaugeHei;
@@ -693,6 +874,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_UNITS
 	internal int Units;
@@ -702,6 +884,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_HSPACE
 	internal int HSpace;
@@ -711,6 +894,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_VSPACE
 	internal int VSpace;
@@ -720,6 +904,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_GRIDX
 	internal int GridX;
@@ -729,6 +914,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_GRIDY
 	internal int GridY;
@@ -738,6 +924,7 @@ class subscreenwidget {
 	// - [SUBWIDG_LGAUGE]
 	// - [SUBWIDG_MGAUGE]
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_ANIMVAL
 	internal int AnimVal;
@@ -752,17 +939,32 @@ class subscreenwidget {
 	// The counter amount per "container" for the widget
 	//
 	// - [SUBWIDG_MISCGAUGE]
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
 	// @zasm_var SUBWIDGTY_PERCONTAINER
 	internal int PerContainer;
 
+	// The "total points" for the widget
+	//
+	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
+	//
+	// @zasm_var SUBWIDGTY_TOTAL
+	internal int Total;
+
 	// The widget's tabsize value
 	//
-	// - [SUBWIDG_TEXT]
 	// - [SUBWIDG_TEXTBOX]
+	// - [SUBWIDG_SELECTEDTEXT]
 	//
 	// @zasm_var SUBWIDGTY_TABSIZE
 	internal int TabSize;
+	
+	// The level items that cause the compass marker to stop blinking
+	//
+	// - [SUBWIDG_MMAP]
+	//
+	// @zasm_var SUBWIDGTY_LITEMS
+	internal int LItems;
 
 	// Gets the selected text override for this widget.
 	//
@@ -804,13 +1006,14 @@ class subscreenwidget {
 	//   SUBWIDG_SET_LABEL D2
 	internal void SetLabel(char32[] str);
 
-	// Gets/Sets the text for this widget.
+	// Gets the text for this widget.
 	//
-	// If the buffer provided for GetText() is too small, it will *automatically
+	// If the buffer provided is too small, it will *automatically
 	// be resized to fit*.
 	//
 	// - [SUBWIDG_TEXT]
 	// - [SUBWIDG_TEXTBOX]
+	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
 	// @zasm
 	//   POP D2
@@ -818,10 +1021,7 @@ class subscreenwidget {
 	//   SUBWIDG_TY_GETTEXT D2
 	internal void GetText(char32[] buf);
 
-	// Gets/Sets the text for this widget.
-	//
-	// If the buffer provided for [GetText] is too small, it will *automatically
-	// be resized to fit*.
+	// Sets the text for this widget.
 	//
 	// - [SUBWIDG_TEXT]
 	// - [SUBWIDG_TEXTBOX]
@@ -831,4 +1031,19 @@ class subscreenwidget {
 	//   POP REFSUBSCREENWIDG
 	//   SUBWIDG_TY_SETTEXT D2
 	internal void SetText(char32[] str);
+	
+	// Checks the requirements / conditions of this widget.
+	// See [RequiredOwnedItems], [RequiredUnownedItems], [RequiredCounter], [RequiredLItems], [ScriptDisabled]
+	//
+	// @zasm
+	//   POP REFSUBSCREENWIDG
+	//   SUBWIDG_CHECK_CONDITIONS D2
+	internal bool CheckConditions();
+	
+	// Checks that the widget is visible- meaning, it both passes [CheckConditions] and [VisibleFlags].
+	//
+	// @zasm
+	//   POP REFSUBSCREENWIDG
+	//   SUBWIDG_CHECK_VISIBLE D2
+	internal bool CheckVisible();
 }

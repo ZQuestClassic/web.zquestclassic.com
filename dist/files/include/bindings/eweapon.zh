@@ -28,7 +28,9 @@ enum EWeaponType
 	EW_SCRIPT10                    = 40,
 };
 
-// Weapons active on the screen from enemies. See [Screen->LoadEWeapon] and [Screen->CreateEWeapon].
+// Weapons active on the screen from enemies.
+// 
+// Load with [Screen->EWeapons], [Screen->LoadEWeapon], or [Screen->CreateEWeapon].
 //
 // @zasm_ref REFEWPN
 // @extends sprite
@@ -38,18 +40,9 @@ class eweapon {
 
 	// The weapon type. Some types have hardcoded behaviors.
 	//
-	// @zasm_var EWPNID
+	// @value [enum EWeaponType]
+	// @zasm_var EWPNTYPE
 	internal int Type;
-
-	// Exactly the same as [Type], use that instead.
-	//
-	// @zasm_var EWPNID
-	internal int ID;
-
-	// Exactly the same as [Type], use that instead.
-	//
-	// @zasm_var EWPNID
-	internal int Family;
 
 	// For lweapons, the level of the weapon.
 	//
@@ -58,6 +51,7 @@ class eweapon {
 
 	// Returns the max number of weapons currently allowed.
 	//
+	// @deprecated_getter Max
 	// @zasm_var SPRITEMAXEWPN
 	internal int Max;
 
@@ -84,13 +78,9 @@ class eweapon {
 
 	// The amount of damage the weapon deals.
 	//
+	// @alias Damage
 	// @zasm_var EWPNPOWER
 	internal int Power;
-
-	// The amount of damage the weapon deals.
-	//
-	// @zasm_var EWPNPOWER
-	internal int Damage;
 
 	// If the weapon is angular (instead of directional)
 	//
@@ -276,14 +266,6 @@ class eweapon {
 	// @zasm_var EWPNPARENTUID
 	internal int ParentUID;
 
-	// Returns the max number of weapons currently allowed.
-	//
-	// @deprecated Use [Max] instead!
-	// @zasm
-	//   POP REFEWPN
-	//   SETR D2 SPRITEMAXEWPN
-	internal int Max();
-
 	// Sets the max number of weapons allowed to a new value. Range `1-1024`.
 	//
 	// @deprecated Use [Max] instead!
@@ -352,67 +334,13 @@ class eweapon {
 	//   EWPNMAKEDIRECTIONAL D2
 	internal void MakeDirectional();
 
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_BITMAP D2 0.0009
-	internal void Own(bitmap b);
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum EWeaponType]
+	// @zasm_var EWPNTYPE
+	internal int ID;
 
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_PALDATA D2 0.0009
-	internal void Own(paldata b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_FILE D2 0.0009
-	internal void Own(file b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_DIR D2 0.0009
-	internal void Own(directory b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_STACK D2 0.0009
-	internal void Own(stack b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_RNG D2 0.0009
-	internal void Own(randgen b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_ARRAY D2 0.0009
-	internal void OwnArray(untyped array);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFEWPN
-	//   OBJ_OWN_CLASS D2 0.0009
-	internal void OwnObject(untyped object);
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum EWeaponType]
+	// @zasm_var EWPNTYPE
+	internal int Family;
 }

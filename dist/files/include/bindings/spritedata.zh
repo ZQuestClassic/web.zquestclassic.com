@@ -9,6 +9,7 @@ enum SpriteDataFlag
 };
 
 // Represents animation `spritedata` found in the editor at `Quest->Graphics->Sprites->Sprite Data`.
+// 
 // Load with [Game->LoadSpriteData].
 //
 // @zasm_ref REFSPRITEDATA
@@ -49,8 +50,7 @@ class spritedata {
 	// @zasm_var SPRITEDATATYPE
 	internal int Type;
 
-	// @value [enum SpriteDataFlag]
-
+	// @index [enum SpriteDataFlag]
 	// @zasm_var SPRITEDATAFLAGS
 	internal bool Flags[];
 

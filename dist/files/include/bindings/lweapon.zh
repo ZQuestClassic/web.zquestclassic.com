@@ -43,7 +43,9 @@ enum LWeaponType
 	LW_REFFIRE2                    = 55,
 };
 
-// Weapons active on the screen from the hero. See [Screen->LoadLWeapon] and [Screen->CreateLWeapon].
+// Weapons active on the screen from the hero.
+//
+// Load with [Screen->LWeapons], [Screen->LoadLWeapon], or [Screen->CreateLWeapon].
 //
 // @zasm_ref REFLWPN
 // @extends sprite
@@ -53,18 +55,14 @@ class lweapon {
 
 	// The weapon type. Some types have hardcoded behaviors.
 	//
-	// @zasm_var LWPNID
+	// @value [enum LWeaponType]
+	// @zasm_var LWPNTYPE
 	internal int Type;
 
-	// Exactly the same as [Type], use that instead.
+	// For lweapons, the level of the weapon.
 	//
-	// @zasm_var LWPNID
-	internal int ID;
-
-	// Exactly the same as [Type], use that instead.
-	//
-	// @zasm_var LWPNID
-	internal int Family;
+	// @zasm_var LWPNLEVEL
+	internal int Level;
 
 	// The special info for the lweapon.
 	//
@@ -75,6 +73,7 @@ class lweapon {
 
 	// Returns the max number of weapons currently allowed.
 	//
+	// @deprecated_getter SPRITEMAXLWPN
 	// @zasm_var SPRITEMAXLWPN
 	internal int Max;
 
@@ -101,13 +100,9 @@ class lweapon {
 
 	// The amount of damage the weapon deals.
 	//
+	// @alias Damage
 	// @zasm_var LWPNPOWER
 	internal int Power;
-
-	// The amount of damage the weapon deals.
-	//
-	// @zasm_var LWPNPOWER
-	internal int Damage;
 
 	// If the weapon is angular (instead of directional)
 	//
@@ -174,11 +169,6 @@ class lweapon {
 	//
 	// @zasm_var LWPNPARENT
 	internal int Parent;
-
-	// For lweapons, the level of the weapon.
-	//
-	// @zasm_var LWPNLEVEL
-	internal int Level;
 
 	// The weapon script running on this weapon.
 	//
@@ -316,14 +306,6 @@ class lweapon {
 	// @zasm_var LWEAPONSCRIPTUID
 	internal const int UID;
 
-	// Returns the max number of weapons currently allowed.
-	//
-	// @deprecated Use [Max]' instead!
-	// @zasm
-	//   POP REFLWPN
-	//   SETR D2 SPRITEMAXLWPN
-	internal int Max();
-
 	// Sets the max number of weapons allowed to a new value. Range `1-1024`.
 	//
 	// @deprecated Use [Max]' instead!
@@ -392,67 +374,13 @@ class lweapon {
 	//   LWPNMAKEDIRECTIONAL D2
 	internal bool MakeDirectional();
 
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_BITMAP D2 0.0006
-	internal void Own(bitmap b);
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum LWeaponType]
+	// @zasm_var LWPNTYPE
+	internal int ID;
 
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_PALDATA D2 0.0006
-	internal void Own(paldata b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_FILE D2 0.0006
-	internal void Own(file b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_DIR D2 0.0006
-	internal void Own(directory b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_STACK D2 0.0006
-	internal void Own(stack b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_RNG D2 0.0006
-	internal void Own(randgen b);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_ARRAY D2 0.0006
-	internal void OwnArray(untyped array);
-
-	// Grants 'Ownership' of the parameter object to the weapon.
-	//
-	// @zasm
-	//   POP D2
-	//   POP REFLWPN
-	//   OBJ_OWN_CLASS D2 0.0006
-	internal void OwnObject(untyped object);
+	// @soft_deprecated Exactly the same as [Type], use that instead.
+	// @value [enum LWeaponType]
+	// @zasm_var LWPNTYPE
+	internal int Family;
 }

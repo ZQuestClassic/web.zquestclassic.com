@@ -19,7 +19,7 @@ class bitmap {
 	internal const int Height;
 
 	// Returns the palette index at the given position on the bitmap *at the
-	// start of the frame*.
+	// start of the frame*. Returns -1 if coordinates are out-of-bounds.
 	//
 	// @zasm
 	//   POP D0
@@ -91,7 +91,7 @@ class bitmap {
 	//   BMPSPLINER
 	//   POPARGS D5 0.0012
 	internal void Spline(int layer, int x1, int y1, int x2, int y2, int x3,
-						 int y3, int x4, int y4, int color, int opacity = 1);
+						 int y3, int x4, int y4, int color, int opacity = OP_OPAQUE);
 
 	// Identical to [Screen->PutPixel], but it draws to a target bitmap.
 	//
@@ -145,7 +145,7 @@ class bitmap {
 	internal void DrawCombo(int layer, int x, int y, int combo, int w,
 							int h, int cset, int xscale = -1, int yscale = -1,
 							int rx = 0, int ry = 0, int rot_degrees = 0,
-							int frame = 0, int flip = 0, bool transparency = true,
+							int frame = -1, int flip = 0, bool transparency = true,
 							int opacity = OP_OPAQUE);
 
 	// Identical to [Screen->DrawComboCloaked], but it draws to a target bitmap.
