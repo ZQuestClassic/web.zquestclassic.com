@@ -15,4 +15,5 @@ cmake --build build_emscripten --config Release -t web web_zscript_playground
 cd -
 
 rsync -r --delete --exclude _headers --exclude _redirects "$ZC_DIR/build_emscripten/Release/packages/web/" dist/
+rm dist/index.html
 echo "$VERSION" > dist/version
