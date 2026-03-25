@@ -16,4 +16,5 @@ cd -
 
 rsync -r --delete --exclude _headers --exclude _redirects "$ZC_DIR/build_emscripten/Release/packages/web/" dist/
 rm dist/index.html
+rm -fr dist/files/allegro.log dist/files/.sentry-native
 echo "$VERSION" > dist/version
