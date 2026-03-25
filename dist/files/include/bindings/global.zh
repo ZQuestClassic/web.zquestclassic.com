@@ -88,6 +88,7 @@ internal void Quit();
 // Exits the current script entirely, and forcibly skips the de-allocating of
 // objects 'Owned' by the script. Only use this if you know what you are doing!
 //
+// @deprecated Since 3.0, no longer necessary because of the garbage collector.
 // @exit
 // @zasm
 //   QUIT_NO_DEALLOC
@@ -381,7 +382,7 @@ internal void ClearTile(int tile);
 // @zasm
 //   POP D2
 //   ARRAYSIZE D2
-internal int SizeOfArray<T>(T[] arr);
+internal int SizeOfArray(untyped[] arr);
 
 // Resizes the array 'arr' to size 'size'. If 'size' is <1, the array becomes
 // size 1 instead.
@@ -390,14 +391,14 @@ internal int SizeOfArray<T>(T[] arr);
 //   POP D3
 //   POP D2
 //   RESIZEARRAYR D2 D3
-internal void ResizeArray<T>(T[] arr, int size);
+internal void ResizeArray(untyped[] arr, int size);
 
 // Grants ownership of the target array to the currently running script.
 //
 // @zasm
 //   POP D2
 //   OWNARRAYR D2
-internal void OwnArray<T>(T[] arr);
+internal void OwnArray(untyped[] arr);
 
 // If [arr] is a local array, destroys it immediately. Otherwise does nothing.
 //
@@ -405,7 +406,7 @@ internal void OwnArray<T>(T[] arr);
 // @zasm
 //   POP D2
 //   DESTROYARRAYR D2
-internal void DestroyArray<T>(T[] arr);
+internal void DestroyArray(untyped[] arr);
 
 // Takes an Object parameter. Grants ownership of the object to the currently
 // running script.
@@ -440,35 +441,35 @@ internal void OverlayTile(int src, int dest);
 // @zasm
 //   POP D2
 //   FLOOR D2
-internal constexpr T Floor<T>(T val);
+internal constexpr int Floor(int val);
 
 // Returns [val] rounded up to the next higher integer.
 //
 // @zasm
 //   POP D2
 //   CEILING D2
-internal constexpr T Ceiling<T>(T val);
+internal constexpr int Ceiling(int val);
 
 // Truncates [n] to the nearest integer, rounding towards 0.
 //
 // @zasm
 //   POP D2
 //   TRUNCATE D2
-internal constexpr T Truncate<T>(T n);
+internal constexpr int Truncate(int n);
 
 // Truncates [n] to the nearest integer.
 //
 // @zasm
 //   POP D2
 //   ROUND D2
-internal constexpr T Round<T>(T n);
+internal constexpr int Round(int n);
 
 // Truncates [n] to the nearest integer, rounding away from 0.
 //
 // @zasm
 //   POP D2
 //   ROUNDAWAY D2
-internal constexpr T RoundAway<T>(T n);
+internal constexpr int RoundAway(int n);
 
 // Returns information from the real-time clock of the system.
 //
@@ -656,24 +657,6 @@ internal int xtoa(char32[] dest, int val);
 //   XTOI D2 D3
 internal int xtoi(char32[] str);
 
-// Saves/loads internal data (which is normally temporarily altered by scripts)
-// of the types specified in [flags].
-//
-// @zasm
-//   POP D3
-//   POP D2
-//   SAVEGAMESTRUCTS D2 D3
-internal int SaveSRAM(char32[] filename, int flags);
-
-// Saves/loads internal data (which is normally temporarily altered by scripts)
-// of the types specified in [flags].
-//
-// @zasm
-//   POP D3
-//   POP D2
-//   READGAMESTRUCTS D2 D3
-internal int LoadSRAM(char32[] filename, int flags);
-
 // Appends [src] to the end of [dest]. Returns [dest].
 //
 // @zasm
@@ -742,28 +725,28 @@ internal bool IsValidArray<T>(T[] arr);
 // where the old conversion could potentially be 2 entire degrees off at certain
 // angles, while this version only loses about 0.0004 degrees of accuracy.
 //
-// In addition, casting between [DegtoRad] and [RadtoDeg] repeatedly will *not*
+// In addition, casting between [DegToRad] and [RadToDeg] repeatedly will *not*
 // lose additional precision with each call; only the first call will lose
 // precision.
 //
-// @alias DegToRad
+// @alias DegtoRad
 // @deprecated_alias EngineDegtoRad
 // @zasm
 //   POP D3
 //   DEGTORAD D2 D3
-internal constexpr int DegtoRad(int degrees);
+internal constexpr int DegToRad(int degrees);
 
 // Converts Radians to Degrees. More accurate than the old std_functions
 // RadtoDeg.
 //
-// See [DegtoRad] for more details on how this is more accurate.
+// See [DegToRad] for more details on how this is more accurate.
 //
-// @alias RadToDeg
+// @alias RadtoDeg
 // @deprecated_alias EngineRadtoDeg
 // @zasm
 //   POP D3
 //   RADTODEG D2 D3
-internal constexpr int RadtoDeg(int radians);
+internal constexpr int RadToDeg(int radians);
 
 // Returns the [radians] value, wrapped between [-PI,PI)
 //
@@ -786,57 +769,52 @@ internal constexpr int WrapDegrees(int degrees);
 // args to fill in parts of the string that are specially marked. Does not
 // include a newline character after the string.
 //
-// @vargs 0
 // @zasm
 //   PRINTFVARG
 //   POP D5
-internal void printf(char32[] format);
+internal void printf(char32[] format, ...untyped[] values);
 
 // Acts exactly as [printf], but places the result in the [dest] buffer. If
 // the [dest] buffer is too small, it will be resized to fit the contents.
 //
 // Returns the number of characters used.
 //
-// @vargs 0
 // @zasm
 //   SPRINTFVARG
 //   POPARGS D5 0.0002
-internal int sprintf(char32[] dest, char32[] format);
+internal int sprintf(char32[] dest, char32[] format, ...untyped[] values);
 
 // Same as [printf], but with the format parameters as an array.
 //
 // @zasm
 //   PRINTFA
 //   POPARGS D5 0.0002
-internal void printfa<T>(char32[] format, T[] args);
+internal void printfa(char32[] format, untyped[] args);
 
 // Same as [sprintf], but with the format parameters as an array.
 //
 // @zasm
 //   SPRINTFA
 //   POPARGS D5 0.0003
-internal int sprintfa<T>(char32[] dest, char32[] format, T[] args);
+internal int sprintfa(char32[] dest, char32[] format, untyped[] args);
 
 // Returns the largest parameter.
 //
-// @vargs 2
 // @zasm
 //   MAXVARG
-internal constexpr T Max<T>(T val1, T val2);
+internal constexpr T Max<T>(...T[] values);
 
 // Returns the smallest parameter.
 //
-// @vargs 2
 // @zasm
 //   MINVARG
-internal constexpr T Min<T>(T val1, T val2);
+internal constexpr T Min<T>(...T[] values);
 
 // Returns a random parameter, using the global RandGen.
 //
-// @vargs 1
 // @zasm
 //   CHOOSEVARG
-internal T Choose<T>(T val1);
+internal T Choose<T>(...T[] values);
 
 // Increases the size of the array by 1, inserting [val] at the
 // back of the array.

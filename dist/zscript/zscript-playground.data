@@ -15600,10 +15600,6 @@ namespace Emily
 //    Any parameters are already pushed onto the stack. The value of D2 should contain
 //    the return result, if any.
 //
-// @vargs <number>
-//
-//    The xtra_vargs
-//
 // @delete
 //
 //   Mark a constructor as not available, preventing the class from being created with `new`.
@@ -15667,6 +15663,7 @@ import "bindings/itemsprite.zh"
 import "bindings/lweapon.zh"
 import "bindings/mapdata.zh"
 import "bindings/messagedata.zh"
+import "bindings/musicdata.zh"
 import "bindings/npc.zh"
 import "bindings/npcdata.zh"
 import "bindings/paldata.zh"
@@ -15767,7 +15764,8 @@ enum MusicRefreshMode
 	MR_SCREEN, // Refresh on every screen transition.
 	MR_DMAP,   // Refresh when the dmap changes.
 	MR_LEVEL,  // Refresh when the level changes.
-	MR_NEVER   // Never refresh on a screen transition.
+	MR_NEVER,  // Never refresh on a screen transition.
+	MR_REGION, // Refresh when the region changes
 };
 
 // Used with [Audio->MusicRefreshFlags].
@@ -15792,6 +15790,21 @@ class Audio {
 
 	// @zasm_var GETMIDI
 	internal const int MIDI;
+	
+	// Returns the number of [musicdata]s that exist in the quest.
+	//
+	// @zasm_var NUM_MUSICS
+	internal const int NumMusics;
+	
+	// Returns true if the 'engine music' is active.
+	// ('engine music' means the music set for the current screen, or current dmap if the screen has [MUSIC_INHERIT] set)
+	//
+	// If true, changing [Screen->Music] or [mapdata::Music] for the screen the player is on,
+	// or changing [dmapdata::Music] for the current dmap if the current screen's music is [MUSIC_INHERIT],
+	// will result in the currently playing music changing to match.
+	//
+	// @zasm_var ENGINE_MUSIC_ACTIVE
+	internal const bool EngineMusicActive;
 
 	// @deprecated Use [AdjustMusicVolume] or [AdjustSFXVolume] instead.
 	// @zasm_var AUDIOVOLUME
@@ -15873,7 +15886,35 @@ class Audio {
 	//   RESUMEMUSIC
 	internal void ResumeCurMIDI();
 
-	// Plays the MIDI [midi]. Will revert upon changing screens.
+	// Plays the Music [music_index]. See [MusicRefresh] for details on when the engine will change the music back.
+	// Index 0 will stop currently playing music.
+	// Index -1 will play the music of the current screen/dmap, as the engine would.
+	// Otherwise, the index should be > 0 and <= [NumMusics].
+	//
+	// @zasm
+	//   POP REFMUSIC
+	//   DIVV REFMUSIC 10000
+	//   PLAY_MUSIC REFMUSIC
+	internal void PlayMusic(int music_index);
+	
+	// Loads a musicdata ref for the music ID [music_index].
+	// Returns [MUSIC_SILENCE] without error for ID 0.
+	// Fails (returning MUSIC_SILENCE, with error) if the ID is < 0 or > [NumMusics]
+	//
+	// @zasm
+	//   POP D2
+	//   LOADMUSICDATA D2
+	internal musicdata LoadMusicData(int music_index);
+
+	// Gets the musicdata whose name exactly matches `name`.
+	// If no such object exists, returns `NULL`.
+	//
+	// @zasm
+	//   POP D2
+	//   GETMUSICDATABYNAME D2
+	internal musicdata GetMusicData(char32[] name);
+
+	// Plays the MIDI [midi]. See [MusicRefresh] for details on when the engine will change the music back.
 	//
 	// @zasm
 	//   POP D2
@@ -16493,8 +16534,8 @@ class bitmap {
 							bool is8bit = true, bool mask = false);
 
 	// Draws [color] onto the bitmap on pixels that are non-color-0 on the
-	// [mask] bitmap, based on the
-	// Identical to [Screen->Rectangle], but it draws to a target bitmap.
+	// [mask] bitmap, excluding pixels dithered-out by the specified
+	// [ditherType] / [ditherArg].
 	//
 	// @zasm
 	//   BMPDITHER
@@ -16502,7 +16543,7 @@ class bitmap {
 	internal void Dither(int layer, bitmap mask, int color, int ditherType,
 						 int ditherArg);
 
-	// Replaces colors that are [startCol] <= [color] <= [endCol].
+	// Replaces colors that are [startCol] <= color <= [endCol], with [color].
 	//
 	// @zasm
 	//   BMPREPLCOLOR
@@ -16954,21 +16995,24 @@ class combodata {
 	// @zasm_var COMBODANIMFLAGS
 	internal int AnimFlags;
 
-	// The 4 combo attributes. These have a full range (all zscript values,
+	// The 24 combo attributes. These have a full range (all zscript values,
 	// including decimal). Their effect depends on the combo type.
 	//
+	// @versionchanged 3.0 Used to be size 4
 	// @zasm_var COMBODATTRIBUTES
 	internal int Attributes[];
 
 	// The 8 combo attribytes. These have a byte-sized range, `0 to 255`. Their
 	// effect depends on the combo type.
 	//
+	// @deprecated Use [Attributes] indexes 8-15 instead!
 	// @zasm_var COMBODATTRIBYTES
 	internal int Attribytes[];
 
 	// The 8 combo attrishorts. These have a short-sized range, `-32768 to
 	// 32767`. Their effect depends on the combo type.
 	//
+	// @deprecated Use [Attributes] indexes 16-23 instead!
 	// @zasm_var COMBODATTRISHORTS
 	internal int Attrishorts[];
 
@@ -17851,6 +17895,21 @@ class combotrigger {
 	// @zasm_var CMBTRIGREQSTATESCREEN
 	internal int StateScreen;
 
+	// When triggered, plays this music.
+	// [MUSIC_INHERIT] will play the current screen/dmap music.
+	// [MUSIC_SILENCE] / NULL will stop any currently playing music.
+	// [MUSIC_TRIGGER_NONE] as a special value means NOT to play or stop any music.
+	//
+	// @zasm_var CMBTRIG_PLAY_MUSIC
+	internal musicdata PlayMusic;
+	
+	// When triggered, if > -1, sets [Audio->MusicRefresh] to this value.
+	// '-1' as a value indicates not to change [Audio->MusicRefresh].
+	// See [MusicRefreshMode] for other values.
+	//
+	// @zasm_var CMBTRIG_MUSIC_REFRESH
+	internal int MusicRefresh;
+
 	// When triggered, the palette is tinted on the red channel by this amount. -255 to 255.
 	//
 	// -63 to 63 if compat QR "Scripts use 6-bit color (0-63) instead of 8-bit (0-255)" is enabled.
@@ -18187,17 +18246,18 @@ enum WarpType
 
 enum WeaponFlag
 {
-	WFLAG_PICKUP_ITEMS,
-	WFLAG_BREAKS_ON_LANDING,
-	WFLAG_BREAKS_ON_SOLID,
-	WFLAG_BURN_ANYFIRE,
-	WFLAG_BURN_STRONGFIRE,
-	WFLAG_BURN_MAGICFIRE,
-	WFLAG_BURN_DIVINEFIRE,
-	WFLAG_STOP_ON_LANDING,
-	WFLAG_STOP_ON_SOLID,
-	WFLAG_UPDATE_BURNSPR,
-	WFLAG_NO_COLL_WHEN_STILL,
+	WFLAG_PICKUP_ITEMS, // The weapon collects items it touches for the player, similar to melee weapon behavior.
+	WFLAG_BREAKS_ON_LANDING, // The weapon is destroyed when it lands after being in mid-air.
+	WFLAG_BREAKS_ON_SOLID, // The weapon is destroyed when it touches a solid.
+	WFLAG_BURN_ANYFIRE, // The weapon is on fire, counting as 'Any' type fire.
+	WFLAG_BURN_STRONGFIRE, // The weapon is on fire, counting as 'Strong' type fire.
+	WFLAG_BURN_MAGICFIRE, // The weapon is on fire, counting as 'Magic' type fire.
+	WFLAG_BURN_DIVINEFIRE, // The weapon is on fire, counting as 'Divine' type fire.
+	WFLAG_STOP_ON_LANDING, // The weapon stops moving when it lands after being in mid-air.
+	WFLAG_STOP_ON_SOLID, // The weapon stops moving when it touches a solid.
+	WFLAG_UPDATE_BURNSPR, // The weapon changes sprites when it's BURN weapon flags change.
+	WFLAG_NO_COLL_WHEN_STILL, // The weapon has no collision while it isn't moving
+	WFLAG_TEMP_IGNORE_SOLID, // The weapon will not trigger [WFLAG_STOP_ON_SOLID] or [WFLAG_BREAKS_ON_SOLID]. This flag is automatically unset when the weapon is NOT touching any solids.
 	WFLAG_MAX
 };
 
@@ -19221,8 +19281,15 @@ class dmapdata {
 	// @zasm_var DMAPDATAPALETTE
 	internal int Palette;
 
+	// The Music set to play on this dmap.
+	// NULL / MUSIC_SILENCE represents silence.
+	//
+	// @zasm_var DMAPDATA_MUSIC
+	internal musicdata Music;
+	
 	// The MIDI set to play on this dmap.
 	//
+	// @deprecated Use [Music] / [musicdata::MIDI] instead!
 	// @zasm_var DMAPDATAMIDI
 	internal int MIDI;
 
@@ -19243,6 +19310,7 @@ class dmapdata {
 
 	// The track number to use for enhanced music. See [GetMusic].
 	//
+	// @deprecated Use [Music] / [musicdata::Track] instead!
 	// @zasm_var DMAPDATAMUISCTRACK
 	internal int MusicTrack;
 
@@ -19380,21 +19448,25 @@ class dmapdata {
 
 	// The starting loop point for enhanced music in seconds.
 	//
+	// @deprecated Use [Music] / [musicdata::LoopStart] instead!
 	// @zasm_var DMAPDATALOOPSTART
 	internal int MusicLoopStart;
 
 	// The ending loop point for enhanced music in seconds.
 	//
+	// @deprecated Use [Music] / [musicdata::LoopEnd] instead!
 	// @zasm_var DMAPDATALOOPEND
 	internal int MusicLoopEnd;
 
 	// The number of frames enhanced music fades in for.
 	//
+	// @deprecated Use [Music] / [musicdata::CrossfadeIn] instead!
 	// @zasm_var DMAPDATAXFADEIN
 	internal int MusicCrossfadeIn;
 
 	// The number of frames enhanced music fades out for.
 	//
+	// @deprecated Use [Music] / [musicdata::CrossfadeOut] instead!
 	// @zasm_var DMAPDATAXFADEOUT
 	internal int MusicCrossfadeOut;
 
@@ -19454,6 +19526,7 @@ class dmapdata {
 	// Fills the buffer with the dmap's enhanced music filename. See
 	// [MusicTrack].
 	//
+	// @deprecated Use [Music] / [musicdata::GetPath()] instead!
 	// @zasm
 	//   POP D2
 	//   POP REFDMAPDATA
@@ -19463,6 +19536,7 @@ class dmapdata {
 	// Sets the DMap's enhanced music filename to the buffer contents. See
 	// [MusicTrack].
 	//
+	// @deprecated Use [Music] / [musicdata::SetPath()] instead!
 	// @zasm
 	//   POP D2
 	//   POP REFDMAPDATA
@@ -19675,6 +19749,16 @@ class eweapon {
 	//
 	// @zasm_var EWPNTIMEOUT
 	internal int Timeout;
+
+	// If < 0, the weapon behaves as normal. If == 0, the weapon pierces infinitely.
+	// If > 0, each time the weapon hits an enemy or the player, counts down by 1.
+	// When counting down from '1' to '0', the weapon dies.
+	// Some weapons have special behavior; ex. bomb blasts do not die, but will
+	// have their collision disabled so they cannot hit further targets-
+	// and the PierceCount set on a lit bomb will apply to the bomb's blast.
+	//
+	// @zasm_var EWPNPIERCE
+	internal int PierceCount;
 
 	// The angle of the weapon, in radians for Angle or degrees for DegAngle.
 	// Has no real effect if the weapon is not `Angular`.
@@ -19901,6 +19985,11 @@ class ffc {
 	//
 	// @zasm_var FFCID
 	internal const int ID;
+	
+	// The FFC's index within the current screen (0-indexed).
+	//
+	// @zasm_var FFCINDEX
+	internal const int ScreenFFCIndex;
 
 	// The combo ID used by the FFC for its visuals and type.
 	//
@@ -20781,6 +20870,7 @@ class Game {
 	internal long LevelStates[];
 
 	// The 256 global switch timers.
+	// -1 = on, 0 = off, > 0 = on for that many frames
 	//
 	// @zasm_var GAMEGSWITCH
 	internal int GlobalStates[];
@@ -21073,7 +21163,7 @@ class Game {
 	// @zasm_var DMAPCONTINUED
 	internal int DMapContinue[];
 
-	// @deprecated Use [dmapdata::MIDI] instead!
+	// @deprecated Use [dmapdata::Music] / [musicdata::MIDI] instead!
 	// @zasm_var DMAPMIDID
 	internal int DMapMIDI[];
 
@@ -21366,7 +21456,7 @@ class Game {
 	//   GETSPRITESCRIPT D2
 	internal int GetItemSpriteScript(char32[] name);
 
-	// Gets the ID of the npc/item/combo/dmap whose name exactly matches `name`.
+	// Gets the ID of the npc whose name exactly matches `name`.
 	// If no such object exists, returns `-1`.
 	//
 	// @zasm
@@ -21374,7 +21464,7 @@ class Game {
 	//   GETNPCBYNAME D2
 	internal int GetNPC(char32[] name);
 
-	// Gets the ID of the npc/item/combo/dmap whose name exactly matches `name`.
+	// Gets the ID of the item whose name exactly matches `name`.
 	// If no such object exists, returns `-1`.
 	//
 	// @zasm
@@ -21382,7 +21472,7 @@ class Game {
 	//   GETITEMBYNAME D2
 	internal int GetItem(char32[] name);
 
-	// Gets the ID of the npc/item/combo/dmap whose name exactly matches `name`.
+	// Gets the ID of the combo whose label exactly matches `name`.
 	// If no such object exists, returns `-1`.
 	//
 	// @zasm
@@ -21390,7 +21480,7 @@ class Game {
 	//   GETCOMBOBYNAME D2
 	internal int GetCombo(char32[] name);
 
-	// Gets the ID of the npc/item/combo/dmap whose name exactly matches `name`.
+	// Gets the ID of the dmap whose name exactly matches `name`.
 	// If no such object exists, returns `-1`.
 	//
 	// @zasm
@@ -22238,6 +22328,7 @@ internal void Quit();
 // Exits the current script entirely, and forcibly skips the de-allocating of
 // objects 'Owned' by the script. Only use this if you know what you are doing!
 //
+// @deprecated Since 3.0, no longer necessary because of the garbage collector.
 // @exit
 // @zasm
 //   QUIT_NO_DEALLOC
@@ -22531,7 +22622,7 @@ internal void ClearTile(int tile);
 // @zasm
 //   POP D2
 //   ARRAYSIZE D2
-internal int SizeOfArray<T>(T[] arr);
+internal int SizeOfArray(untyped[] arr);
 
 // Resizes the array 'arr' to size 'size'. If 'size' is <1, the array becomes
 // size 1 instead.
@@ -22540,14 +22631,14 @@ internal int SizeOfArray<T>(T[] arr);
 //   POP D3
 //   POP D2
 //   RESIZEARRAYR D2 D3
-internal void ResizeArray<T>(T[] arr, int size);
+internal void ResizeArray(untyped[] arr, int size);
 
 // Grants ownership of the target array to the currently running script.
 //
 // @zasm
 //   POP D2
 //   OWNARRAYR D2
-internal void OwnArray<T>(T[] arr);
+internal void OwnArray(untyped[] arr);
 
 // If [arr] is a local array, destroys it immediately. Otherwise does nothing.
 //
@@ -22555,7 +22646,7 @@ internal void OwnArray<T>(T[] arr);
 // @zasm
 //   POP D2
 //   DESTROYARRAYR D2
-internal void DestroyArray<T>(T[] arr);
+internal void DestroyArray(untyped[] arr);
 
 // Takes an Object parameter. Grants ownership of the object to the currently
 // running script.
@@ -22590,35 +22681,35 @@ internal void OverlayTile(int src, int dest);
 // @zasm
 //   POP D2
 //   FLOOR D2
-internal constexpr T Floor<T>(T val);
+internal constexpr int Floor(int val);
 
 // Returns [val] rounded up to the next higher integer.
 //
 // @zasm
 //   POP D2
 //   CEILING D2
-internal constexpr T Ceiling<T>(T val);
+internal constexpr int Ceiling(int val);
 
 // Truncates [n] to the nearest integer, rounding towards 0.
 //
 // @zasm
 //   POP D2
 //   TRUNCATE D2
-internal constexpr T Truncate<T>(T n);
+internal constexpr int Truncate(int n);
 
 // Truncates [n] to the nearest integer.
 //
 // @zasm
 //   POP D2
 //   ROUND D2
-internal constexpr T Round<T>(T n);
+internal constexpr int Round(int n);
 
 // Truncates [n] to the nearest integer, rounding away from 0.
 //
 // @zasm
 //   POP D2
 //   ROUNDAWAY D2
-internal constexpr T RoundAway<T>(T n);
+internal constexpr int RoundAway(int n);
 
 // Returns information from the real-time clock of the system.
 //
@@ -22806,24 +22897,6 @@ internal int xtoa(char32[] dest, int val);
 //   XTOI D2 D3
 internal int xtoi(char32[] str);
 
-// Saves/loads internal data (which is normally temporarily altered by scripts)
-// of the types specified in [flags].
-//
-// @zasm
-//   POP D3
-//   POP D2
-//   SAVEGAMESTRUCTS D2 D3
-internal int SaveSRAM(char32[] filename, int flags);
-
-// Saves/loads internal data (which is normally temporarily altered by scripts)
-// of the types specified in [flags].
-//
-// @zasm
-//   POP D3
-//   POP D2
-//   READGAMESTRUCTS D2 D3
-internal int LoadSRAM(char32[] filename, int flags);
-
 // Appends [src] to the end of [dest]. Returns [dest].
 //
 // @zasm
@@ -22892,28 +22965,28 @@ internal bool IsValidArray<T>(T[] arr);
 // where the old conversion could potentially be 2 entire degrees off at certain
 // angles, while this version only loses about 0.0004 degrees of accuracy.
 //
-// In addition, casting between [DegtoRad] and [RadtoDeg] repeatedly will *not*
+// In addition, casting between [DegToRad] and [RadToDeg] repeatedly will *not*
 // lose additional precision with each call; only the first call will lose
 // precision.
 //
-// @alias DegToRad
+// @alias DegtoRad
 // @deprecated_alias EngineDegtoRad
 // @zasm
 //   POP D3
 //   DEGTORAD D2 D3
-internal constexpr int DegtoRad(int degrees);
+internal constexpr int DegToRad(int degrees);
 
 // Converts Radians to Degrees. More accurate than the old std_functions
 // RadtoDeg.
 //
-// See [DegtoRad] for more details on how this is more accurate.
+// See [DegToRad] for more details on how this is more accurate.
 //
-// @alias RadToDeg
+// @alias RadtoDeg
 // @deprecated_alias EngineRadtoDeg
 // @zasm
 //   POP D3
 //   RADTODEG D2 D3
-internal constexpr int RadtoDeg(int radians);
+internal constexpr int RadToDeg(int radians);
 
 // Returns the [radians] value, wrapped between [-PI,PI)
 //
@@ -22936,57 +23009,52 @@ internal constexpr int WrapDegrees(int degrees);
 // args to fill in parts of the string that are specially marked. Does not
 // include a newline character after the string.
 //
-// @vargs 0
 // @zasm
 //   PRINTFVARG
 //   POP D5
-internal void printf(char32[] format);
+internal void printf(char32[] format, ...untyped[] values);
 
 // Acts exactly as [printf], but places the result in the [dest] buffer. If
 // the [dest] buffer is too small, it will be resized to fit the contents.
 //
 // Returns the number of characters used.
 //
-// @vargs 0
 // @zasm
 //   SPRINTFVARG
 //   POPARGS D5 0.0002
-internal int sprintf(char32[] dest, char32[] format);
+internal int sprintf(char32[] dest, char32[] format, ...untyped[] values);
 
 // Same as [printf], but with the format parameters as an array.
 //
 // @zasm
 //   PRINTFA
 //   POPARGS D5 0.0002
-internal void printfa<T>(char32[] format, T[] args);
+internal void printfa(char32[] format, untyped[] args);
 
 // Same as [sprintf], but with the format parameters as an array.
 //
 // @zasm
 //   SPRINTFA
 //   POPARGS D5 0.0003
-internal int sprintfa<T>(char32[] dest, char32[] format, T[] args);
+internal int sprintfa(char32[] dest, char32[] format, untyped[] args);
 
 // Returns the largest parameter.
 //
-// @vargs 2
 // @zasm
 //   MAXVARG
-internal constexpr T Max<T>(T val1, T val2);
+internal constexpr T Max<T>(...T[] values);
 
 // Returns the smallest parameter.
 //
-// @vargs 2
 // @zasm
 //   MINVARG
-internal constexpr T Min<T>(T val1, T val2);
+internal constexpr T Min<T>(...T[] values);
 
 // Returns a random parameter, using the global RandGen.
 //
-// @vargs 1
 // @zasm
 //   CHOOSEVARG
-internal T Choose<T>(T val1);
+internal T Choose<T>(...T[] values);
 
 // Increases the size of the array by 1, inserting [val] at the
 // back of the array.
@@ -23954,9 +24022,30 @@ class hero {
 
 	// @zasm_var HEROTOTALDYOFFS
 	internal const int TotalDYOffset;
-
-	// Hero->Equipment is now read-write, and needs testing.
+	
+	// X-offset for the player's item collection hitbox.
 	//
+	// @zasm_var HERO_ITEMBOX_XOFF
+	internal int ItemBoxXOffset;
+	
+	// Y-offset for the player's item collection hitbox.
+	//
+	// @zasm_var HERO_ITEMBOX_YOFF
+	internal int ItemBoxYOffset;
+	
+	// Width of the player's item collection hitbox.
+	//
+	// @zasm_var HERO_ITEMBOX_WIDTH
+	internal int ItemBoxWidth;
+	
+	// Height of the player's item collection hitbox.
+	//
+	// @zasm_var HERO_ITEMBOX_HEIGHT
+	internal int ItemBoxHeight;
+
+	// The current A and B button items (combined bitwise). Doesn't work for item IDs > 255.
+	//
+	// @deprecated Use [Hero->ItemA] / [Hero->ItemB] instead!
 	// @zasm_var LINKEQUIP
 	internal int Equipment;
 
@@ -24626,7 +24715,7 @@ class Input {
 	// @value [enum KeyCode]
 
 	// @zasm_var KEYBINDINGS
-	internal int KeyBindings[];
+	internal const int KeyBindings[];
 
 	// The state of the modifier keys.
 	//
@@ -25604,7 +25693,7 @@ class itemdata {
 	//   POP D2
 	//   POP REFITEMDATA
 	//   ITEMGETDISPLAYNAME D2
-	internal void GetDisplayName(int buf);
+	internal void GetDisplayName(char32[] buf);
 
 	// Sets the item's Display Name to the contents of the buffer.
 	//
@@ -25612,7 +25701,7 @@ class itemdata {
 	//   POP D2
 	//   POP REFITEMDATA
 	//   ITEMSETDISPLAYNAME D2
-	internal void SetDisplayName(int buf);
+	internal void SetDisplayName(char32[] buf);
 
 	// Fills the buffer with the name of the item as shown on the subscreen.
 	// This automatically handles display names, including special instances
@@ -25622,7 +25711,7 @@ class itemdata {
 	//   POP D2
 	//   POP REFITEMDATA
 	//   ITEMGETSHOWNNAME D2
-	internal void GetShownName(int buf);
+	internal void GetShownName(char32[] buf);
 
 	// Runs or ends the item script, depending on [mode].
 	//
@@ -26034,6 +26123,16 @@ class lweapon {
 	//
 	// @zasm_var LWPNTIMEOUT
 	internal int Timeout;
+
+	// If < 0, the weapon behaves as normal. If == 0, the weapon pierces infinitely.
+	// If > 0, each time the weapon hits an enemy or the player, counts down by 1.
+	// When counting down from '1' to '0', the weapon dies.
+	// Some weapons have special behavior; ex. bomb blasts do not die, but will
+	// have their collision disabled so they cannot hit further targets-
+	// and the PierceCount set on a lit bomb will apply to the bomb's blast.
+	//
+	// @zasm_var LWPNPIERCE
+	internal int PierceCount;
 
 	// The angle of the weapon, in radians for Angle or degrees for DegAngle.
 	// Has no real effect if the weapon is not `Angular`.
@@ -26870,8 +26969,16 @@ class mapdata {
 	// @zasm_var MAPDATAHOLDUPSFX
 	internal int ItemSFX;
 
+	// The Music to play for this screen.
+	// NULL / [MUSIC_SILENCE] represents silence.
+	// [MUSIC_INHERIT] as a special value represents using the current dmap's Music.
+	//
+	// @zasm_var MAPDATA_MUSIC
+	internal musicdata Music;
+
 	// The 'Screen MIDI' to play for this screen.
 	//
+	// @deprecated Use [Music] / [musicdata::MIDI] instead!
 	// @zasm_var MAPDATASCREENMIDI
 	internal int MIDI;
 
@@ -27347,6 +27454,132 @@ class messagedata {
 	//   MESSAGEDATASETSTRINGR D3
 	internal void Set(char32[] str);
 }
+// @zasm_ref REFMUSIC
+class musicdata {
+	// @delete
+	internal musicdata();
+	
+	// The ID of this music data.
+	// If ID is > 0, this is a normal music ID.
+	// If ID is <= 0, this is a special value, and you should not use this pointer for anything other than it's specified special purposes.
+	// (special pointers are [MUSIC_TRIGGER_NONE]: -2, [MUSIC_INHERIT]: -1, [MUSIC_SILENCE]: 0)
+	//
+	// @zasm_var MUSICDATA_ID
+	internal const int ID;
+	
+	// Returns true if this music is 'active'. The active music is whichever music is currently playing,
+	// though it remains 'active' even if the music is paused via ex. [Audio::PauseCurMIDI].
+	//
+	// Always returns false for [MUSIC_SILENCE].
+	//
+	// If true, modifying the values of this music will immediately update the currently playing music.
+	//
+	// @zasm_var MUSICDATA_IS_ACTIVE
+	internal const bool Active;
+	
+	// The MIDI that plays for this music index.
+	// If an enhanced music is set, the MIDI will only be played if the enhanced music file is missing / fails to load.
+	// 
+	// @value Special values: [MIDI_NONE], [MIDI_OVERWORLD], [MIDI_DUNGEON], [MIDI_LEVEL9]. Values > 0 use that number midi.
+	//
+	// @zasm_var MUSICDATA_MIDI
+	internal int MIDI;
+	
+	// Returns true if enhanced music is set up on this music index. (Regardless of if it loads successfully or not)
+	// Returns false when the enhanced music path is blank.
+	//
+	// @zasm_var MUSICDATA_IS_ENHANCED
+	internal const bool IsEnhanced;
+	
+	// The track number to use for enhanced music.
+	//
+	// @zasm_var MUSICDATA_TRACK
+	internal int Track;
+	
+	// The starting loop point for enhanced music in seconds.
+	//
+	// @zasm_var MUSICDATA_LOOPSTART
+	internal int LoopStart;
+
+	// The ending loop point for enhanced music in seconds.
+	//
+	// @zasm_var MUSICDATA_LOOPEND
+	internal int LoopEnd;
+
+	// The number of frames enhanced music fades in for.
+	//
+	// @zasm_var MUSICDATA_XFADEIN
+	internal int CrossfadeIn;
+
+	// The number of frames enhanced music fades out for.
+	//
+	// @zasm_var MUSICDATA_XFADEOUT
+	internal int CrossfadeOut;
+	
+	// Fills the buffer with the music path to the enhanced music file being used.
+	// Empty string indicates enhanced music will not be used, and only the [MIDI] will be played.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFMUSIC
+	//   MUSICDATA_GETPATH D2
+	internal void GetPath(char32[] buffer);
+
+	// Sets the path to the enhanced music file to use.
+	// An empty string or NULL pointer clears the enhanced music, so only the [MIDI] will be played.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFMUSIC
+	//   MUSICDATA_SETPATH D2
+	internal void SetPath(char32[] filename);
+	
+	// Fills the buffer with the name of this musicdata.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFMUSIC
+	//   MUSICDATA_GETNAME D2
+	internal void GetName(char32[] buffer);
+
+	// Sets the name of this musicdata.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFMUSIC
+	//   MUSICDATA_SETNAME D2
+	internal void SetName(char32[] name);
+	
+	// Plays the specified music.
+	// If used on [MUSIC_INHERIT], plays the currently assigned screen or dmap music.
+	// If used on [MUSIC_SILENCE], stops currently playing music.
+	// Otherwise, tries to play the specified enhanced music.
+	// If the enhanced music is set to an empty string, or if it fails to load, the [MIDI] will be played instead.
+	//
+	// @zasm
+	//   POP REFMUSIC
+	//   PLAY_MUSIC REFMUSIC
+	internal void Play();
+}
+// Special [musicdata] pointer.
+// Can be used on [combotrigger::Music] as a value indicating "don't play music".
+// [musicdata::ID] will read '-2'.
+// Should otherwise not be used.
+const musicdata MUSIC_TRIGGER_NONE = <musicdata>(-2L);
+// Special [musicdata] pointer.
+// Can be used on [Screen->Music] or [mapdata::Music] to use the dmap's music.
+// Can be used on [combotrigger::Music] to play the current screen's music.
+// Can call [MUSIC_INHERIT->Play()] to play the current screen's music.
+// [musicdata::ID] will read '-1'.
+// Should otherwise not be used.
+const musicdata MUSIC_INHERIT = <musicdata>(-1L);
+// Special [musicdata] pointer. Uninitialized musicdata pointers are equivalent to this pointer.
+// Can be used on [Screen->Music], [mapdata::Music], [dmapdata::Music], or [combotrigger::Music] to stop all music.
+// Can call [MUSIC_SILENCE->Play()] to stop all music.
+// [musicdata::ID] will read '-1'.
+// All variables can be read from, and will return `0` ([GetPath] will give an empty string)
+// Should otherwise not be used; writing to any variables (or calling [SetPath]) is an error.
+const musicdata MUSIC_SILENCE = <musicdata>NULL;
 // Enemy IDs. Used with [Screen->CreateNPC].
 enum NPCID
 {
@@ -30100,7 +30333,7 @@ enum QR
 	// 'Reduced Flashing (Epilepsy Protection)'
 	//
 	// If enabled, certain features in the game are limited visually to make things more epilepsy-friendly for players. This includes capping the
-	// intensity of wavy effects, reducing the triforce flashes, and more. Note that players can turn on this rule themselves in the Hero; if you
+	// intensity of wavy effects, reducing the triforce flashes, and more. Note that players can turn on this rule themselves in the Player; if you
 	// desire consistency, you should turn this quest rule on and design around it.
 	qr_EPILEPSY,
 
@@ -30639,11 +30872,7 @@ enum QR
 	//
 	// Granting an item via an Item Bundle or SCC will handle the 'Upgrade When Collected Twice' behavior.
 	qr_SCC_ITEM_COMBINES_ITEMS,
-
-	// 'Scrolling Cancels Charge'
-	//
-	// If enabled, scrolling screens while charging (i.e. spin attack) will not keep the charge on the new screen.
-	qr_SCROLLING_KILLS_CHARGE,
+	qr_SCROLLING_KILLS_CHARGE, // @deprecated
 
 	// 'Custom Weapon / Ice Rod Bugged Cost'
 	//
@@ -31215,7 +31444,7 @@ enum QR
 
 	// 'Old Shallow Water SFX Attribute'
 	//
-	// If enabled, Shallow Water will use attribytes[0] instead of attribytes[5] for its splash sound.
+	// If enabled, Shallow Water will use attributes[8] instead of attributes[13] for its splash sound.
 	qr_OLD_SHALLOW_SFX,
 
 	// 'Bugged Layered Flags'
@@ -31624,7 +31853,40 @@ enum QR
 	//
 	// If enabled, shields with 'Active Use' checked, and Roc Items with 'Button' set to non-zero, will not run their Action Script.
 	qr_ACTIVE_SHIELD_PASSIVE_ROC_NO_SCRIPT,
-	qr_SCRIPTS_6_BIT_COLOR = 60 * 8, // 'Scripts use 6-bit color (0-63) instead of 8-bit (0-255)'
+
+	// 'Map Button Closes Subscreen'
+	//
+	// If enabled, the Map button will close the active subscreen.
+	qr_MAP_BUTTON_CLOSES_SUBSCREEN,
+
+	// 'Only 'Visit' Screens On Mappable DMaps'
+	//
+	// If enabled, screens only have their 'Visited' state set if the current dmap has the flag to allow viewing the map checked.
+	qr_ONLY_MARK_SCREENS_VISITED_IF_MAP_VIEWABLE,
+
+	// 'Active/Map Subscreens Always 168 Tall'
+	//
+	// If enabled, Active/Map subscrens will be 168 pixels tall, regardless of the 'Hide Bottom 8 Pixels' rule. The extra space will be filled with
+	// black.
+	//
+	// Otherwise, the Active/Map subscreen will match the height based on the 'Hide Bottom 8 Pixels' setting.
+	qr_ACTIVE_SUB_IGNORE_8PX,
+
+	// 'Mirror/Prism Combos Work On FFCs'
+	//
+	// Mirror and Prism combos work on FFCs. NOTE: This DOES NOT work for Light Beams, only weapons.
+	qr_MIRROR_PRISM_FFCS,
+
+	// 'Weapons Better Screen Edge Hitbox'
+	//
+	// If enabled, will not die from hitting the screen edge until they are actually offscreen fully.
+	qr_WEAPON_BETTER_SCREEN_EDGE_HITBOX,
+
+	// ''DrawCombo' ignores the 'frame' parameter'
+	//
+	// If checked, the 'DrawCombo' function will always treat the value of 'frame' as '-1'.
+	qr_DRAWCOMBO_IGNORES_FRAME,
+	qr_SCRIPTS_6_BIT_COLOR, // 'Scripts use 6-bit color (0-63) instead of 8-bit (0-255)'
 
 	// 'Broken Hero Position Exposed To Scripts When Scrolling'
 	//
@@ -31700,6 +31962,43 @@ enum QR
 	//
 	// If enabled, certain sprites (enemy, weapon, and item) will stick to the ground in sideview and cannot be made to jump off via script.
 	qr_BROKEN_SIDEVIEW_SPRITE_JUMP,
+
+	// ''DrawTile' tall draws wrap poorly'
+	//
+	// If checked, 'DrawTile' draws taller than 1 tile will wrap each tile to the next row, instead of wrapping the entire block to the row after
+	// the block.
+	qr_DRAWTILE_TALL_DRAWS_WRAP_POORLY,
+
+	// 'Buggy Wind w/ multiple on-screen'
+	//
+	// If multiple wind lweapons are on screen and the player is in one, the player will lose track of which wind they are in, and teleport between
+	// them.
+	qr_BUGGY_MULTIPLE_WIND,
+
+	// 'No enemy death event for segmented enemy cores'
+	//
+	// If enabled, some enemy types 'core' enemy / main body will not issue a death event for generic scripts.
+	qr_NO_DEATH_EVENTS_FOR_SEGMENTED_ENEMY_CORES,
+
+	// 'Broken Combo Change + 'Copycat' triggers'
+	//
+	// If enabled, triggering a combo that changes the combo and triggers a copycat, the combo it changes into will be IMMEDIATELY triggered by the
+	// same copycat effect.
+	qr_BROKEN_COPYCAT_SELF_TRIGGER,
+
+	// 'Broken Liquid Passive Damage'
+	//
+	// If enabled, the passive damage feature of liquid combos will not properly check the item to nullify the damage.
+	//
+	// It will also EITHER not emit player damage events OR not use the hit sound properly, depending on if the water is shallow or not and if 'New
+	// Shallow Water Detection' is enabled or not.
+	qr_BROKEN_WATER_PASSIVE_DAMAGE,
+
+	// 'Broken Combo Trigger Self-Triggering'
+	//
+	// If enabled, some combo trigger effects may cause the same trigger to trigger again. This may have negative effects, such as double-charging
+	// a cost, or toggling a state on and back off instead of just on.
+	qr_BROKEN_SELF_TRIGGERING_TRIGGERS,
 
 	// '2.50 Division Truncation'
 	//
@@ -32214,8 +32513,15 @@ class save_menu
 	// @zasm_var SAVEMENU_CLOSE_FLASH_RATE
 	internal int CloseFlashRate;
 
+	// The Music to play for this screen.
+	// NULL / [MUSIC_SILENCE] represents silence.
+	//
+	// @zasm_var SAVEMENU_MUSIC
+	internal musicdata Music;
+	
 	// The MIDI to play.
 	// 
+	// @deprecated Use [Music] / [musicdata::MIDI] instead!
 	// @zasm_var SAVEMENU_MIDI
 	internal int MIDI;
 
@@ -32363,6 +32669,8 @@ enum WipeEffect
 };
 
 // Determines how to interpret coordinates given to [Screen] draw functions.
+//
+// Examples: https://docs.zquestclassic.com/zscript/lang/examples/draw_origin
 enum DrawOrigin
 {
 	// When in a scrolling region (or scrolling to/from one), this is equal to [DRAW_ORIGIN_REGION].
@@ -33302,8 +33610,16 @@ class screendata {
 	// @zasm_var SCREENDATAHOLDUPSFX
 	internal int ItemSFX;
 
+	// The Music to play for this screen.
+	// NULL / [MUSIC_SILENCE] represents silence.
+	// [MUSIC_INHERIT] as a special value represents using the current dmap's Music.
+	//
+	// @zasm_var SCREENDATA_MUSIC
+	internal musicdata Music;
+	
 	// The MIDI that plays on this screen.
 	//
+	// @deprecated Use [Music] / [musicdata::MIDI] instead!
 	// @zasm_var SCREENDATASCREENMIDI
 	internal int MIDI;
 
@@ -33524,6 +33840,8 @@ class screendata {
 	// bitmaps), this value is ignored.
 	//
 	// Defaults to [DRAW_ORIGIN_DEFAULT].
+	//
+	// Examples: https://docs.zquestclassic.com/zscript/lang/examples/draw_origin
 	//
 	// @versionadded 2.55.9
 	// @zasm_var SCREEN_DRAW_ORIGIN
@@ -34173,6 +34491,7 @@ class screendata {
 	internal int GetTileWarpType(int warp_id);
 }
 
+// @zasm_var REFSCREEN
 internal const screendata Screen;
 // Load with [Game->LoadShopData] and [Game->LoadInfoShopData].
 //
@@ -35043,6 +35362,7 @@ enum // Flags for [SUBWIDG_MMAP]
 	SUBW_MMAP_FLAG_SHOWMAP, // If the map itself is drawn
 	SUBW_MMAP_FLAG_SHOWPLAYER, // If the player marker is drawn
 	SUBW_MMAP_FLAG_SHOWCOMPASS, // If the compass marker is drawn
+	SUBW_MMAP_VISITED_REQ_MAP, // If visited rooms are only drawn once map is obtained
 	SUBW_MMAP_NUMFLAGS
 };
 enum // Flags for SUBWIDG_LMAP
@@ -35431,6 +35751,23 @@ class subscreendata {
 	//   SUBDATA_SWAP_PAGES
 	//   POPARGS D5 0.0003
 	internal void SwapPages(int index1, int index2);
+	
+	// Opens the specified subscreen (at the next moment possible).
+	// Only works on Active / Map subscreens.
+	//
+	// @zasm
+	//   POP REFSUBSCREENDATA
+	//   SUBDATA_OPEN
+	internal void Open();
+	
+	// Closes the subscreen. Only works on the Active / Map subscreen
+	// that is currently running during a subscreendata script (i.e.
+	// 'this->Close()')
+	//
+	// @zasm
+	//   POP REFSUBSCREENDATA
+	//   SUBDATA_CLOSE
+	internal void Close();
 }
 // Used with [subscreenpage::SelectorMove].
 @Bitflags("int")
@@ -35690,14 +36027,14 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGFLAG
 	internal bool Flags[];
-	
+
 	// Any items set true here must be owned for the widget to be active/visible.
 	//
 	// @index [enum ItemID]
 	//
 	// @zasm_var SUBWIDGREQOWNITEMS
 	internal bool RequiredOwnedItems[];
-	
+
 	// Any items set true here must NOT be owned for the widget to be active/visible.
 	//
 	// @index [enum ItemID]
@@ -35756,7 +36093,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGREQCOUNTER
 	internal int RequiredCounter;
-	
+
 	// The counter operation this widget requires to be active/visible.
 	// The [RequiredCounter] must relate to the [RequiredCounterValue] by this operation.
 	// If [CONDTY_NONE], no requirement will be checked.
@@ -35765,13 +36102,13 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGREQCOUNTERCOND
 	internal int RequiredCounterCond;
-	
+
 	// The counter value this widget requires to be active/visible.
 	// The [RequiredCounter] must relate to this value based on the [RequiredCounterCond].
 	//
 	// @zasm_var SUBWIDGREQCOUNTERVAL
 	internal int RequiredCounterValue;
-	
+
 	// The Level Items that are required to be owned (or unowned, if [SUBW_GENFL_REQ_INVERT_LITEM] is set)
 	// If [SUBW_GENFL_REQ_ANY_LITEM] is set, any state is required instead of every state.
 	//
@@ -35779,7 +36116,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGREQLITEMS
 	internal int RequiredLItems;
-	
+
 	// The Level that [RequiredLItems] are checked for. If set to '-1', uses the
 	// current level.
 	//
@@ -35830,7 +36167,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGREQSCRIPTDISABLED
 	internal bool ScriptDisabled;
-	
+
 	// The X/Y/W/H offsets for the selector on this widget, if the selector is
 	// overridden (see [GenFlags]).
 	//
@@ -36095,7 +36432,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_TXT
 	internal int ColorText;
-	
+
 	// The widget's color index used for Text when the counter is full
 	//
 	// - [SUBWIDG_COUNTER]
@@ -36118,7 +36455,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_SHD
 	internal int ColorShadow;
-	
+
 	// The widget's color index used for Shadows when the counter is full
 	//
 	// - [SUBWIDG_COUNTER]
@@ -36143,7 +36480,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_BG
 	internal int ColorBG;
-	
+
 	// The widget's color index used for background when the counter is full
 	//
 	// - [SUBWIDG_COUNTER]
@@ -36261,6 +36598,13 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_COLOR_ROOM
 	internal int ColorRoom;
+
+	// The widget's color index used to indicate visited rooms
+	//
+	// - [SUBWIDG_MMAP]
+	//
+	// @zasm_var SUBWIDGTY_COLOR_VISITED
+	internal int ColorVisited;
 
 	// The itemclass used by the widget (0 <= ItemType < IC_MAXUSABLE)
 	//
@@ -36484,7 +36828,7 @@ class subscreenwidget {
 	//
 	// @zasm_var SUBWIDGTY_TABSIZE
 	internal int TabSize;
-	
+
 	// The level items that cause the compass marker to stop blinking
 	//
 	// - [SUBWIDG_MMAP]
@@ -36557,7 +36901,7 @@ class subscreenwidget {
 	//   POP REFSUBSCREENWIDG
 	//   SUBWIDG_TY_SETTEXT D2
 	internal void SetText(char32[] str);
-	
+
 	// Checks the requirements / conditions of this widget.
 	// See [RequiredOwnedItems], [RequiredUnownedItems], [RequiredCounter], [RequiredLItems], [ScriptDisabled]
 	//
@@ -36565,7 +36909,7 @@ class subscreenwidget {
 	//   POP REFSUBSCREENWIDG
 	//   SUBWIDG_CHECK_CONDITIONS D2
 	internal bool CheckConditions();
-	
+
 	// Checks that the widget is visible- meaning, it both passes [CheckConditions] and [VisibleFlags].
 	//
 	// @zasm
@@ -38139,7 +38483,7 @@ void drawCharacterBordered(int layer, int x, int y, int font, int textColor, int
 	Screen->DrawCharacter(layer, x, y+1, font, borderColor, -1, -1, -1, glyph, opacity);
 	Screen->DrawCharacter(layer, x+1, y+1, font, borderColor, -1, -1, -1, glyph, opacity);
 	Screen->DrawCharacter(layer, x, y, font, textColor, -1, -1, -1, glyph, opacity);
-}// TODO: rename to std_time.zh, but wait until functions can return strings and rewrite some stuff here.
+}// TODO: re-implement these functions in `std_time.zh`, returning strings instead of using buffers
 //       also should not hard code a timezone - we need a system tz ZASM op
 
 /**
@@ -38424,56 +38768,6 @@ namespace time
 		GetZone(timezone, zone);
 		sprintf(buffer, "%s %s %d, at %d:%d %s\n", day, month, y, h, m, timezone);
 	}
-	/**
-	*	Returns the current in-game clock hours value.
-	*/
-	int Hours()
-	{
-		unless(Game->TimeValid) return -1;
-		return ((Game->Time / (FRAMES_PER_SECOND*SECONDS_PER_MINUTE))	 / MINUTES_PER_HOUR) * 10000;
-	}
-	/**
-	*	Returns the current in-game clock minutes value.
-	*/
-	int Minutes()
-	{
-		unless(Game->TimeValid) return -1;
-		return ((Game->Time % (TIME_FRAME*FRAMES_PER_SECOND*SECONDS_PER_MINUTE*MINUTES_PER_HOUR)) / (FRAMES_PER_SECOND*SECONDS_PER_MINUTE)) *10000;
-	}
-	/**
-	*	Returns the current in-game clock seconds value.
-	*/
-	int Seconds()
-	{
-		unless(Game->TimeValid) return -1;
-		return ((Game->Time % (TIME_FRAME*FRAMES_PER_SECOND*SECONDS_PER_MINUTE)) / FRAMES_PER_SECOND) * 10000;
-	}
-	/**
-	*	Returns the number of frames needed to tick the next second.
-	*	@param percent If set true, it will return 0-99, as percentage of a second (i.e. milliseconds)
-	*/
-	int Frames(bool percent)
-	{
-		unless(Game->TimeValid) return -1;
-		int frame = (Game->Time % (TIME_FRAME*FRAMES_PER_SECOND)) * 10000;
-		return percent ? Floor((frame/60)*100): frame;
-	}
-	/**
-	*	Returns the total time, in minutes, that a player has been playing a quest.
-	*/
-	int TotalMinutes()
-	{
-		unless(Game->TimeValid) return -1;
-		return ((Game->Time) / (FRAMES_PER_SECOND*SECONDS_PER_MINUTE)) *10000;
-	}
-	/**
-	*	Returns the total time, in seconds, that a player has been playing a quest.
-	*/
-	int TotalSeconds()
-	{
-		unless(Game->TimeValid) return -1;
-		return ((Game->Time) / FRAMES_PER_SECOND) * 10000;
-	}
 }
 // Empty, moved to std_zh/script_runners.zh.
 // Standard library for ZScript.
@@ -38488,6 +38782,7 @@ namespace time
 
 #include "std_zh/std.cfg"
 #include "std_zh/std_extension.zh"
+#include "std_zh/std_time.zh"
 #include "std_zh/script_runners.zh"
 #include "std_zh/ghostBasedMovement.zh"
 #include "std_zh/limits.zh"
@@ -39277,6 +39572,19 @@ eweapon RunEWeaponScriptAt(int ID, int scriptNum, int x, int y, untyped[] args =
 	return obj;
 }
 
+DEFINE MIN_ITEMDATASCRIPT = 1;
+DEFINE MAX_ITEMDATASCRIPT = 255;
+int CheckItemDataScript(char32[] scriptname)
+{
+	int id = Game->GetItemScript(scriptname);
+	if(id < 0)
+	{
+		printf("ItemData Script '%s' is not assigned to a slot!\n", scriptname);
+		return 0;
+	}
+	return id;
+}
+
 DEFINE MIN_ITEMSPRITESCRIPT = 1;
 DEFINE MAX_ITEMSPRITESCRIPT = 255;
 int CheckItemSpriteScript(char32[] scriptname)
@@ -39818,14 +40126,27 @@ DEFINEF DIR16_RADS_RIGHTRIGHTUP = 5.8905;
 DEFINEF DIR16_RADS_RIGHTUP 	= 5.4978;
 DEFINEF DIR16_RADS_RIGHTUPUP 	= 5.1141;
 
-//MIDI values, used for [Screen->MIDI], [dmapdata::MIDI], [mapdata::MIDI], [Audio->PlayMIDI].
+// MIDI values, used for [Audio->PlayMIDI] (and deprecated [Screen->MIDI], [dmapdata::MIDI], [mapdata::MIDI]).
 enum
 {
-    MIDI_USE_DMAP = -4, // ONLY for [Screen->MIDI] and [mapdata::MIDI].
+    MIDI_USE_DMAP = -4, // @deprecated ONLY for [Screen->MIDI] and [mapdata::MIDI]
     MIDI_NONE,
     MIDI_OVERWORLD,
     MIDI_DUNGEON,
     MIDI_LEVEL9 // Cannot be played by [Audio->PlayMIDI].
+};
+
+// MIDI values, used for [musicdata::MIDI]
+enum
+{
+	BUILTIN_MIDI_TRIFORCE = -7,
+	BUILTIN_MIDI_TITLE = -6,
+	BUILTIN_MIDI_OVERWORLD = -5,
+	BUILTIN_MIDI_LEVEL9 = -4,
+	BUILTIN_MIDI_GAMEOVER = -3,
+	BUILTIN_MIDI_ENDING = -2,
+	BUILTIN_MIDI_DUNGEON = -1,
+	BUILTIN_MIDI_NONE = 0,
 };
 
 // Used with [AimEWeapon].
@@ -43041,7 +43362,7 @@ float CrossProduct( float x1, float y1, float x2, float y2 )
 void DCounterAdd(int counter, int amount)
 {
 	if ( amount + Game->DCounter[counter] > DCOUNTER_MAX ) Game->DCounter[counter] = DCOUNTER_MAX;
-	else Game->MCounter[counter] += amount;
+	else Game->DCounter[counter] += amount;
 }
 
 //Reduce a drain counter without rollvoer.
@@ -44433,15 +44754,15 @@ int NumLWeaponsOf(int type)
 	return ret;
 }
 
-// @param [NPCType] type
-int NumNPCsOf(int type)
+// @param [NPCID] id
+int NumNPCsOf(int id)
 {
 	int ret = 0;
 	npc n;
 	for (int i = Screen->NumNPCs; i > 0 ; --i)
 	{
 		n = Screen->LoadNPC(i);
-		if (n->ID == type)
+		if (n->ID == id)
 			++ret;
 	}
 	return ret;
@@ -44561,12 +44882,6 @@ bool RightOf(ffc n){ return Hero->X > n->X; }
 bool RightOf(eweapon n){ return Hero->X > n->X; }
 //Returns if Link is above, below, left of, or right of an lweapon.
 bool RightOf(lweapon n){ return Hero->X > n->X; }
-
-//Rounds x to the nearest integer
-float Round(float x)
-{
-	return ( (x<0) ? (((x-.5)<<0)) : (((x+.5)<<0)) );
-}
 
 //rotates and scales X about a center point by an amount of degrees
 float RotateScalePointX(float x, float y, float centerX, float centerY, float degrees, float scaleX, float scaleY)
@@ -44770,9 +45085,11 @@ void SetDMapFlag(int dmap, int flag, bool state)
 	dm->Flags = AdjustBitflags(dm->Flags, flag, state);
 }
 
-//Writes items to both the A and the b item slots.
+// Writes items to both the A and the b item slots.
+// @deprecated Use [Hero->ItemA] / [Hero->ItemB] instead!
 void SetEquipment(int a, int b)
 {
+	#option WARN_DEPRECATED off
 	Hero->Equipment = (((a&0xFF)|((b&0xFF)<<8)));
 }
 
@@ -46225,6 +46542,52 @@ bool OnSidePlatform(npc l)
 		)
 	);
 }
+namespace time
+{
+	const long TIME_FRAME = 1L;
+	const int FRAMES_PER_SECOND = 60;
+	const int SECONDS_PER_MINUTE = 60;
+	const int MINUTES_PER_HOUR = 60;
+	
+	// Returns the current in-game clock hours value.
+	int Hours()
+	{
+		unless(Game->TimeValid) return -1;
+		return ((Game->Time / (FRAMES_PER_SECOND*SECONDS_PER_MINUTE))	 / MINUTES_PER_HOUR) * 10000;
+	}
+	// Returns the current in-game clock minutes value.
+	int Minutes()
+	{
+		unless(Game->TimeValid) return -1;
+		return ((Game->Time % (TIME_FRAME*FRAMES_PER_SECOND*SECONDS_PER_MINUTE*MINUTES_PER_HOUR)) / (FRAMES_PER_SECOND*SECONDS_PER_MINUTE)) *10000;
+	}
+	// Returns the current in-game clock seconds value.
+	int Seconds()
+	{
+		unless(Game->TimeValid) return -1;
+		return ((Game->Time % (TIME_FRAME*FRAMES_PER_SECOND*SECONDS_PER_MINUTE)) / FRAMES_PER_SECOND) * 10000;
+	}
+	// Returns the number of frames needed to tick the next second.
+	// @param percent If set true, it will return 0-99, as percentage of a second (i.e. milliseconds)
+	int Frames(bool percent)
+	{
+		unless(Game->TimeValid) return -1;
+		int frame = (Game->Time % (TIME_FRAME*FRAMES_PER_SECOND)) * 10000;
+		return percent ? Floor((frame/60)*100): frame;
+	}
+	// Returns the total time, in minutes, that a player has been playing a quest.
+	int TotalMinutes()
+	{
+		unless(Game->TimeValid) return -1;
+		return ((Game->Time) / (FRAMES_PER_SECOND*SECONDS_PER_MINUTE)) *10000;
+	}
+	// Returns the total time, in seconds, that a player has been playing a quest.
+	int TotalSeconds()
+	{
+		unless(Game->TimeValid) return -1;
+		return ((Game->Time) / FRAMES_PER_SECOND) * 10000;
+	}
+}
 //printf, sprintf and strcatf arguments
 const char32 MSGC_LINEFEED			= 10;	// '\n'
 
@@ -46755,16 +47118,6 @@ void arrayset(untyped[] a, ...untyped[] args){
 }
 
 
-//String Manipulation
-//String Copy
-//Copys string 'src' into string 'dest' without checking for overflow in 'dest'
-void strcpy(int[] dest, int dpos, int[] src, int spos)
-{
-	for(int i = 0; src[spos + i] != 0; ++i)
-		dest[dpos + i] = src[spos + i];
-}
-
-
 //As strcpy, but only takes the first 'n' characters from src
 void strncpy(int[] dest, int dpos, int[] src, int spos, int n)
 {
@@ -46799,20 +47152,6 @@ void remnchr(char32[] ptr, int pos, int n)
 		ptr[pos + i] = (temp + i < l) ? ptr[temp + i] : 0;
 }
 
-
-
-//String Concatenate
-//Appends string 'src' onto string 'dest' (assuming dest has enough extra memory
-//allocated to allow the operation)
-void strcat(int[] dest, int[] src, int spos)
-{
-	int i;
-	int l = strlen(dest);
-	for(i = 0; src[spos + i] != 0; ++i)
-		dest[l + i] = src[spos + i];
-	dest[l + i] = 0;
-}
-
 //strcat up to 'n' characters in src
 void strncat(int[] dest, int[] src, int spos, int n)
 {
@@ -46826,104 +47165,6 @@ void strncat(int[] dest, int[] src, int n)
 {
 	strncat(dest, src, 0, n);
 }
-
-
-//String Searching
-//String Character
-//Returns the position of the first occurence of 'character' in 'string',
-//or -1 if none are found
-int strchr(char32[] ptr, int pos, char32 chr)
-{
-	for(int i = 0; ptr[pos + i] != 0; ++i)
-		if(ptr[pos + i] == chr)
-			return pos + i;
-	return -1;
-}
-
-
-//String Reverse Character
-//Returns the position of the last occurence of 'character' in 'string'
-//starting from the end, or -1 if none are found
-int strrchr(char32[] ptr, int pos, char32 chr)
-{
-	for(int i = strlen(ptr) - pos; i > 0; --i)
-		if(ptr[i] == chr)
-			return i;
-	return -1;
-}
-
-
-
-//String Sub-String
-//Returns the position of the first occurence of sub-string 'sub' in 'string',
-//or -1 if sub is not found
-int strstr(char32[] ptr, int pos, char32[] sub)
-{
-	int l = strlen(sub) - 1;
-	for(int i = 0; ptr[pos + i] != 0; ++i)
-		for(int j = 0; sub[j] != 0 && ptr[pos + i + j] != 0 && ptr[pos + i + j] == sub[j]; ++j)
-			if(j == l)
-				return pos + i;
-	return -1;
-}
-
-
-//String Span
-//Returns the length of characters in 'ptr' before a character not contained in
-//'keys' is found
-int strspn(char32[] ptr, int pos, char32[] keys)
-{
-	int i;
-	bool found;
-	for(i = 0; ptr[pos + i] != 0; ++i)
-	{
-		found = false;
-		for(int j = 0; keys[j] != 0; ++j)
-			if(ptr[pos + i] == keys[j])
-				found = true;
-		unless(found)
-			return pos + i;
-	}
-	return pos + i;
-}
-
-//String Complement Span
-//Returns the length of characters in 'ptr' before a character contained in
-//'keys' is found
-int strcspn(char32[] ptr, int pos, char32[] keys)
-{
-	int i;
-	for(i = 0; ptr[pos + i] != 0; ++i)
-		for(int j = 0; keys[j] != 0; ++j)
-			if(ptr[pos + i] == keys[j])
-				return pos + i;
-	return pos + i;
-}
-
-
-//String Comparison
-//String Compare
-//Iterates through ptr1 and ptr2 until a character is found which is not the same in
-//both strings, and then returns > 0 if the character is larger in ptr1, and < 0 if it is
-//larger in ptr2. Returns 0 if the strings are equal
-int strcmp(char32[] ptr1, int pos1, char32[] ptr2, int pos2)
-{
-	int i;
-	for(i = 0; ptr1[pos1 + i] != 0 && ptr2[pos2 + i] != 0 && ptr1[pos1 + i] == ptr2[pos2 + i]; ++i);
-	return ptr1[pos1 + i] - ptr2[pos2 + i];
-}
-
-//strcmp up to 'n' characters
-int strncmp(char32[] ptr1, int pos1, char32[] ptr2, int pos2, int n)
-{
-	int i;
-	for(i = 0; ptr1[pos1 + i] != 0 && ptr2[pos2 + i] != 0 && ptr1[pos1 + i] == ptr2[pos2 + i] && i < n; ++i);
-	if(i == n)
-		i--;
-	return ptr1[pos1 + i] - ptr2[pos2 + i];
-}
-
-
 
 //Converting between variables and strings
 //ASCII to Integer
@@ -46951,17 +47192,6 @@ int ilen(char32[] ptr, int pos)
 	if(ptr[pos] == '-')
 		ret++;
 	for(; isNumber(ptr[pos + ret]); ++ret);
-	return ret;
-}
-
-
-//Hexadecimal ASCII to Integer
-//Returns the (positive) hexadecimal integer pointed by 'string'
-int xtoi(char32[] ptr, int pos)
-{
-	int ret = 0;
-	for(int i = 0; isHex(ptr[pos + i]); ++i)
-		ret = ret*0x10 + (isNumber(ptr[pos + i]) ? ptr[pos + i] - '0' : LowerToUpper(ptr[pos + i]) - 'A' + 0xA);
 	return ret;
 }
 
@@ -47352,29 +47582,6 @@ void strncatf(int[] dest, untyped arg, int format, int n)
 
 }
 
-//Used by sprintf
-bool sprintf_isMFCode(char32 chr)
-{
-	return sprintf_MFCodeToInt(chr) != -1;
-}
-int sprintf_MFCodeToInt(char32 chr)
-{
-	switch(chr)
-	{
-		case 'n': return MF_NONE;
-		
-		case 'i': return MF_INT;
-		case 'f': return MF_FLOAT;
-		case 'd': return MF_NUM;
-		case 's': return MF_STRING;
-		case 'p': return MF_PTR;
-		case 'c': return MF_CHAR;
-		case 'x': return MF_HEXLOWER;
-		case 'X': return MF_HEXUPPER;
-		default: return -1;
-	}
-}
-
 int ReturnStringCharPos(char32[] ptr, char32 chr)
 {
 	for ( int q = 0; ptr[q]!=0; ++q ) {
@@ -47429,144 +47636,6 @@ void ScreenPrint(char32[] s, untyped v, int[] args)
 	char32 main_buf[2048];
 	sprintf(main_buf, s, v);
 	Screen->DrawString(args[0], args[1], args[2], args[3], args[4], args[5], args[6], main_buf, args[7]);
-}
-
-namespace std
-{
-	namespace string
-	{
-
-		//Now an internal function. -Z ( 15th May, 2019 )
-		int strcmp(char32[] ptr1, char32[] ptr2)
-		{
-			return strcmp(ptr1, 0, ptr2, 0);
-		}
-
-		//Now an internal function. -Z ( 15th May, 2019 )
-		int strncmp(char32[] ptr1, char32[] ptr2, int n)
-		{
-			return strncmp(ptr1, 0, ptr2, 0 , n);
-		}
-
-		//Internal as of 2.55 Alpha 23, 15th may, 2019 
-		//String Length
-		//Returns the length of string 'string'
-		int strlen(char32[] ptr)
-		{
-			int l;
-			for(l = 0; ptr[l] != 0; ++l);
-			return l;
-		}
-
-		void strcpy(char32[] dest, char32[] src)
-		{
-			strcpy(dest, 0, src, 0);
-		}
-		int atoi(char32[] ptr)
-		{
-			return atoi(ptr, 0);
-		}
-		void strcat(char32[] dest, char32[] src)
-		{
-			strcat(dest, src, 0);
-		}
-		int strchr(char32[] ptr, char32 chr)
-		{
-			return strchr(ptr, 0, chr);
-		}
-		int strrchr(char32[] ptr, char32 chr)
-		{
-			return strrchr(ptr, 0, chr);
-		}
-		int strspn(char32[] ptr, char32[] keys)
-		{
-			return strspn(ptr, 0, keys);
-		}
-		int strcspn(char32[] ptr, char32[] keys)
-		{
-			return strcspn(ptr, 0, keys);
-		}
-		int strstr(char32[] ptr, char32[] sub)
-		{
-			return strstr(ptr, 0, sub);
-		}
-		int ilen(char32[] ptr)
-		{
-			return ilen(ptr, 0);
-		}
-		int xtoi(char32[] ptr)
-		{
-			return xtoi(ptr, 0);
-		}
-		
-		int itoa(char32[] ptr, int num)
-		{
-			return itoa(ptr, 0, num);
-		}
-		
-		int xtoa(char32[] ptr, int num)
-		{
-			return xtoa(ptr, 0, num, true);
-		}
-		
-		// Prints string 'formatstr' into 'ret' according to the arguments inputted (see C function for reference)
-		// Maximum 16 arguments
-		//
-		// @deprecated Use the internal [sprintf] instead.
-		int sprintf(char32[] ret, char32[] formatstr,int a0=0,int a1=0,int a2=0,int a3=0,int a4=0,int a5=0,int a6=0,int a7=0,
-										  int a8=0,int a9=0,int aa=0,int ab=0,int ac=0,int ad=0,int ae=0,int af=0)
-		{
-			int pos = 0;
-			int currentarg = 0;
-			int a[0x10];
-			arrayset(a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,aa,ab,ac,ad,ae,af);
-
-			for(int i = 0; formatstr[i] != 0; ++i)
-			{
-				char32 chr = formatstr[i];
-				if(chr == '\\') //Control code
-				{
-					char32 nextchr = formatstr[i + 1];
-					if(nextchr == 'n')
-					{
-						ret[pos] = MSGC_LINEFEED;
-						++pos;
-						++i;
-						continue;
-					}
-				}
-				else if(chr == '%') //Format argument
-				{
-					char32 nextchr = formatstr[i + 1];
-					if(sprintf_isMFCode(nextchr))
-					{
-						strcatf(ret, a[currentarg], sprintf_MFCodeToInt(nextchr));
-						for(; ret[pos] != 0; ++pos);
-						++currentarg;
-						++i;
-						continue;
-					}
-				}
-
-				ret[pos] = chr;
-				++pos;
-			}
-
-			return pos;
-		}
-
-		// Uses a buffer to print the results of sprintf(formatstr,...) straight to allegro.log
-		//
-		// @deprecated Use the internal [printf] instead.
-		void printf(char32[] formatstr,int a0=0,int a1=0,int a2=0,int a3=0,int a4=0,int a5=0,int a6=0,int a7=0,
-								  int a8=0,int a9=0,int aa=0,int ab=0,int ac=0,int ad=0,int ae=0,int af=0)
-		{
-			#option WARN_DEPRECATED off
-			char32 buffer[0x200]; //Max Trace length is 512
-			sprintf(buffer,formatstr,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,aa,ab,ac,ad,ae,af);
-			TraceS(buffer);
-		}
-	}
 }
 // These are now in std_zh/string_functions.zh and std_zh/string_constants.zh
 // and are loaded by default in std.zh

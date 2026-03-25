@@ -495,7 +495,7 @@ float CrossProduct( float x1, float y1, float x2, float y2 )
 void DCounterAdd(int counter, int amount)
 {
 	if ( amount + Game->DCounter[counter] > DCOUNTER_MAX ) Game->DCounter[counter] = DCOUNTER_MAX;
-	else Game->MCounter[counter] += amount;
+	else Game->DCounter[counter] += amount;
 }
 
 //Reduce a drain counter without rollvoer.
@@ -1887,15 +1887,15 @@ int NumLWeaponsOf(int type)
 	return ret;
 }
 
-// @param [NPCType] type
-int NumNPCsOf(int type)
+// @param [NPCID] id
+int NumNPCsOf(int id)
 {
 	int ret = 0;
 	npc n;
 	for (int i = Screen->NumNPCs; i > 0 ; --i)
 	{
 		n = Screen->LoadNPC(i);
-		if (n->ID == type)
+		if (n->ID == id)
 			++ret;
 	}
 	return ret;
@@ -2015,12 +2015,6 @@ bool RightOf(ffc n){ return Hero->X > n->X; }
 bool RightOf(eweapon n){ return Hero->X > n->X; }
 //Returns if Link is above, below, left of, or right of an lweapon.
 bool RightOf(lweapon n){ return Hero->X > n->X; }
-
-//Rounds x to the nearest integer
-float Round(float x)
-{
-	return ( (x<0) ? (((x-.5)<<0)) : (((x+.5)<<0)) );
-}
 
 //rotates and scales X about a center point by an amount of degrees
 float RotateScalePointX(float x, float y, float centerX, float centerY, float degrees, float scaleX, float scaleY)
@@ -2224,9 +2218,11 @@ void SetDMapFlag(int dmap, int flag, bool state)
 	dm->Flags = AdjustBitflags(dm->Flags, flag, state);
 }
 
-//Writes items to both the A and the b item slots.
+// Writes items to both the A and the b item slots.
+// @deprecated Use [Hero->ItemA] / [Hero->ItemB] instead!
 void SetEquipment(int a, int b)
 {
+	#option WARN_DEPRECATED off
 	Hero->Equipment = (((a&0xFF)|((b&0xFF)<<8)));
 }
 
