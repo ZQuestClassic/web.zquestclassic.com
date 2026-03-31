@@ -20067,15 +20067,43 @@ class ffc {
 	// @zasm_var FFCLASTCHANGERY
 	internal int LastChangerY;
 }
+// Valid modes (details taken from http://www.cplusplus.com/reference/cstdio/fopen/):
+//
+// - "r" (read): Open file for input operations. The file must exist.
+// - "w" (write): Create an empty file for output operations. If a file with the same name
+//    already exists, its contents are discarded and the file is treated as a new empty file.
+// - "a" (append): Open file for output at the end of a file. Output operations always write
+//    data at the end of the file, expanding it. Repositioning operations ('Seek()', 'Rewind()')
+//    are ignored. The file is created if it does not exist.
+// - "r+" (read/update): Open a file for update (both for input and output). The file must
+//    exist.
+// - "w+" (write/update): Create an empty file and open it for update (both for input and
+//    output). If a file with the same name already exists its contents are discarded and the file
+//    is treated as a new empty file.
+// - "a+" (append/update): Open a file for update (both for input and output) with all output
+//   operations writing data at the end of the file. Repositioning operations (fseek, fsetpos,
+//   rewind) affects the next input operations, but output operations move the position back to
+//   the end of file. The file is created if it does not exist.
+//
+// The letter "b" can be added to the end of any of these (but before the "+" for update modes)
+//     to specify a binary file mode. Otherwise, the file opens in text mode.
+//
+// Text files are files containing sequences of lines of text. Depending on the environment
+//     where the application runs, some special character conversion may occur in input/output
+//     operations in text mode to adapt them to a system-specific text file format. Although
+//     on some environments no conversions occur and both text files and binary files are
+//     treated the same way, using the appropriate mode improves portability.
+//
 // @zasm_ref REFFILE
 class file {
+	// @param mode - See [file] for details.
 	// @zasm
 	//   POP D3
 	//   POP D2
 	//   SETV REFFILE 0
 	//   FILEOPENMODE D2 D3
 	//   SETR D2 D3
-	internal file(char32 path, char32 mode);
+	internal file(char32[] path, char32[] mode);
 
 	// This represents the current position in the file.
 	//
@@ -20100,7 +20128,7 @@ class file {
 	//   POP D2
 	//   POP REFFILE
 	//   FILEOPEN D2
-	internal bool Open(char32[] filepath);
+	internal bool Open(char32[] path);
 
 	// If the file pointer is not allocated, this will allocate it. Also closes
 	// any file that is already open on the pointer.
@@ -20110,18 +20138,20 @@ class file {
 	//   POP D2
 	//   POP REFFILE
 	//   FILECREATE D2
-	internal bool Create(char32[] filepath);
+	internal bool Create(char32[] path);
 
 	// If the file pointer is not allocated, this will allocate it. Also closes
 	// any file that is already open on the pointer.
 	//
+	// @param mode - See [file] for details.
+	// @deprecated Use `new file(path, mode)` instead.
 	// @reassign_ptr
 	// @zasm
 	//   POP D3
 	//   POP D2
 	//   POP REFFILE
 	//   FILEOPENMODE D2 D3
-	internal bool OpenMode(char32[] filepath, char32[] mode_string);
+	internal bool OpenMode(char32[] path, char32[] mode);
 
 	// Closes any open file connected to the file pointer (which also includes
 	// 'Flush()'). Does *NOT* deallocate the pointer, it is still reserved to
@@ -20323,8 +20353,10 @@ class file {
 }
 // Contains functions related to accessing the filesystem.
 //
+// Consider using `new file()` or `new directory()` instead.
+//
 // All paths are made relative to a quest-specific directory,
-// found at `<zc root folder>/files/<quest name>`. Quests cannot access
+// found at `<zc root folder>/Files/<quest name>`. Quests cannot access
 // files outside this folder.
 //
 // Access with `FileSystem->`.
@@ -20337,14 +20369,14 @@ class FileSystem {
 	// @zasm
 	//   POP D2
 	//   DIREXISTS D2
-	internal bool DirExists(char32 dirpath);
+	internal bool DirExists(char32[] dirpath);
 
 	// Returns true if the file/dir specified by the given path exists.
 	//
 	// @zasm
 	//   POP D2
 	//   FILEEXISTS D2
-	internal bool FileExists(char32 filepath);
+	internal bool FileExists(char32[] filepath);
 
 	// Deletes the file pointed to by 'filepath'. Path is relative to the
 	// quest's specific directory.
@@ -20352,14 +20384,30 @@ class FileSystem {
 	// @zasm
 	//   POP D2
 	//   FILESYSREMOVE D2
-	internal bool Remove(char32 filepath);
+	internal bool Remove(char32[] filepath);
 
-	// Opens the directory pointed to by 'dirpath'
+	// Opens the file pointed to by 'path'.
+	//
+	// You can use `new file(filepath, mode)` (3.0) or [file::OpenMode] instead.
+	//
+	// @param mode - See [file] for details.
+	// @versionadded 3.0
+	// @zasm
+	//   POP D3
+	//   POP D2
+	//   SETV REFFILE 0
+	//   FILEOPENMODE D2 D3
+	//   SETR D2 D3
+	internal file LoadFile(char32[] path, char32[] mode);
+
+	// Opens the directory pointed to by 'path'.
+	//
+	// @versionchanged 3.0 You can use `new directory(filepath)` instead.
 	//
 	// @zasm
 	//   POP D2
 	//   LOADDIRECTORYR D2
-	internal directory LoadDirectory(char32 dirpath);
+	internal directory LoadDirectory(char32[] path);
 }
 
 internal const FileSystem FileSystem;
@@ -38772,12 +38820,6 @@ namespace time
 // Empty, moved to std_zh/script_runners.zh.
 // Standard library for ZScript.
 
-//Options
-#option BINARY_32BIT off
-	//Would break a number of things if set on
-#option SHORT_CIRCUIT on
-	//Should work for everything in std_zh, and just speed it up
-
 #includepath "include"
 
 #include "std_zh/std.cfg"
@@ -39318,11 +39360,11 @@ const int SHORT_MAX 	= 32767;	// Maximum value of a signed short.
 const int SSHRT_MAX 	= 32767;	// Maximum value of a signed short.
 
 //Longer Values
-const int INT_MIN 	= -214747 - (OPTION_VALUE(TRUE_INT_SIZE) ? 1 : 0);	// Minimum value of an int.
-const int INT_MAX 	= 214747 + (OPTION_VALUE(TRUE_INT_SIZE) ? 1 : 0);	// Maximum value of an int.
-const int LONG_MIN 	= -214747 - (OPTION_VALUE(TRUE_INT_SIZE) ? 1 : 0);	// Minimum value of an int.
-const int FLOAT_MIN 	= -214747.9999 -(OPTION_VALUE(TRUE_INT_SIZE) ? 0.3649 : 0);	// Minimum value of a ZScript 'float' (int with fixed four-decimal places).
-const int FLOAT_MAX 	= 214747.9999 + (OPTION_VALUE(TRUE_INT_SIZE) ? 0.3648 : 0);	// Maximum value of a ZScript 'float' (int with fixed four-decimal places).
+const int INT_MIN 	= -214748;	// Minimum value of an int.
+const int INT_MAX 	= 214748;	// Maximum value of an int.
+const int LONG_MIN 	= -214748;	// Minimum value of an int.
+const int FLOAT_MIN 	= -214748.3648;	// Minimum value of a ZScript 'float' (int with fixed four-decimal places).
+const int FLOAT_MAX 	= 214748.3647;	// Maximum value of a ZScript 'float' (int with fixed four-decimal places).
 
 //Game Elements
 const int COUNTER_MIN 	= WORD_MIN;
@@ -39726,16 +39768,16 @@ DEFINE SQRT_ERROR			= 464; // The return value of SafeSqrt() if a negative value
 DEFINEF SQRT_MAX			= 463.4095; //The largest square root thet ZC can return.
 
 
-DEFINEF MAX_CONSTANT		= 214747.9999 + (OPTION_VALUE(TRUE_INT_SIZE) ? 0.3648 : 0);
-DEFINEF MIN_CONSTANT		= -214747.9999 - (OPTION_VALUE(TRUE_INT_SIZE) ? 0.3649 : 0);
+DEFINEF MAX_CONSTANT		= 214748.3647;
+DEFINEF MIN_CONSTANT		= -214748.3648;
 
 
 DEFINE MAX_SCRIPTDRAWINGCOMMANDS	= 1000;
 
-DEFINE MAX_INT 			= 214747 + (OPTION_VALUE(TRUE_INT_SIZE) ? 1 : 0);
-DEFINE MIN_INT 			= -214747 - (OPTION_VALUE(TRUE_INT_SIZE) ? 1 : 0);
-DEFINE MAX_FLOAT 			= 214747.9999 + (OPTION_VALUE(TRUE_INT_SIZE) ? 0.3648 : 0);
-DEFINE MIN_FLOAT 			= -214747.9999 - (OPTION_VALUE(TRUE_INT_SIZE) ? 0.3649 : 0);
+DEFINE MAX_INT 			= 214748;
+DEFINE MIN_INT 			= -214748;
+DEFINE MAX_FLOAT 			= 214748.3647;
+DEFINE MIN_FLOAT 			= -214748.3648;
 
 DEFINE MAX_COUNTER 			= WORD_MAX;
 DEFINE MIN_COUNTER 			= WORD_MIN;
@@ -47335,7 +47377,7 @@ int xtoa(char32[] ptr, int num, bool upper)
 //regardless of the most significant digit
 int ftoa(char32[] ptr, int pos, float num, bool printall)
 {
-	if(OPTION_VALUE(TRUE_INT_SIZE) && num == -214748.3648)
+	if(num == -214748.3648)
 	{
 		int ret = ftoa(ptr,pos,-214748.364);
 		ptr[pos + ret] = '8';
