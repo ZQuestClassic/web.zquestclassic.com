@@ -1,4 +1,6 @@
 // Clears all regions for a given map.
+//
+// @versionadded 3.0
 void ClearRegion(int map)
 {
 	SetRegion(map, 0, 16, 8, 0);
@@ -7,7 +9,9 @@ void ClearRegion(int map)
 // Sets a rectangular area to the given region id.
 //
 // This modifies the canonical screens, and as such will not take effect until
-// the next screen load, and will persist after the next game load.
+// the next screen load. It also will not persist after the next game load.
+//
+// @versionadded 3.0
 void SetRegion(int map, int origin_screen, int width, int height, int region_id)
 {
 	for (int x = 0; x < width; x++)
@@ -74,10 +78,12 @@ class Region {
 	// This is the same as [Game->CurScreen].
 	//
 	// @zasm_var REGION_ORIGIN_SCREEN
-	internal const long OriginScreenIndex;
+	internal const int OriginScreenIndex;
 
 	// Returns true if the given screen index is inside the current region.
 	// When not in a region, only returns true if screen is equal to [Game->CurScreen].
+	//
+	// @versionadded 3.0
 	bool IncludesScreen(int screen)
 	{
 		if (this->ID)
@@ -98,11 +104,13 @@ class Region {
 	// Returns 0 if a screen is not in the current region.
 	//
 	// Example: If the current region is 4x4 and the origin is screen 5, `RelativeScreenX(8) == 3`.
+	//
+	// @versionadded 3.0
 	int RelativeScreenX(int screen)
 	{
 		if (this->ID)
 		{
-			int origin_screen_index = this->OriginScreenIndex * 10000;
+			int origin_screen_index = this->OriginScreenIndex;
 			return screen%16 - origin_screen_index%16;
 		}
 
@@ -113,11 +121,13 @@ class Region {
 	// Returns 0 if a screen is not in the current region.
 	//
 	// Example: If the current region is 4x4 and the origin is screen 5, `RelativeScreenY(8) == 3`.
+	//
+	// @versionadded 3.0
 	int RelativeScreenY(int screen)
 	{
 		if (this->ID)
 		{
-			int origin_screen_index = this->OriginScreenIndex * 10000;
+			int origin_screen_index = this->OriginScreenIndex;
 			return Floor(screen/16) - Floor(origin_screen_index/16);
 		}
 
@@ -125,6 +135,8 @@ class Region {
 	}
 
 	// Given a screen index, returns the world offset in the x direction for the current region.
+	//
+	// @versionadded 3.0
 	int WorldOffsetX(int screen)
 	{
 		if (this->ID)
@@ -134,6 +146,8 @@ class Region {
 	}
 
 	// Given a screen index, returns the world offset in the y direction for the current region.
+	//
+	// @versionadded 3.0
 	int WorldOffsetY(int screen)
 	{
 		if (Region->ID)

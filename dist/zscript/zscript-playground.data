@@ -1162,7 +1162,7 @@ void DrawGhostFFCs()
                                   aptr[baseIndex+__GH_CD_WIDTH],
                                   aptr[baseIndex+__GH_CD_HEIGHT],
                                   aptr[__GHI_CD_CSET],
-                                  -1, -1, 0, 0, 0, 0, 0,
+                                  -1, -1, 0, 0, 0, -1, 0,
                                   true, opacity);
             }
             
@@ -1372,7 +1372,7 @@ eweapon FireEWeapon(int weaponID, int x, int y, float angle, int step, int damag
     SetEWeaponDir(wpn); // After flags so unblockability is detected
     
     if((flags&EWF_NO_COLLISION)!=0)
-        wpn->CollDetection=false;
+        wpn->NoCollisionTimer = -1;
     
     if((wpn->Misc[__EWI_FLAGS]&EWF_ROTATE)!=0)
         SetEWeaponRotation(wpn);
@@ -1415,7 +1415,7 @@ eweapon FireNonAngularEWeapon(int weaponID, int x, int y, int dir, int step, int
         wpn->UseSprite(sprite);
 
     if((flags&EWF_NO_COLLISION)!=0)
-        wpn->CollDetection=false;
+        wpn->NoCollisionTimer = -1;
 
     if((flags&EWF_ROTATE)!=0)
         SetEWeaponRotation(wpn);
@@ -1489,7 +1489,7 @@ eweapon CreateDummyEWeapon(int weaponID, int step, int damage, int sprite, int s
     
     wpn->Misc[__EWI_FLAGS]=flags|__EWFI_IS_GHZH_EWPN|__EWFI_DUMMY;
     
-    wpn->CollDetection=false;
+    wpn->NoCollisionTimer = -1;
     wpn->DrawXOffset=32768;
     
     // Move it to make sure it's not deleted
@@ -2214,7 +2214,7 @@ void __CopyEWeapon(eweapon prototype, int centerX, int centerY, float angle)
     wpn->Misc[__EWI_FLAGS]=(prototype->Misc[__EWI_FLAGS]&(~__EWFI_DUMMY));
 
     if((wpn->Misc[__EWI_FLAGS]&EWF_NO_COLLISION)!=0)
-        wpn->CollDetection=false;
+        wpn->NoCollisionTimer = -1;
 
     if((wpn->Misc[__EWI_FLAGS]&EWF_ROTATE)!=0)
         SetEWeaponRotation(wpn);
@@ -4072,7 +4072,7 @@ void Ghost_SwapNPC(npc oldGhost, npc newGhost, bool copyHP)
     newGhost->HitHeight=oldGhost->HitHeight;
     newGhost->HitXOffset=oldGhost->HitXOffset;
     newGhost->HitYOffset=oldGhost->HitYOffset;
-    newGhost->CollDetection=oldGhost->CollDetection;
+    newGhost->NoCollisionTimer = oldGhost->NoCollisionTimer;
 
     for(int i=0; i<16; i++)
         newGhost->Misc[i]=oldGhost->Misc[i];
@@ -4081,7 +4081,7 @@ void Ghost_SwapNPC(npc oldGhost, npc newGhost, bool copyHP)
         newGhost->HP=oldGhost->HP;
 
     // Move the old ghost out of the way
-    oldGhost->CollDetection=false;
+    oldGhost->NoCollisionTimer = -1;
     oldGhost->X=Region->Width;
     oldGhost->Y=Region->Height;
 }
@@ -5656,7 +5656,7 @@ void Ghost_SpawnAnimationPuff(ffc this, npc ghost)
     
     lweapon graphic;
     int combo=this->Data;
-    bool collDet=ghost->CollDetection;
+    int collDet = ghost->NoCollisionTimer;
     int xOffset=ghost->DrawXOffset;
     
     if(this->TileWidth!=Ghost_TileWidth)
@@ -5678,7 +5678,7 @@ void Ghost_SpawnAnimationPuff(ffc this, npc ghost)
     Ghost_SetPosition(this, ghost);
     
     this->Data=0;
-    ghost->CollDetection=false;
+    ghost->NoCollisionTimer = -1;
     ghost->DrawXOffset=32768;
     
     for(int i=0; i<this->TileWidth; i++)
@@ -5686,7 +5686,7 @@ void Ghost_SpawnAnimationPuff(ffc this, npc ghost)
         for(int j=0; j<this->TileHeight; j++)
         {
             graphic=Screen->CreateLWeapon(LW_SCRIPT10);
-            graphic->CollDetection=false;
+            graphic->NoCollisionTimer = -1;
             graphic->UseSprite(GH_SPAWN_SPRITE);
             graphic->X=this->X+16*i;
             graphic->Y=this->Y+16*j;
@@ -5705,10 +5705,12 @@ void Ghost_SpawnAnimationPuff(ffc this, npc ghost)
     {
         Ghost_SetPosition(this, ghost);
         Ghost_WaitframeLight(this, ghost);
+		if (collDet > 0)
+			--collDet;
     }
     
     this->Data=combo;
-    ghost->CollDetection=collDet;
+    ghost->NoCollisionTimer = collDet;
     ghost->DrawXOffset=xOffset;
 }
 
@@ -5718,7 +5720,7 @@ void Ghost_SpawnAnimationFlicker(ffc this, npc ghost)
         return;
     
     int combo=this->Data;
-    bool collDet=ghost->CollDetection;
+    int collDet = ghost->NoCollisionTimer;
     int xOffset=ghost->DrawXOffset;
     
     if(this->TileWidth!=Ghost_TileWidth)
@@ -5738,7 +5740,7 @@ void Ghost_SpawnAnimationFlicker(ffc this, npc ghost)
     }
     
     Ghost_SetPosition(this, ghost);
-    ghost->CollDetection=false;
+    ghost->NoCollisionTimer = -1;
     
     // Alternate drawing offscreen and in place for 64 frames
     for(int i=0; i<32; i++)
@@ -5747,15 +5749,19 @@ void Ghost_SpawnAnimationFlicker(ffc this, npc ghost)
         ghost->DrawXOffset=32768;
         Ghost_SetPosition(this, ghost);
         Ghost_WaitframeLight(this, ghost);
+		if (collDet > 0)
+			--collDet;
         
         this->Data=combo;
         ghost->DrawXOffset=xOffset;
         Ghost_SetPosition(this, ghost);
         Ghost_WaitframeLight(this, ghost);
+		if (collDet > 0)
+			--collDet;
     }
     
     this->Data=combo;
-    ghost->CollDetection=collDet;
+    ghost->NoCollisionTimer = collDet;
     ghost->DrawXOffset=xOffset;
 }
 
@@ -5948,7 +5954,7 @@ void __Ghost_Explode(ffc this, npc ghost, bool flash)
         explosion=Screen->CreateLWeapon(LW_BOMBBLAST);
         explosion->X=baseX+Rand(16*Ghost_TileWidth)-8;
         explosion->Y=baseY+Rand(16*Ghost_TileHeight)-8;
-        explosion->CollDetection=false;
+        explosion->NoCollisionTimer = -1;
         
         for(int j=0; j<16; j++)
         {
@@ -6013,7 +6019,7 @@ void __Ghost_ShrinkAway(ffc this, npc ghost)
               baseX-(xSize-baseWidth)/2,
               baseY-(ySize-baseHeight)/2,
               Ghost_Data, Ghost_TileWidth, Ghost_TileHeight, Ghost_CSet,
-              xSize, ySize, 0, 0, 0, 0, 0, true, opacity);
+              xSize, ySize, 0, 0, 0, -1, 0, true, opacity);
         }
         
         Ghost_WaitframeLight(this, ghost);
@@ -6030,7 +6036,7 @@ void __DeathAnimStart(ffc this, npc ghost)
     this->Ax=0;
     this->Ay=0;
     ghost->HP=1;
-    ghost->CollDetection=false;
+    ghost->NoCollisionTimer = -1;
     ghost->SFX=0;
 }
 
@@ -8596,7 +8602,7 @@ void __Tango_DrawComboBackdrop(int styleStart, int x, int y)
       __Tango_Styles[styleStart+TANGO_STYLE_BACKDROP_WIDTH],
       __Tango_Styles[styleStart+TANGO_STYLE_BACKDROP_HEIGHT],
       __Tango_Styles[styleStart+TANGO_STYLE_BACKDROP_CSET],
-      -1, -1, 0, 0, 0, 0, 0, true, opacity);
+      -1, -1, 0, 0, 0, -1, 0, true, opacity);
 }
 
 void __Tango_DrawComplexBackdrop(untyped[] backdrop, float x, float y)
@@ -8637,7 +8643,7 @@ void __Tango_DrawComplexBackdrop(untyped[] backdrop, float x, float y)
                   backdrop[baseIndex+TANGO_TILE_WIDTH],
                   backdrop[baseIndex+TANGO_TILE_HEIGHT],
                   backdrop[baseIndex+TANGO_TILE_CSET],
-                  -1, -1, 0, 0, 0, 0, 0, true, opacity);
+                  -1, -1, 0, 0, 0, -1, 0, true, opacity);
             }
         }
         else if(backdrop[baseIndex]<=TANGO_DRAW_RECT_TRANS)
@@ -8779,7 +8785,7 @@ void __Tango_DrawMenuCursor()
       __Tango_Data[__TDIDX_MENU_CURSOR_WIDTH],
       __Tango_Data[__TDIDX_MENU_CURSOR_HEIGHT],
       __Tango_Data[__TDIDX_MENU_CURSOR_CSET],
-      -1, -1, 0, 0, 0, 0, 0, true, OP_OPAQUE);
+      -1, -1, 0, 0, 0, -1, 0, true, OP_OPAQUE);
 }
 
 void __Tango_DrawMenuScrollIndicators(int slotX, int slotY)
@@ -15260,7 +15266,7 @@ namespace Emily
 		Game->Suspend[susptPALCYCLE] = true;
 		Game->Suspend[susptGUYS] = true;
 		Game->Suspend[susptSUBSCREENSCRIPTS] = true;
-		Hero->Invisible = true;
+		Hero->InvisibleTimer = -1;
 		dmapdata dm = Game->LoadDMapData(SCRNSHOT_DMAP);
 		int olddm[] = {dm->Map, dm->Level, dm->Offset, dm->Type, dm->Palette};
 		dm->Map = map;
@@ -15350,7 +15356,7 @@ namespace Emily
 						int op = (lyr > 0 ? (Screen->LayerOpacity[lyr]==128 ? OP_TRANS : OP_OPAQUE) : OP_OPAQUE);
 						for(int pos = 160; pos < 176; ++pos)
 						{
-							b->DrawCombo(7, x + (pos%16)*16, y + 10*16, m->ComboD[pos], 1, 1, m->ComboC[pos], -1, -1, 0, 0, 0, 0, 0, lyr > 0, op);
+							b->DrawCombo(7, x + (pos%16)*16, y + 10*16, m->ComboD[pos], 1, 1, m->ComboC[pos], -1, -1, 0, 0, 0, -1, 0, lyr > 0, op);
 						}
 					}
 					colorscr_txt(SYS_BLACK, SYS_WHITE, FONT_SATURN, waitmsg, MAPSCREENSHOT_HIDES_SUBSCR);
@@ -15371,7 +15377,7 @@ namespace Emily
 		dm->Type = olddm[3];
 		dm->Palette = olddm[4];
 		Hero->WarpEx(WT_IWARP, olddmap, oldscr, oldx, oldy, WARPEFFECT_NONE, 0, WARP_FLAG_SCRIPTDRAW);
-		Hero->Invisible = false;
+		Hero->InvisibleTimer = 0;
 		Hero->ItemJinx = 0;
 		Hero->SwordJinx = 0;
 		Game->Suspend[susptCOMBOANIM] = false;
@@ -15391,7 +15397,7 @@ namespace Emily
 		Game->Suspend[susptPALCYCLE] = true;
 		Game->Suspend[susptGUYS] = true;
 		Game->Suspend[susptSUBSCREENSCRIPTS] = true;
-		Hero->Invisible = true;
+		Hero->InvisibleTimer = -1;
 		dmapdata dm = Game->LoadDMapData(SCRNSHOT_DMAP);
 		int olddm[] = {dm->Map, dm->Level, dm->Offset, dm->Type, dm->Palette};
 		dm->Level = Game->CurLevel;
@@ -15484,7 +15490,7 @@ namespace Emily
 							int op = (lyr > 0 ? (Screen->LayerOpacity[lyr]==128 ? OP_TRANS : OP_OPAQUE) : OP_OPAQUE);
 							for(int pos = 160; pos < 176; ++pos)
 							{
-								b->DrawCombo(7, x + (pos%16)*16, y + 10*16, m->ComboD[pos], 1, 1, m->ComboC[pos], -1, -1, 0, 0, 0, 0, 0, lyr > 0, op);
+								b->DrawCombo(7, x + (pos%16)*16, y + 10*16, m->ComboD[pos], 1, 1, m->ComboC[pos], -1, -1, 0, 0, 0, -1, 0, lyr > 0, op);
 							}
 						}
 						colorscr_txt(SYS_BLACK, SYS_WHITE, FONT_SATURN, waitmsg, MAPSCREENSHOT_HIDES_SUBSCR);
@@ -15506,7 +15512,7 @@ namespace Emily
 		dm->Type = olddm[3];
 		dm->Palette = olddm[4];
 		Hero->WarpEx(WT_IWARP, olddmap, oldscr, oldx, oldy, WARPEFFECT_NONE, 0, WARP_FLAG_SCRIPTDRAW);
-		Hero->Invisible = false;
+		Hero->InvisibleTimer = 0;
 		Hero->ItemJinx = 0;
 		Hero->SwordJinx = 0;
 		Game->Suspend[susptCOMBOANIM] = false;
@@ -15765,7 +15771,10 @@ enum MusicRefreshMode
 	MR_DMAP,   // Refresh when the dmap changes.
 	MR_LEVEL,  // Refresh when the level changes.
 	MR_NEVER,  // Never refresh on a screen transition.
-	MR_REGION, // Refresh when the region changes
+	// Refresh when the region changes
+	//
+	// @versionadded 3.0
+	MR_REGION,
 };
 
 // Used with [Audio->MusicRefreshFlags].
@@ -15793,6 +15802,7 @@ class Audio {
 	
 	// Returns the number of [musicdata]s that exist in the quest.
 	//
+	// @versionadded 3.0
 	// @zasm_var NUM_MUSICS
 	internal const int NumMusics;
 	
@@ -15803,6 +15813,7 @@ class Audio {
 	// or changing [dmapdata::Music] for the current dmap if the current screen's music is [MUSIC_INHERIT],
 	// will result in the currently playing music changing to match.
 	//
+	// @versionadded 3.0
 	// @zasm_var ENGINE_MUSIC_ACTIVE
 	internal const bool EngineMusicActive;
 
@@ -15874,23 +15885,12 @@ class Audio {
 	//   ADJUSTSFXVOLUMER D2
 	internal void AdjustSFXVolume(int percent);
 
-	// Pauses the currently playing MIDI so that it may be resumed later.
-	//
-	// @zasm
-	//   PAUSEMUSIC
-	internal void PauseCurMIDI();
-
-	// Resumes the previously paused MIDI.
-	//
-	// @zasm
-	//   RESUMEMUSIC
-	internal void ResumeCurMIDI();
-
 	// Plays the Music [music_index]. See [MusicRefresh] for details on when the engine will change the music back.
 	// Index 0 will stop currently playing music.
 	// Index -1 will play the music of the current screen/dmap, as the engine would.
 	// Otherwise, the index should be > 0 and <= [NumMusics].
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP REFMUSIC
 	//   DIVV REFMUSIC 10000
@@ -15901,6 +15901,7 @@ class Audio {
 	// Returns [MUSIC_SILENCE] without error for ID 0.
 	// Fails (returning MUSIC_SILENCE, with error) if the ID is < 0 or > [NumMusics]
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   LOADMUSICDATA D2
@@ -15909,6 +15910,7 @@ class Audio {
 	// Gets the musicdata whose name exactly matches `name`.
 	// If no such object exists, returns `NULL`.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   GETMUSICDATABYNAME D2
@@ -16166,6 +16168,15 @@ class bitmap {
 						   int yscale = -1, int rx = 0, int ry = 0,
 						   int rot_degrees = 0, int flip = 0,
 						   bool transparency = true, int opacity = OP_OPAQUE);
+	
+	//Identical to [Screen->DrawMiniTile], but it draws to a target bitmap.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   BMPDRAWMINITILE
+	//   POPARGS D5 0.0008
+	internal void DrawMiniTile(int layer, int x, int y, int tile,
+		CornerIndex quarter, int cset, int opacity = OP_OPAQUE);
 
 	// Identical to [Screen->DrawTileCloaked], but it draws to a target bitmap.
 	//
@@ -16307,6 +16318,19 @@ class bitmap {
 	//   POPARGS D5 0.0007
 	internal void DrawScreen(int layer, int map, int source_screen, int x,
 							 int y, int rotation = 0);
+	
+	// Draws the specified mapdata to the bitmap.
+	// Only draws the mapdata provided, not layerscreens of that mapdata.
+	// When using a temp mapdata that contains the combos for an entire region,
+	// that layer of the entire region will be drawn.
+	// Only combos will be drawn, FFCs are excluded.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   BMPDRAWMAPDATA
+	//   POPARGS D5 0.0006
+	internal void DrawMapdata(int layer, mapdata source, int x,
+							 int y, int opacity = OP_OPAQUE);
 
 	// BLITS THE BITMAP ON POINTER 'b' TO A TARGET BITMAP.
 	//
@@ -16395,6 +16419,7 @@ class bitmap {
 	// @param lit - if non-zero, the color to use a lit mode. This tints the entire
 	//              bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   BMPTILEBLIT
 	//   POPARGS D5 0.0018
@@ -16419,6 +16444,7 @@ class bitmap {
 	// @param lit - if non-zero, the color to use a lit mode. This tints the entire
 	//              bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   BMPCOMBOBLIT
 	//   POPARGS D5 0.0018
@@ -16684,6 +16710,7 @@ enum BottleFlag
 	BTF_USEWHENFULL,
 	BTF_CURESWORDJINX,
 	BTF_CUREITEMJINX,
+	// @versionadded 3.0
 	BTF_CURESHIELDJINX,
 	BTF_MAX
 };
@@ -16812,19 +16839,32 @@ enum ComboSolidityBitflags
 @Bitflags("int")
 enum AnimationBitflags
 {
+	// 'Refresh Animation on Room Entry'
 	AF_FRESH                       = 0x01,
+	// 'Refresh Animation when cycled to'
 	AF_CYCLE                       = 0x02,
+	// 'Cycle Ignores CSet'
 	AF_CYCLENOCSET                 = 0x04,
+	// 'Toggle Transparency'
 	AF_TRANSPARENT                 = 0x08,
+	// 'Cycle To Screen Undercombo'
+	// @versionadded 3.0
 	AF_CYCLEUNDERCOMBO             = 0x10,
+	// 'Only Visible In Editor'
+	// @versionadded 3.0
 	AF_EDITOR_ONLY                 = 0x20,
+	// 'Overhead'
+	// @versionadded 3.0
+	AF_OVERHEAD                    = 0x40,
 };
 
 enum ComboGeneralFlag
 {
 	GENFLAG_HOOKSHOTTABLE,
 	GENFLAG_SWITCHHOOKABLE,
+	// @versionadded 3.0
 	GENFLAG_WALK_ON_TOP,
+	// @versionadded 3.0
 	GENFLAG_WALK_ON_TOP_DRAW_OFFSET,
 	GENFLAG_MAX
 };
@@ -17108,11 +17148,13 @@ class combodata {
 	
 	// The radius of light that will be emitted by the lifted weapon.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODLIFTLIGHTRAD
 	internal int LiftLightRadius;
 	
 	// The [LightShape] the lifted weapon will use, if light is emitted.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODLIFTLIGHTSHAPE
 	internal int LiftLightShape;
 
@@ -17134,21 +17176,25 @@ class combodata {
 	
 	// The combo's triggers.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGGERS
 	internal const combotrigger Triggers[];
 	
 	// The number of triggers the combo has. Writing to this instantly resizes [Triggers].
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODNUMTRIGGERS
 	internal int NumTriggers;
 	
 	// If true, don't allow the combo to trigger via it's normal trigger methods (ex: bush via slashing)
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODONLYGEN
 	internal bool OnlyGenTriggers;
 	
 	// The Z-height of the combo for [GENFLAG_WALK_ON_TOP]. A value of '0' represents infinite height.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBOD_Z_HEIGHT
 	internal int ZHeight;
 	
@@ -17156,17 +17202,20 @@ class combodata {
 	// Designed for 'walking up stairs' type effects.
 	// Can't be negative.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBOD_Z_STEP_HEIGHT
 	internal int ZStepHeight;
 	
 	// If >0 and the player is diving with flippers of at least this level,
 	// the player will ignore the solidity of this combo.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBOD_DIVE_UNDER_LEVEL
 	internal int DiveUnderLevel;
 
 	// Gets the first trigger of this combo whose name exactly matches 'buf'.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   POP REFCOMBOTRIGGER
@@ -17356,6 +17405,7 @@ class combodata {
 	// flags.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::LItems] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGLITEMS
 	internal int TrigLItems;
 
@@ -17365,6 +17415,7 @@ class combodata {
 	// that level.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::DMapLvl] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGDMAPLVL
 	internal int TrigDMapLvl;
 
@@ -17373,6 +17424,7 @@ class combodata {
 	// -63 to 63 if compat QR "Scripts use 6-bit color (0-63) instead of 8-bit (0-255)" is enabled.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::TintR] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGTINTR
 	internal int TrigTintR;
 
@@ -17381,6 +17433,7 @@ class combodata {
 	// -63 to 63 if compat QR "Scripts use 6-bit color (0-63) instead of 8-bit (0-255)" is enabled.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::TintG] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGTINTG
 	internal int TrigTintG;
 
@@ -17389,30 +17442,35 @@ class combodata {
 	// -63 to 63 if compat QR "Scripts use 6-bit color (0-63) instead of 8-bit (0-255)" is enabled.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::TintB] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGTINTB
 	internal int TrigTintB;
 
 	// The level palette to change to when triggered. -1 for none.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::LvlPal] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGLVLPAL
 	internal int TrigLvlPal;
 
 	// The boss palette to change to when triggered. -1 for none.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::BossPal] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGBOSSPAL
 	internal int TrigBossPal;
 
 	// The quake timer to set when triggered. -1 for none.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::QuakeTimer] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGQUAKETIME
 	internal int TrigQuakeTimer;
 
 	// The wavy timer to set when triggered. -1 for none.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::WavyTimer] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGWAVYTIME
 	internal int TrigWavyTimer;
 
@@ -17420,6 +17478,7 @@ class combodata {
 	// cured', 0 to cure.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::SwordJinx] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGSWORDJINX
 	internal int TrigSwordJinx;
 
@@ -17427,6 +17486,7 @@ class combodata {
 	// cured', 0 to cure.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::ItemJinx] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGITEMJINX
 	internal int TrigItemJinx;
 
@@ -17434,6 +17494,7 @@ class combodata {
 	// cured', 0 to cure.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::ShieldJinx] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGSHIELDJINX
 	internal int TrigShieldJinx;
 
@@ -17441,6 +17502,7 @@ class combodata {
 	// to cure.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::Stun] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGSTUN
 	internal int TrigStun;
 
@@ -17448,6 +17510,7 @@ class combodata {
 	// 0 to cure.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::Bunny] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGBUNNY
 	internal int TrigBunny;
 
@@ -17455,6 +17518,7 @@ class combodata {
 	// trigger flag to take effect.
 	//
 	// @deprecated Use [Triggers] / [combotrigger::PushTime] instead!
+	// @versionadded 3.0
 	// @zasm_var COMBODTRIGPUSHTIME
 	internal int TrigPushTime;
 }
@@ -17583,52 +17647,281 @@ enum ComboTriggerFlag
 	TRIGFLAG_REFARROW, //Weapons->LWeapons->Refl. Arrow - Triggered by Reflected Arrow LWeapons
 	TRIGFLAG_REFFIRE, //Weapons->LWeapons->Refl. Fire - Triggered by Reflected Fire LWeapons
 	TRIGFLAG_REFFIRE2, //Weapons->LWeapons->Refl. Fire 2 - Triggered by Reflected Fire 2 LWeapons
-	TRIGFLAG_TOGGLE_DARKNESS, //Effects->Toggle Darkness - Toggle the screen being a dark room
-	TRIGFLAG_REQ_DARKNESS, //Conditions->Req. Darkness - Can only trigger if the screen is a dark room
-	TRIGFLAG_REQ_NO_DARKNESS, //Conditions->Req. Darkness - Can only trigger if the screen is lit (not a dark room)
-	TRIGFLAG_LITEM_REQUIRE, //Counters/Items->Require All - Require all the specified LItems to trigger the combo
-	TRIGFLAG_LITEM_INV_REQUIRE, //Counters/Items->Require Not All - Require not all (some is ok) of the specified LItems to trigger the combo
-	TRIGFLAG_LITEM_SET, //Counters/Items->'->Set' - Grants the specified LItems. If [TRIGFLAG_LITEM_UNSET] is also on, toggles them instead.
-	TRIGFLAG_LITEM_UNSET, //Counters/Items->'->Unset' - Removes the specified LItems. If [TRIGFLAG_LITEM_SET] is also on, toggles them instead.
-	TRIGFLAG_TINT_CLEAR, //Graphics->'->Clear Tint' - Clears the palette tint.
+	// Effects->Toggle Darkness - Toggle the screen being a dark room
+	//
+	// @versionadded 3.0
+	TRIGFLAG_TOGGLE_DARKNESS,
+	// Conditions->Req. Darkness - Can only trigger if the screen is a dark room
+	//
+	// @versionadded 3.0
+	TRIGFLAG_REQ_DARKNESS,
+	// Conditions->Req. Darkness - Can only trigger if the screen is lit (not a dark room)
+	//
+	// @versionadded 3.0
+	TRIGFLAG_REQ_NO_DARKNESS,
+	// Counters/Items->Require All - Require all the specified LItems to trigger the combo
+	//
+	// @versionadded 3.0
+	TRIGFLAG_LITEM_REQUIRE,
+	// Counters/Items->Require Not All - Require not all (some is ok) of the specified LItems to trigger the combo
+	//
+	// @versionadded 3.0
+	TRIGFLAG_LITEM_INV_REQUIRE,
+	// Counters/Items->'->Set' - Grants the specified LItems. If [TRIGFLAG_LITEM_UNSET] is also on, toggles them instead.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_LITEM_SET,
+	// Counters/Items->'->Unset' - Removes the specified LItems. If [TRIGFLAG_LITEM_SET] is also on, toggles them instead.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_LITEM_UNSET,
+	// Graphics->'->Clear Tint' - Clears the palette tint.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_TINT_CLEAR,
 	TRIGFLAG_ONLY_GROUNDED_WEAPONS, //Weapons->Other->'Only Grounded Weapons' - weapons with Z > 0 won't trigger the combo
-	TRIGFLAG_COUNTER_WEALTH_MEDAL, //Counter/Items->'Apply Discount' - Wealth Medal items discount the counter cost
-	TRIGFLAG_SCREEN_LOAD, // Triggers when screen/region loads, after levelstates and exstates are applied
-	TRIGFLAG_UNSET_EXSTATE, // Unsets the [ExState] when triggered.
-	TRIGFLAG_UNSET_EXDOOR, // Unsets the [ExDoorDir] when triggered.
-	TRIGFLAG_REQ_HERO_STANDING, // Can only trigger if the [Hero] is standing on ground. (Counts standing in sideview as well)
-	TRIGFLAG_REQ_HERO_NOT_STANDING, // Can only trigger if the [Hero] is NOT standing on ground. (Counts standing in sideview as well)
-	TRIGFLAG_INVERT_HERO_Z, // Inverts the condition of [ReqPlayerZ]
-	TRIGFLAG_COUNTER_GRADUAL, // Makes [TRIGFLAG_COUNTER_EAT] drain/fill gradually instead of all at once.
-	TRIGFLAG_COUNTER_PERCENT, // Makes [combotrigger->CounterAmount] a percentage instead of an amount.
-	TRIGFLAG_NO_COPYCAT_CAUSE, // Makes [combotrigger->Copycat] not trigger this combo; it will only be used as an effect when another cause triggers this combo.
-	TRIGFLAG_HERO_LAND_HERE, // Triggers when the [Hero] lands on this combo (after the combo's 'Landing' SFX plays)
-	TRIGFLAG_HERO_LAND_ANYWHERE, // Triggers when the [Hero] lands on the ground from the air, anywhere on the screen.
-	TRIGFLAG_SET_HERO_X_ABSOLUTE, // When triggered, sets [Hero->X] to [combotrigger->DestHeroX].
-	TRIGFLAG_SET_HERO_X_RELATIVE_CMB, // When triggered, sets [Hero->X] to [combotrigger->DestHeroX] plus this combo's X position.
-	TRIGFLAG_SET_HERO_Y_ABSOLUTE, // When triggered, sets [Hero->X] to [combotrigger->DestHeroY].
-	TRIGFLAG_SET_HERO_Y_RELATIVE_CMB, // When triggered, sets [Hero->X] to [combotrigger->DestHeroY] plus this combo's Y position.
-	TRIGFLAG_SET_HERO_Z_ABSOLUTE, // When triggered, sets [Hero->X] to [combotrigger->DestHeroZ].
-	TRIGFLAG_CTYPE_CAUSES, // Triggers based on combotype-specific causes (ex. player falls down a pit / drowns)
-	TRIGFLAG_HERO_JUMP_GE, // Requires that [Hero->Jump] is >= [combotrigger->ReqHeroJump] to trigger.
-	TRIGFLAG_HERO_JUMP_LE, // Requires that [Hero->Jump] is <= [combotrigger->ReqHeroJump] to trigger.
-	TRIGFLAG_HERO_X_GE, // Requires that [Hero->X] is >= [combotrigger->ReqHeroX] to trigger.
-	TRIGFLAG_HERO_X_LE, // Requires that [Hero->X] is <= [combotrigger->ReqHeroX] to trigger.
-	TRIGFLAG_HERO_X_RELATIVE, // [TRIGFLAG_HERO_X_GE] / [TRIGFLAG_HERO_X_LE] use '[combotrigger->ReqHeroX]' relative to the combo's position. For FFCs, uses a position based on the center of the hitbox.
-	TRIGFLAG_HERO_Y_GE, // Requires that [Hero->Y] is >= [combotrigger->ReqHeroY] to trigger.
-	TRIGFLAG_HERO_Y_LE, // Requires that [Hero->Y] is <= [combotrigger->ReqHeroY] to trigger.
-	TRIGFLAG_HERO_Y_RELATIVE, // [TRIGFLAG_HERO_Y_GE] / [TRIGFLAG_HERO_Y_LE] use '[combotrigger->ReqHeroY]' relative to the combo's position. For FFCs, uses a position based on the center of the hitbox.
-	TRIGFLAG_HERO_FORCE_VX, // When triggered, sets [Hero->IceVx] to [combotrigger->ForceIceVx].
-	TRIGFLAG_HERO_FORCE_VY, // When triggered, sets [Hero->IceVy] to [combotrigger->ForceIceVy].
-	TRIGFLAG_UNIGNITE_WEAPONS, // Changes [TRIGFLAG_IGNITE_WEAPONS_ANY],[TRIGFLAG_IGNITE_WEAPONS_STRONG],[TRIGFLAG_IGNITE_WEAPONS_MAGIC],[TRIGFLAG_IGNITE_WEAPONS_DIVINE] to 'Unignite' the weapon instead
-	TRIGFLAG_CANCEL_TRIGGER, // Makes triggers below this trigger on the same combo with the same cause NOT be triggered by this cause
-	TRIGFLAG_SET_GRAVITY, // When triggered, sets [Screen->GravityStrength] and [Screen->TerminalVelocity] to [combotrigger->GravityStrength] and [combotrigger->TerminalVelocity] respectively.
-	TRIGFLAG_REVERT_GRAVITY, // When triggered, resets [Screen->GravityStrength] and [Screen->TerminalVelocity] to the original values of the screen.
+	// Counter/Items->'Apply Discount' - Wealth Medal items discount the counter cost
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COUNTER_WEALTH_MEDAL,
+	// Triggers when screen/region loads, after levelstates and exstates are applied
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SCREEN_LOAD,
+	// Unsets the [ExState] when triggered.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_UNSET_EXSTATE,
+	// Unsets the [ExDoorDir] when triggered.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_UNSET_EXDOOR,
+	// Can only trigger if the [Hero] is standing on ground. (Counts standing in sideview as well)
+	//
+	// @versionadded 3.0
+	TRIGFLAG_REQ_HERO_STANDING,
+	// Can only trigger if the [Hero] is NOT standing on ground. (Counts standing in sideview as well)
+	//
+	// @versionadded 3.0
+	TRIGFLAG_REQ_HERO_NOT_STANDING,
+	// Inverts the condition of [ReqPlayerZ]
+	//
+	// @versionadded 3.0
+	TRIGFLAG_INVERT_HERO_Z,
+	// Makes [TRIGFLAG_COUNTER_EAT] drain/fill gradually instead of all at once.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COUNTER_GRADUAL,
+	// Makes [combotrigger->CounterAmount] a percentage instead of an amount.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COUNTER_PERCENT,
+	// Makes [combotrigger->Copycat] not trigger this combo; it will only be used as an effect when another cause triggers this combo.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_NO_COPYCAT_CAUSE,
+	// Triggers when the [Hero] lands on this combo (after the combo's 'Landing' SFX plays)
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_LAND_HERE,
+	// Triggers when the [Hero] lands on the ground from the air, anywhere on the screen.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_LAND_ANYWHERE,
+	// When triggered, sets [Hero->X] to [combotrigger->DestHeroX].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SET_HERO_X_ABSOLUTE,
+	// When triggered, sets [Hero->X] to [combotrigger->DestHeroX] plus this combo's X position.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SET_HERO_X_RELATIVE_CMB,
+	// When triggered, sets [Hero->X] to [combotrigger->DestHeroY].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SET_HERO_Y_ABSOLUTE,
+	// When triggered, sets [Hero->X] to [combotrigger->DestHeroY] plus this combo's Y position.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SET_HERO_Y_RELATIVE_CMB,
+	// When triggered, sets [Hero->X] to [combotrigger->DestHeroZ].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SET_HERO_Z_ABSOLUTE,
+	// Triggers based on combotype-specific causes (ex. player falls down a pit / drowns)
+	//
+	// @versionadded 3.0
+	TRIGFLAG_CTYPE_CAUSES,
+	// Requires that [Hero->Jump] is >= [combotrigger->ReqHeroJump] to trigger.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_JUMP_GE,
+	// Requires that [Hero->Jump] is <= [combotrigger->ReqHeroJump] to trigger.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_JUMP_LE,
+	// Requires that [Hero->X] is >= [combotrigger->ReqHeroX] to trigger.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_X_GE,
+	// Requires that [Hero->X] is <= [combotrigger->ReqHeroX] to trigger.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_X_LE,
+	// [TRIGFLAG_HERO_X_GE] / [TRIGFLAG_HERO_X_LE] use '[combotrigger->ReqHeroX]' relative to the combo's position. For FFCs, uses a position based on the center of the hitbox.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_X_RELATIVE,
+	// Requires that [Hero->Y] is >= [combotrigger->ReqHeroY] to trigger.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_Y_GE,
+	// Requires that [Hero->Y] is <= [combotrigger->ReqHeroY] to trigger.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_Y_LE,
+	// [TRIGFLAG_HERO_Y_GE] / [TRIGFLAG_HERO_Y_LE] use '[combotrigger->ReqHeroY]' relative to the combo's position. For FFCs, uses a position based on the center of the hitbox.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_Y_RELATIVE,
+	// When triggered, sets [Hero->IceVx] to [combotrigger->ForceIceVx].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_FORCE_VX,
+	// When triggered, sets [Hero->IceVy] to [combotrigger->ForceIceVy].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_HERO_FORCE_VY,
+	// Changes [TRIGFLAG_IGNITE_WEAPONS_ANY],[TRIGFLAG_IGNITE_WEAPONS_STRONG],[TRIGFLAG_IGNITE_WEAPONS_MAGIC],[TRIGFLAG_IGNITE_WEAPONS_DIVINE] to 'Unignite' the weapon instead
+	//
+	// @versionadded 3.0
+	TRIGFLAG_UNIGNITE_WEAPONS,
+	// Makes triggers below this trigger on the same combo with the same cause NOT be triggered by this cause
+	//
+	// @versionadded 3.0
+	TRIGFLAG_CANCEL_TRIGGER,
+	// When triggered, sets [Screen->GravityStrength] and [Screen->TerminalVelocity] to [combotrigger->GravityStrength] and [combotrigger->TerminalVelocity] respectively.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SET_GRAVITY,
+	// When triggered, resets [Screen->GravityStrength] and [Screen->TerminalVelocity] to the original values of the screen.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_REVERT_GRAVITY,
+	// Triggers when a pushblock is about to click into place replacing this combo
+	//
+	// @versionadded 3.0
+	TRIGFLAG_BLOCK_TRIGGER_SAME_LAYER,
+	// Triggers when a pushblock is about to click into place at this combo's position, on any layer
+	//
+	// @versionadded 3.0
+	TRIGFLAG_BLOCK_TRIGGER_ANY_LAYER,
+	// If true, the trigger will only trigger if some part of the combo is
+	// inside the [combotrigger->ViewportRange] from the edge of the viewport.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_VIEWPORT_REQ_ONSCREEN,
+	// If true, the trigger will only trigger if all of the combo is
+	// outside the [combotrigger->ViewportRange] from the edge of the viewport.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_VIEWPORT_REQ_OFFSCREEN,
+	// If true, the [combotrigger->SFX] will loop until stopped.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SFX_LOOP,
+	// If true, the [combotrigger->SFX] will not be restarted if it was already playing.
+	// This allows changing the [combotrigger->SFXFrequency], [combotrigger->SFXPan], etc
+	// of an already-playing SFX.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SFX_NO_RESTART,
+	// If true, the [combotrigger->SFX] will be stopped instead of being played.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SFX_KILL,
+	// If true, the [combotrigger->ComboChange] will be an exact combo ID to change to, instead of a relative value.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_CMB_CHANGE_ABSOLUTE,
+	// If true, the [combotrigger->CSetChange] will be an exact combo ID to change to, instead of a relative value.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_CSET_CHANGE_ABSOLUTE,
+	// Triggers when the player swims in it
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SWIMTRIG,
+	// Triggers when the player swims in it (more sensitively)
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SWIMSENSTRIG,
+	// If true, the player's Hazard Respawn will be set to the combo's position.
+	// Also sets [Player->ForcedHazardRespawn] to true.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_RESPAWN_HERE,
+	// If true, sets [Player->ForcedHazardRespawn] to false.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_RESET_RESPAWN,
+	// Triggers when the screen unloads.
+	// Occurs after warp FX for warps, and before scrolling for scrolls.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_SCREENUNLOAD,
+	// Proximity respects player solidity hitbox size
+	//
+	// @versionadded 3.0
+	TRIGFLAG_PROX_USE_SOL_HITBOX,
+	// Proximity uses a square area instead of circle area
+	// i.e. it checks distance on each axis separately, rather than diagonal distance.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_PROX_USE_SQUARE,
+	// Makes [TRIGFLAG_COUNTER_EAT] drain even if the player doesn't have
+	// the specified amount of the counter.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COUNTER_PARTIAL_CONSUME,
+	// Trigger condition: only occurs during Map View (spacebar map).
+	//
+	// @versionadded 3.0
+	TRIGFLAG_MAPVIEW_ONLY,
+	// Trigger condition: never occurs during Map View (spacebar map).
+	//
+	// @versionadded 3.0
+	TRIGFLAG_MAPVIEW_NEVER,
+	// Trigger cause: combo position specific state ([combotrigger::ComboPosState])
+	// Works like ExState, only causing combo/cset change, reset anim, and copycat effects.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COMBOPOSSTATE_CAUSE,
+	// Trigger condition: combo position specific state ([combotrigger::ComboPosState])
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COMBOPOSSTATE_REQ,
+	// Trigger condition: not combo position specific state ([combotrigger::ComboPosState])
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COMBOPOSSTATE_UNREQ,
+	// Trigger effect: set combo position specific state ([combotrigger::ComboPosState])
+	// Combined with [TRIGFLAG_COMBOPOSSTATE_UNSET] is also on, toggles state instead.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COMBOPOSSTATE_SET,
+	// Trigger effect: unset combo position specific state ([combotrigger::ComboPosState])
+	// Combined with [TRIGFLAG_COMBOPOSSTATE_SET] is also on, toggles state instead.
+	//
+	// @versionadded 3.0
+	TRIGFLAG_COMBOPOSSTATE_UNSET,
+
 	TRIGFLAG_MAX
 };
 
 // Load with [combodata::Triggers] or [combodata::GetTrigger]
 //
+// @versionadded 3.0
 // @zasm_ref REFCOMBOTRIGGER
 class combotrigger {
 	// @delete
@@ -17670,17 +17963,42 @@ class combotrigger {
 	//
 	// @zasm_var CMBTRIGSFX
 	internal int SFX;
+	
+	// The Pan to use for the [SFX]. -1 will pan based on the combo's position,
+	// values 0-255 will specify a specific pan. 128 is centered.
+	//
+	// @value -1 <= N <= 255
+	// @zasm_var CMBTRIGGER_SFX_PAN
+	internal int SFXPan;
+	
+	// The volume to use for the [SFX], as a percentage of the base volume.
+	//
+	// @value 0 <= N <= 255
+	// @zasm_var CMBTRIGGER_SFX_VOLUME
+	internal int SFXVolume;
+	
+	// The frequency to use for the [SFX]. -1 will use the default for the SFX,
+	// otherwise this value will be used in Hz.
+	//
+	// @value -1 or higher
+	// @zasm_var CMBTRIGGER_SFX_FREQUENCY
+	internal int SFXFrequency;
 
 	// The amount the combo will change by when triggered.
 	//
 	// Ex. `1` acts as '->Next', `-1` acts as '->Prev'.
-	//
 	// If `0`, no change occurs.
+	//
+	// If [TRIGFLAG_CMB_CHANGE_ABSOLUTE] is set, then this
+	// is instead an EXACT combo ID to change to.
 	//
 	// @zasm_var CMBTRIGCHANGECMB
 	internal int ComboChange;
 
 	// The amount the cset will change by when triggered.
+	//
+	// If [TRIGFLAG_CSET_CHANGE_ABSOLUTE] is set, then this
+	// is instead an EXACT cset to change to.
 	//
 	// @zasm_var CMBTRIGCSETCHANGE
 	internal int CSetChange;
@@ -17747,6 +18065,16 @@ class combotrigger {
 	//
 	// @zasm_var CMBTRIGEXSTATE
 	internal int ExState;
+	
+	// 0-7. Used by [TRIGFLAG_COMBOPOSSTATE_CAUSE], [TRIGFLAG_COMBOPOSSTATE_REQ],
+	// [TRIGFLAG_COMBOPOSSTATE_UNREQ], [TRIGFLAG_COMBOPOSSTATE_SET],
+	// and [TRIGFLAG_COMBOPOSSTATE_UNSET].
+	//
+	// Ref: [Screen->PosState], [ffc::PosState], [mapdata::PosState], [mapdata::FFCPosState]
+	//
+	// @versionadded 3.0
+	// @zasm_var CMBTRIGPOSSTATE
+	internal int ComboPosState;
 
 	// If > -1, the direction of ExDoor that the combo is linked to
 	//
@@ -17879,15 +18207,51 @@ class combotrigger {
 	// @length 32
 	// @zasm_var CMBTRIGUNREQSCREXSTATE
 	internal bool UnreqScreenExState[];
+	
+	// Get if a specified exdoor state is required to be ON for this trigger to activate
+	//
+	// @zasm
+	//   PEEKATV REFCOMBOTRIGGER 0.0002
+	//   SETR D2 CMBTRIG_REQ_SCREXDOOR
+	//   POPARGS D5 0.0003
+	internal int GetReqExDoor(int dir, int index);
+	
+	// Set if a specified exdoor state is required to be ON for this trigger to activate
+	//
+	// @zasm
+	//   POP D2
+	//   PEEKATV REFCOMBOTRIGGER 0.0002
+	//   SETR CMBTRIG_REQ_SCREXDOOR D2
+	//   POPARGS D5 0.0003
+	internal void SetReqExDoor(int dir, int index, bool state);
+	
+	// Get if a specified exdoor state is required to be OFF for this trigger to activate
+	//
+	// @zasm
+	//   PEEKATV REFCOMBOTRIGGER 0.0002
+	//   SETR D2 CMBTRIG_UNREQ_SCREXDOOR
+	//   POPARGS D5 0.0003
+	internal int GetUnreqExDoor(int dir, int index);
+	
+	// Set if a specified exdoor state is required to be OFF for this trigger to activate
+	//
+	// @zasm
+	//   POP D2
+	//   PEEKATV REFCOMBOTRIGGER 0.0002
+	//   SETR CMBTRIG_UNREQ_SCREXDOOR D2
+	//   POPARGS D5 0.0003
+	internal void SetUnreqExDoor(int dir, int index, bool state);
 
-	// The 'Map' used by [ReqScreenState], [UnreqScreenState], [ReqScreenExState], [UnreqScreenExState].
+	// The 'Map' used by [ReqScreenState], [UnreqScreenState], [ReqScreenExState], [UnreqScreenExState],
+	// [GetReqExDoor], [SetReqExDoor], [GetUnreqExDoor], [SetUnreqExDoor].
 	//
 	// 0 represents the 'current map + screen', otherwise a valid map indicates that map.
 	//
 	// @zasm_var CMBTRIGREQSTATEMAP
 	internal int StateMap;
 
-	// The 'Screen' used by [ReqScreenState], [UnreqScreenState], [ReqScreenExState], [UnreqScreenExState].
+	// The 'Screen' used by [ReqScreenState], [UnreqScreenState], [ReqScreenExState], [UnreqScreenExState],
+	// [GetReqExDoor], [SetReqExDoor], [GetUnreqExDoor], [SetUnreqExDoor].
 	//
 	// If [StateMap] is 0, this value is ignored (the 'current map + screen' is used).
 	// Otherwise, this screen on the [StateMap] will be used.
@@ -18111,6 +18475,27 @@ class combotrigger {
 	// @zasm_var CMBTRIGGER_TERMINAL_VELOCITY
 	internal int TerminalVelocity;
 	
+	// The margins away from the screen added to the viewport when calculating
+	// [TRIGFLAG_VIEWPORT_REQ_ONSCREEN] and [TRIGFLAG_VIEWPORT_REQ_OFFSCREEN].
+	//
+	// @zasm_var CMBTRIGGER_VIEWPORT_RANGE
+	internal int ViewportRange;
+	
+	// There is an N in [ChanceDenominator] chance of the combo triggering.
+	// Default '1 in 1' means no chance involved.
+	// A 0 numerator means the combo won't ever trigger.
+	//
+	// @value 0 to [MAX_INT]
+	// @zasm_var CMBTRIGGER_CHANCE_NUMERATOR
+	internal int ChanceNumerator;
+	
+	// There is a [ChanceNumerator] in N chance of the combo triggering.
+	// Default '1 in 1' means no chance involved.
+	//
+	// @value 1 to [MAX_INT]
+	// @zasm_var CMBTRIGGER_CHANCE_NUMERATOR
+	internal int ChanceDenominator;
+	
 	// Gets the label for this trigger.
 	//
 	// If the buffer provided is too small, it will *automatically be resized to
@@ -18256,8 +18641,14 @@ enum WeaponFlag
 	WFLAG_STOP_ON_LANDING, // The weapon stops moving when it lands after being in mid-air.
 	WFLAG_STOP_ON_SOLID, // The weapon stops moving when it touches a solid.
 	WFLAG_UPDATE_BURNSPR, // The weapon changes sprites when it's BURN weapon flags change.
-	WFLAG_NO_COLL_WHEN_STILL, // The weapon has no collision while it isn't moving
-	WFLAG_TEMP_IGNORE_SOLID, // The weapon will not trigger [WFLAG_STOP_ON_SOLID] or [WFLAG_BREAKS_ON_SOLID]. This flag is automatically unset when the weapon is NOT touching any solids.
+	// The weapon has no collision while it isn't moving
+	//
+	// @versionadded 3.0
+	WFLAG_NO_COLL_WHEN_STILL,
+	// The weapon will not trigger [WFLAG_STOP_ON_SOLID] or [WFLAG_BREAKS_ON_SOLID]. This flag is automatically unset when the weapon is NOT touching any solids.
+	//
+	// @versionadded 3.0
+	WFLAG_TEMP_IGNORE_SOLID,
 	WFLAG_MAX
 };
 
@@ -18934,6 +19325,15 @@ enum ComboFlag
 	CF_NO_ENEMIES_SPAWN            = 163, // No Enemies Spawn.
 	CF_ALL_ENEMIES_SPAWN           = 164, // All Enemies Spawn.
 	CF_SECRETS_NEXT                = 165, // Secrets->Next.
+	// No Mirror
+	// @versionadded 3.0
+	CF_NO_MIRROR                   = 166,
+	// Unsafe Ground (Sensitive)
+	// @versionadded 3.0
+	CF_UNSAFE_GROUND_SENS          = 167,
+	// Unsafe Ground
+	// @versionadded 3.0
+	CF_UNSAFE_GROUND               = 168,
 };
 
 // Used with the blit drawing functions.
@@ -19014,6 +19414,7 @@ enum LiftFlag
 	// throw the held item regardless.
 	LIFTFL_DISABLE_ITEMS,
 	LIFTFL_NO_SWIMMING,
+	// @versionadded 3.0
 	LIFTFL_DROP_ON_HIT,
 	LIFTFL_MAX
 };
@@ -19056,20 +19457,44 @@ enum InteractButton
 // Timing may vary from frame to frame, and based on QRs or other settings.
 enum SpecialDrawLayer
 {
-	SPLAYER_PLAYER_DRAW = -200000,  //The [Hero], when this occurs changes based on various conditions.
-	SPLAYER_EWEAP_BEHIND_DRAW, //Eweapons with 'Behind = true'
-	SPLAYER_EWEAP_FRONT_DRAW, //Eweapons with 'Behind = false'
-	SPLAYER_LWEAP_BEHIND_DRAW, //Lweapons with 'Behind = true'
-	SPLAYER_LWEAP_FRONT_DRAW, //Lweapons with 'Behind = false'
-	SPLAYER_LWEAP_ABOVE_DRAW, //Lweapons with (Z+FakeZ) > Init Data 'Jump Layer Height', IF the [Hero] is also above this height.
-	SPLAYER_CHAINLINK_DRAW, //Hookshot chain links. This may draw multiple times per frame.
-	SPLAYER_NPC_DRAW, //Enemies
-	SPLAYER_NPC_ABOVEPLAYER_DRAW, //Enemies 'grabbing' the [Hero], or with a higher Z than the [Hero]
-	SPLAYER_NPC_AIRBORNE_DRAW, //Flying enemies, or enemies in the Z axis (amount required QR dependant)
-	SPLAYER_ITEMSPRITE_DRAW, //Itemsprites
-	SPLAYER_FAIRYITEM_DRAW, //Moving fairies
-	SPLAYER_PUSHBLOCK, //Pushable Blocks
-	SPLAYER_MOVINGBLOCK, //Moving Pushable Blocks
+	SPLAYER_PLAYER_DRAW = -200000,  // The [Hero], when this occurs changes based on various conditions.
+	// Eweapons with 'Behind = true'.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_EWEAP_BEHIND_DRAW,
+	// Eweapons with 'Behind = false'.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_EWEAP_FRONT_DRAW,
+	// Lweapons with 'Behind = true'.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_LWEAP_BEHIND_DRAW,
+	// Lweapons with 'Behind = false'.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_LWEAP_FRONT_DRAW,
+	// Lweapons with (Z+FakeZ) > Init Data 'Jump Layer Height', IF the [Hero] is also above this height.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_LWEAP_ABOVE_DRAW,
+	// Hookshot chain links. This may draw multiple times per frame.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_CHAINLINK_DRAW,
+	// Enemies draw.
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_NPC_DRAW,
+	// Enemies 'grabbing' the [Hero], or with a higher Z than the [Hero]
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_NPC_ABOVEPLAYER_DRAW,
+	// Flying enemies, or enemies in the Z axis (amount required QR dependant)
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_NPC_AIRBORNE_DRAW,
+	// Itemsprites
+	// Does not work if 'Classic Draw Order' is disabled.
+	SPLAYER_ITEMSPRITE_DRAW,
+	// Moving fairies
+	SPLAYER_FAIRYITEM_DRAW,
+	// Pushable Blocks
+	// Only occurs if 'Pushable Block Sprite Layer' is enabled.
+	SPLAYER_PUSHBLOCK,
+	// Moving Pushable Blocks
+	SPLAYER_MOVINGBLOCK,
 	SPLAYER_OVERHEAD_CMB, //Overhead combos
 	SPLAYER_OVERHEAD_FFC, //Overhead ffcs
 	SPLAYER_DARKROOM_UNDER, //Under dark room darkness
@@ -19077,7 +19502,18 @@ enum SpecialDrawLayer
 	SPLAYER_FFC_DRAW, //Non-Overhead ffcs - Draws during a timing above layer 1 and 2
 	SPLAYER_LENS_UNDER_1, //Lens drawing secrets/revealing things
 	SPLAYER_LENS_UNDER_2, //Lens drawing secrets/revealing things
-	SPLAYER_LENS_OVER //Lens drawing blackness to cover most of the screen
+	SPLAYER_LENS_OVER, //Lens drawing blackness to cover most of the screen
+	// Just underneath the [Hero]'s draw
+	// @versionadded 3.0
+	SPLAYER_UNDER_PLAYER_DRAW,
+	// Just over the [Hero->LiftedWeapon], regardless of if there is one or not.
+	// This is slightly after the Hero's draw, but before the Prompt Combo is drawn.
+	// @versionadded 3.0
+	SPLAYER_OVER_LIFT_WEAPON,
+	// Just over the Hero's overhead prompt combo, regardless of if there is one or not.
+	// This is just after the Hero's draw and the [Hero->LiftedWeapon] is drawn.
+	// @versionadded 3.0
+	SPLAYER_OVER_PROMPT_COMBO,
 };
 
 // Used with [itemdata::SizeFlags], [itemdata::WeaponSizeFlags], [npcdata::SizeFlags].
@@ -19096,6 +19532,16 @@ enum SizeOverrideBitflags
 	SZFLAG_DRAW_Y_OFFSET           = 0x0100,
 	SZFLAG_DRAW_Z_OFFSET           = 0x0200, // Enemies only.
 	SZFLAG_ALL                     = 0x03FF,
+};
+
+// Constants indicating the 4 corners of a tile.
+// @versionadded 3.0
+enum CornerIndex
+{
+	CORNER_UL,
+	CORNER_UR,
+	CORNER_BL,
+	CORNER_BR,
 };
 // Contains various debug-only functionality.
 //
@@ -19198,8 +19644,14 @@ enum DMapFlag
 	DMFS_TRUECELLARENEMIES,   //True Cellar Enemies
 	DMFS_BUNNY,               //Become Bunny with no Pearl
 	DMFS_MIRRORCONTINUE,      //Mirror Continues instead of Warping
-	DMFS_EXTENDEDVIEWPORT,    //If checked, the viewport extends into the part of the screen normally occupied by the passive subscreen.
-	DMFS_CUSTOM_GRAVITY,      // use dmap-specific [dmapdata::GravityStrength|Gravity Strength] and [dmapdata::TerminalVelocity|Terminal Velocity]
+	// If checked, the viewport extends into the part of the screen normally occupied by the passive subscreen.
+	//
+	// @versionadded 3.0
+	DMFS_EXTENDEDVIEWPORT,
+	// use dmap-specific [dmapdata::GravityStrength|Gravity Strength] and [dmapdata::TerminalVelocity|Terminal Velocity]
+	//
+	// @versionadded 3.0
+	DMFS_CUSTOM_GRAVITY,
 	DMFS_MAX
 };
 
@@ -19263,6 +19715,7 @@ class dmapdata {
 
 	// The Floor Number of this dmap.
 	//
+	// @versionadded 3.0
 	// @zasm_var DMAPDATAFLOOR
 	internal int Floor;
 
@@ -19284,6 +19737,7 @@ class dmapdata {
 	// The Music set to play on this dmap.
 	// NULL / MUSIC_SILENCE represents silence.
 	//
+	// @versionadded 3.0
 	// @zasm_var DMAPDATA_MUSIC
 	internal musicdata Music;
 	
@@ -19328,6 +19782,12 @@ class dmapdata {
 	//
 	// @zasm_var DMAPDATASUBSCRO
 	internal int OverlaySubscreen;
+
+	// Which engine map subscreen to use on this dmap.
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATASUBSCRM
+	internal int MapSubscreen;
 
 	// Bitwise values representing the state of the map grid.
 	//
@@ -19382,11 +19842,13 @@ class dmapdata {
 	
 	// If [DMFS_CUSTOM_GRAVITY] is set, this gravity applies on the dmap.
 	//
+	// @versionadded 3.0
 	// @zasm_var DMAPDATA_GRAVITY_STRENGTH
 	internal int GravityStrength;
 
 	// If [DMFS_CUSTOM_GRAVITY] is set, this terminal velocity applies on the dmap.
 	//
+	// @versionadded 3.0
 	// @zasm_var DMAPDATA_TERMINAL_VELOCITY
 	internal int TerminalVelocity;
 
@@ -19725,6 +20187,7 @@ class eweapon {
 	// If the weapon's collision is enabled. Set to false to disable collision
 	// entirely.
 	//
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var EWPNCOLLDET
 	internal bool CollDetection;
 
@@ -19750,6 +20213,34 @@ class eweapon {
 	// @zasm_var EWPNTIMEOUT
 	internal int Timeout;
 
+	// When the weapon lands from the air, it bounces based on this multiplier of it's
+	// downward velocity, and [BounceAdd].
+	// Must be >= 0.
+	//
+	// @versionadded 3.0
+	// @zasm_var EWPN_BOUNCE_MULT
+	internal int BounceMult;
+	
+	// When the weapon lands from the air, it bounces based on [BounceMult],
+	// adding this value in px/frame after the multiplier.
+	// Using a negative value will dampen the bounce, and is recommended to prevent
+	// the weapon from bouncing many tiny rapid bounces as it's velocity gets small.
+	//
+	// @versionadded 3.0
+	// @zasm_var EWPN_BOUNCE_ADD
+	internal int BounceAdd;
+	
+	// Set to true, this prevents the weapon from triggering any Combo Triggers.
+	// Also affects some melee weapon checks (ex. slash/pound combos).
+	//
+	// This being false means that scripts are not CAUSING it to ignore triggers-
+	// it does not account for other things that may disable the weapon from
+	// activating triggers (ex. the Hammer being above the player's head).
+	//
+	// @versionadded 3.0
+	// @zasm_var EWPN_NO_TRIGGERS
+	internal bool DisableTriggers;
+
 	// If < 0, the weapon behaves as normal. If == 0, the weapon pierces infinitely.
 	// If > 0, each time the weapon hits an enemy or the player, counts down by 1.
 	// When counting down from '1' to '0', the weapon dies.
@@ -19757,6 +20248,7 @@ class eweapon {
 	// have their collision disabled so they cannot hit further targets-
 	// and the PierceCount set on a lit bomb will apply to the bomb's blast.
 	//
+	// @versionadded 3.0
 	// @zasm_var EWPNPIERCE
 	internal int PierceCount;
 
@@ -19844,6 +20336,13 @@ class eweapon {
 	// @index [enum WeaponSpriteIndex]
 	// @zasm_var EWPNBURNLIGHTRADIUS
 	internal int BurnLightRadius[];
+
+	// The burning light offsets associated with sprites of the weapon.
+	//
+	// @index [enum WeaponSpriteIndex]
+	// @versionadded 3.0
+	// @zasm_var EWPNBURNLIGHTOFFSET
+	internal int BurnLightOffset[];
 
 	// @deprecated - This is now just the internal engine ID, which is the same as doing `<int>some_sprite`.
 	// @zasm_var EWEAPONSCRIPTUID
@@ -19936,7 +20435,7 @@ enum FFCFlag
 {
 	FFCF_OVERLAY                   = 0,  // Draw Over (draw between layers 4 and 5).
 	FFCF_TRANS                     = 1,  // Translucent.
-	FFCF_SOLID                     = 2,  // Solidity (Partially Implemented).
+	FFCF_SOLID                     = 2,  // Solidity
 	FFCF_CARRYOVER                 = 3,  // Carry Over.
 	FFCF_STATIONARY                = 4,  // Stationary.
 	FFCF_CHANGER                   = 5,  // Is A Changer.
@@ -19948,6 +20447,28 @@ enum FFCFlag
 	FFCF_IGNORECHANGER             = 11, // The FFC ignores changers.
 	FFCF_IMPRECISIONCHANGER        = 12, // The FFC is affected by changers if it is within 1px on both axis, not subpixel alignment.
 	FFCF_LENSINVIS                 = 13, // Not visible to the lens of truth.
+	// Acts as a 'Platform'
+	// @versionadded 3.0
+	FFCF_PLATFORM                  = 14,
+	// Solidity only if the FFC's combo has some solid part
+	// @versionadded 3.0
+	FFCF_SOLID_IF_COMBO_SOLID      = 15,
+	
+	// Changer: Become This Combo+CSet
+	// @versionadded 3.0
+	FFCF_CHANGE_COMBO              = 27,
+	// Changer: Become Previous Combo
+	// @versionadded 3.0
+	FFCF_PREV_COMBO                = 28,
+	// Changer: Become Next Combo
+	// @versionadded 3.0
+	FFCF_NEXT_COMBO                = 29,
+	// Changer: Swap w/ Prev FFC
+	// @versionadded 3.0
+	FFCF_PREV_FFC                  = 30,
+	// Changer: Swap w/ Next FFC
+	// @versionadded 3.0
+	FFCF_NEXT_FFC                  = 31,
 };
 
 const int MIN_FFC = 1;
@@ -19988,6 +20509,7 @@ class ffc {
 	
 	// The FFC's index within the current screen (0-indexed).
 	//
+	// @versionadded 3.0
 	// @zasm_var FFCINDEX
 	internal const int ScreenFFCIndex;
 
@@ -19998,6 +20520,7 @@ class ffc {
 
 	// The layer the FFC draws on. Unused if [FFCF_OVERLAY] is set.
 	//
+	// @versionadded 3.0
 	// @zasm_var FFCLAYER
 	internal int Layer;
 
@@ -20036,6 +20559,13 @@ class ffc {
 	// @index [enum FFCFlag]
 	// @zasm_var FFFLAGSD
 	internal bool Flags[];
+	
+	// The position-specific states for this ffc.
+	//
+	// @length 8
+	// @versionadded 3.0
+	// @zasm_var FFC_POSSTATE
+	internal bool PosState[];
 
 	// The hitbox width, in pixels (1 to 64), of the FFC. Unless the FFC is
 	// [ffc::Flags], the type of its combo will affect this area. NOTE: Not all
@@ -20066,6 +20596,16 @@ class ffc {
 
 	// @zasm_var FFCLASTCHANGERY
 	internal int LastChangerY;
+	
+	// Attempts to trigger the ffc's combo with it's trigger number 'trig_index'.
+	// Returns true on success, false on failure.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   POP D2
+	//   POP REFFFC
+	//   FFCTRIGGER D2
+	internal bool Trigger(int trig_index = 0);
 }
 // Valid modes (details taken from http://www.cplusplus.com/reference/cstdio/fopen/):
 //
@@ -20417,10 +20957,13 @@ enum GravityIndex
 	GR_STRENGTH,
 	GR_TERMINALV,
 	GR_SPRLAYER,
+	// @versionadded 3.0
 	GR_AIRDRAG
 };
 
 // Used with [Game->LayerZThresholds]
+//
+// @versionadded 3.0
 enum LayerZIndex
 {
 	LAYERZ_GROUND,
@@ -20491,8 +21034,11 @@ enum MiscSfx
 	MISCSFX_SUBSCR_CURSOR_MOVE,
 	MISCSFX_REFILL,
 	MISCSFX_RUPEEDRAIN,
+	// @versionadded 3.0
 	MISCSFX_SWORDTAP,
+	// @versionadded 3.0
 	MISCSFX_SWORDTAP_HOLLOW,
+	// @versionadded 3.0
 	MISCSFX_HERO_LANDS,
 	MISCSFX_MAX
 };
@@ -20532,16 +21078,34 @@ enum GenericIndex
 	GEN_FLICKER_FRAMES       = 24, //How many frames Link / enemies flicker for with the flicker damage effect
 	GEN_FLICKER_COLOR        = 25, //Color used for the flicker effect
 	GEN_FLICKER_TRANSP       = 26, //Number of transparency passes for the flicker effect
+	// @versionadded 3.0
 	GEN_LIGHT_WAVE_RATE      = 27,
+	// @versionadded 3.0
 	GEN_LIGHT_WAVE_SIZE      = 28,
-	GEN_REGION_MAPPING       = 29, //Which [RegionMapping] (method of mapping) is used for regions
-	GEN_ITEM_SPAWN_FLICKER   = 30, // The duration of flickering after an item spawns
-	GEN_ITEM_TIMEOUT_DUR     = 31, // The duration before disappearing items vanish
-	GEN_ITEM_TIMEOUT_FLICKER = 32, // The duration disappearing items flicker before they vanish
-	GEN_ITEM_FLICKER_SPEED   = 33, // The speed items flicker at
+	// Which [RegionMapping] (method of mapping) is used for regions
+	//
+	// @versionadded 3.0
+	GEN_REGION_MAPPING       = 29,
+	// The duration of flickering after an item spawns
+	//
+	// @versionadded 3.0
+	GEN_ITEM_SPAWN_FLICKER   = 30,
+	// The duration before disappearing items vanish
+	//
+	// @versionadded 3.0
+	GEN_ITEM_TIMEOUT_DUR     = 31,
+	// The duration disappearing items flicker before they vanish
+	//
+	// @versionadded 3.0
+	GEN_ITEM_TIMEOUT_FLICKER = 32,
+	// The speed items flicker at
+	//
+	// @versionadded 3.0
+	GEN_ITEM_FLICKER_SPEED   = 33,
 	GEN_MAX                  = 34
 };
 
+// @versionadded 3.0
 enum RegionMapping
 {
 	REGION_MAPPING_PHYSICAL,
@@ -20562,23 +21126,59 @@ enum MouseCursor
 @Bitflags("int")
 enum LevelItemBitflags
 {
-	LI_MCGUFFIN                    = 0x0001, // The McGuffin of this Level has been obtained.
+	// The McGuffin of this Level has been obtained.
+	//
+	// @versionadded 3.0
+	LI_MCGUFFIN                    = 0x0001,
 	LI_TRIFORCE                    = LI_MCGUFFIN, // @deprecated
 	LI_MAP                         = 0x0002, // The Dungeon Map of this Level has been obtained.
 	LI_COMPASS                     = 0x0004, // The Compass of this Level has been obtained.
 	LI_BOSS                        = 0x0008, // A "Dungeon Boss" enemy has been slain.
 	LI_BOSSKEY                     = 0x0010, // The Boss Key of this Level has been obtained.
-	LI_CUSTOM01                    = 0x0020, // The Custom01 flag of this Level has been set.
-	LI_CUSTOM02                    = 0x0040, // The Custom02 flag of this Level has been set.
-	LI_CUSTOM03                    = 0x0080, // The Custom03 flag of this Level has been set.
-	LI_CUSTOM04                    = 0x0100, // The Custom04 flag of this Level has been set.
-	LI_CUSTOM05                    = 0x0200, // The Custom05 flag of this Level has been set.
-	LI_CUSTOM06                    = 0x0400, // The Custom06 flag of this Level has been set.
-	LI_CUSTOM07                    = 0x0800, // The Custom07 flag of this Level has been set.
-	LI_CUSTOM08                    = 0x1000, // The Custom08 flag of this Level has been set.
-	LI_CUSTOM09                    = 0x2000, // The Custom09 flag of this Level has been set.
-	LI_CUSTOM10                    = 0x4000, // The Custom10 flag of this Level has been set.
-	LI_CUSTOM11                    = 0x8000, // The Custom11 flag of this Level has been set.
+	// The Custom01 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM01                    = 0x0020,
+	// The Custom02 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM02                    = 0x0040,
+	// The Custom03 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM03                    = 0x0080,
+	// The Custom04 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM04                    = 0x0100,
+	// The Custom05 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM05                    = 0x0200,
+	// The Custom06 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM06                    = 0x0400,
+	// The Custom07 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM07                    = 0x0800,
+	// The Custom08 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM08                    = 0x1000,
+	// The Custom09 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM09                    = 0x2000,
+	// The Custom10 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM10                    = 0x4000,
+	// The Custom11 flag of this Level has been set.
+	//
+	// @versionadded 3.0
+	LI_CUSTOM11                    = 0x8000,
 };
 
 // Used with [Game->GameOverScreen].
@@ -20611,6 +21211,8 @@ enum GameOverScreenElementIndex
 };
 
 // Used with [Game->GameOverStrings].
+//
+// @versionadded 3.0
 enum GameOverStringIndex
 {
 	GOSTR_CONTINUE                 = 0, // (Continue:Retry:Save) Screen.
@@ -20811,11 +21413,13 @@ class Game {
 
 	// The [save_menu] ID used when pressing F6. If 0, the default F6 menu will be used.
 	//
+	// @versionadded 3.0
 	// @zasm_var GAME_SAVEMENU_F6
 	internal int SaveMenuF6;
 	
 	// The [save_menu] ID used when dying. If 0, the default game over menu will be used.
 	//
+	// @versionadded 3.0
 	// @zasm_var GAME_SAVEMENU_GAMEOVER
 	internal int SaveMenuGameOver;
 
@@ -20937,6 +21541,7 @@ class Game {
 
 	// True if running in test mode ('Quest->Test' from the editor).
 	//
+	// @versionadded 3.0
 	// @zasm_var DEBUGTESTING
 	internal const bool Testing;
 
@@ -20994,35 +21599,6 @@ class Game {
 	// @zasm_var GAMEMAXMAPS
 	internal const int MapCount;
 
-	// The ZScript version number the quest was last compiled in.
-	//
-	// @zasm_var ZSCRIPTVERSION
-	internal const int ZScriptVersion;
-
-	// The current version of ZC that the quest is being played in (ex: "2.55"
-	// for 2.55)
-	//
-	// @zasm_var ZELDAVERSION
-	internal const int Version;
-
-	// The current Build ID of ZC that the quest is being played in.
-	//
-	// @deprecated
-	// @zasm_var ZELDABUILD
-	internal const int Build;
-
-	// The current detailed version; this can be the current Alpha, Beta, Gamma,
-	// or Release number, depending on the version of the program.
-	//
-	// @zasm_var ZELDABETA
-	internal const int Beta;
-
-	// What type of detailed version the program is in. `0 = Alpha`, `1 = Beta`,
-	// `2 = Gamma`, `3 = Release`, `-1 = error`.
-	//
-	// @zasm_var ZELDABETATYPE
-	internal const int BetaType;
-
 	// If true, pressing the Start button will no longer open the active
 	// subscreen.
 	//
@@ -21044,6 +21620,7 @@ class Game {
 	// See 'Init Data->Vars->Draw Order'
 	//
 	// @index [LayerZIndex]
+	// @versionadded 3.0
 	// @zasm_var GAMELAYERZTHRESHOLDS
 	internal int LayerZThresholds[];
 
@@ -21133,6 +21710,7 @@ class Game {
 
 	// True if the map subscreen is currently open.
 	//
+	// @versionadded 3.0
 	// @zasm_var GAMEMSUBOPEN
 	internal const bool MapSubscreenOpen;
 
@@ -21161,6 +21739,7 @@ class Game {
 
 	// Returns the total number of overlay subscreens
 	//
+	// @versionadded 3.0
 	// @zasm_var GAMENUMMSUB
 	internal int NumMapSubscreens;
 
@@ -21348,6 +21927,7 @@ class Game {
 	// Closes the program, without saving.
 	//
 	// @exit
+	// @versionadded 2.55.15
 	// @zasm
 	//   GAMEEXIT
 	internal void Exit();
@@ -21709,6 +22289,7 @@ class Game {
 	//   LOADSTACK
 	internal stack LoadStack();
 
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   WEBSOCKET_LOAD D2
@@ -21741,6 +22322,7 @@ class Game {
 	//
 	// Range 1-32
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   LOADSAVEMENU D2
@@ -21830,7 +22412,7 @@ class Game {
 	// @zasm
 	//   CURRENTITEMID
 	//   POPARGS D5 0.0002
-	internal int CurrentItemID(int itemtype, int bitflags = 1L);
+	internal int CurrentItemID(int itemtype, int bitflags = CIID_FLAG_CHECKCOST);
 
 	// Loads the [subscreendata] pointer for the specified
 	// active subscreen.
@@ -21867,6 +22449,7 @@ class Game {
 	//
 	// Use id `-1` to load the current map subscreen.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   LOADSUBDATARV D2 3
@@ -22740,6 +23323,7 @@ internal constexpr int Ceiling(int val);
 
 // Truncates [n] to the nearest integer, rounding towards 0.
 //
+// @versionadded 3.0
 // @zasm
 //   POP D2
 //   TRUNCATE D2
@@ -22754,6 +23338,7 @@ internal constexpr int Round(int n);
 
 // Truncates [n] to the nearest integer, rounding away from 0.
 //
+// @versionadded 3.0
 // @zasm
 //   POP D2
 //   ROUNDAWAY D2
@@ -22888,6 +23473,7 @@ internal int atoi(char32[] str);
 
 // Converts a string containing a number to its numeric value, as a 'long' value.
 //
+// @versionadded 3.0
 // @zasm
 //   POP D3
 //   ATOL D2 D3
@@ -23040,6 +23626,7 @@ internal constexpr int RadToDeg(int radians);
 //
 // @deprecated_alias WrapAngle
 // @alias WrapRad
+// @versionadded 3.0
 // @zasm
 //   POP D2
 //   WRAPRADIANS D2
@@ -23246,11 +23833,13 @@ internal int GetGlobalRAM(int index);
 //   SETR GLOBALRAMD D3
 internal void SetGlobalRAM(int index, int val);
 
+// @versionadded 3.0
 // @zasm
 //   POP D2
 //   REF_COUNT D2
 internal long RefCount(untyped object_ptr);
 
+// @versionadded 3.0
 // @zasm
 //   GC
 internal void GC();
@@ -23474,6 +24063,7 @@ enum HeroAction
 	LA_MAX
 };
 
+// @versionadded 3.0
 enum HeroSliding
 {
 	SLD_NONE,
@@ -23482,6 +24072,16 @@ enum HeroSliding
 	// sliding in the air (momentum from ice)
 	SLD_AIR,
 	SLD_MAX
+};
+
+// Used with [Hero->HammerPos]
+// @versionadded 3.0
+enum HammerPosition
+{
+	HMRPOS_NONE, // Hammer is not in use
+	HMRPOS_UP, // Hammer is above the player's head
+	HMRPOS_ANGLE, // Hammer is at an angle
+	HMRPOS_DOWN, // Hammer is hitting the ground
 };
 
 // Used with [Hero->SetItemSlot].
@@ -23516,6 +24116,7 @@ enum WarpEffect
 @Bitflags("int")
 enum WarpBitflags
 {
+	// @versionadded 3.0
 	WARP_FLAG_NONE                 = 0x000,
 	WARP_FLAG_SCRIPTDRAW           = 0x001,
 	WARP_FLAG_PLAYSOUNDS           = 0x002,
@@ -23603,6 +24204,7 @@ class hero {
 	//   If non-zero, the item cannot be used.
 	//
 	// @index [enum ItemID]
+	// @versionadded 3.0
 	// @zasm_var HEROITEMCOOLDOWN
 	internal int ItemCooldown[];
 
@@ -23634,6 +24236,13 @@ class hero {
 	//
 	// @zasm_var HEROSTEPRATE
 	internal int Step;
+	
+	// This amount will be added to [Step] this frame.
+	// Resets to 0 each frame after the Hero's movement.
+	//
+	// @versionadded 3.0
+	// @zasm_var HERO_TMP_STEPBOOST
+	internal int TempStepBoost;
 
 	// The offset from corners that the Hero's movement will 'shove' them
 	// around. Ranges from 0-16
@@ -23658,6 +24267,8 @@ class hero {
 	// @zasm_var HEROHEALTHBEEP
 	internal int HealthBeep;
 
+	// If the player is invisible or not.
+	// @deprecated Use [InvisibleTimer] instead!
 	// @zasm_var LINKINVIS
 	internal bool Invisible;
 
@@ -23671,6 +24282,7 @@ class hero {
 	// @zasm_var HERONOSTEPFORWARD
 	internal bool NoStepForward;
 
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var LINKINVINC
 	internal bool CollDetection;
 
@@ -23850,37 +24462,58 @@ class hero {
 	// @zasm_var HEROISWARPING
 	internal const bool IsWarping;
 
-	// The X-coordinate at which the Hero will respawn upon drowning or such.
+	// If true, the engine will not update [RespawnX], [RespawnY],
+	// [RespawnDMap], or [RespawnScreen].
+	//
+	// Combo triggers [TRIGFLAG_RESPAWN_HERE] and [TRIGFLAG_RESET_RESPAWN]
+	// change this value.
+	//
+	// @versionadded 3.0
+	// @zasm_var HEROFORCEDRESPAWN
+	internal bool ForcedHazardRespawn;
+	
+	// The Hazard Respawn X-coordinate, where the Hero will respawn upon drowning or such.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNX
 	internal int RespawnX;
 
-	// The Y-coordinate at which the Hero will respawn upon drowning or such.
+	// The Hazard Respawn Y-coordinate, where the Hero will respawn upon drowning or such.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNY
 	internal int RespawnY;
 
-	// The DMap at which the Hero will respawn upon drowning or such.
+	// The Hazard Respawn DMap, where the Hero will respawn upon drowning or such.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNDMAP
 	internal int RespawnDMap;
 
-	// The screen at which the Hero will respawn upon drowning or such.
+	// The Hazard Respawn screen, where the Hero will respawn upon drowning or such.
+	// This value is absolute, not accounting for dmap offsets.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNSCR
 	internal int RespawnScreen;
+
+	// The Hazard Respawn screen, where the Hero will respawn upon drowning or such.
+	// This value is relative to the dmap offset of [RespawnDMap].
+	//
+	// The engine may overwrite this value upon changing screens or standing on
+	// safe ground, unless [ForcedHazardRespawn] is true.
+	//
+	// @versionadded 3.0
+	// @zasm_var HERORESPAWNDMSCR
+	internal int RespawnDMapScreen;
 
 	// The timer for the switchhook effect. If > 0, a switch effect is active.
 	//
@@ -23932,6 +24565,7 @@ class hero {
 
 	// The [lweapon] currently held by the player. Overwriting this directly will delete any [lweapon] previously held.
 	// If an [lweapon] script lifts itself, this also functions as a [Waitframe].
+	// LWeapons do not run their scripts while in the player's hands.
 	//
 	// @zasm_var HEROLIFTEDWPN
 	internal lweapon LiftedWeapon;
@@ -24007,11 +24641,13 @@ class hero {
 
 	// @value [enum HeroSliding]
 
+	// @versionadded 3.0
 	// @zasm_var HEROSLIDING
 	internal const int Sliding;
 
 	// The icy combo the Hero is sliding on.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICECMB
 	internal const int IceCombo;
 
@@ -24021,6 +24657,7 @@ class hero {
 	// If the specified combo is not an Icy Floor combo that affects the Hero,
 	// no sliding will occur.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROSCRICECMB
 	internal int ScriptIceCombo;
 
@@ -24028,6 +24665,7 @@ class hero {
 	// Has no effect unless the Hero is [Sliding].
 	// If the Hero is not [Sliding], the engine will clear these to `0`.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEVX
 	internal int IceVx;
 
@@ -24035,6 +24673,7 @@ class hero {
 	// Has no effect unless the Hero is [Sliding].
 	// If the Hero is not Sliding, the engine will clear these to `0`.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEVY
 	internal int IceVy;
 
@@ -24050,6 +24689,7 @@ class hero {
 	// be somewhere between the IceCombo's deceleration and half of the Hero's
 	// step speed.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEENTRYFRAMES
 	internal int IceEntryFrames;
 
@@ -24065,6 +24705,7 @@ class hero {
 	// be somewhere between the IceCombo's deceleration and half of the Hero's
 	// step speed.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEENTRYMAXFRAMES
 	internal int IceEntryMaxFrames;
 
@@ -24073,23 +24714,34 @@ class hero {
 	
 	// X-offset for the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_XOFF
 	internal int ItemBoxXOffset;
 	
 	// Y-offset for the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_YOFF
 	internal int ItemBoxYOffset;
 	
 	// Width of the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_WIDTH
 	internal int ItemBoxWidth;
 	
 	// Height of the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_HEIGHT
 	internal int ItemBoxHeight;
+	
+	// The position the Hammer is currently being held in.
+	//
+	// @value [enum HammerPosition]
+	// @versionadded 3.0
+	// @zasm_var HERO_HAMMER_POS
+	internal const int HammerPos;
 
 	// The current A and B button items (combined bitwise). Doesn't work for item IDs > 255.
 	//
@@ -24141,6 +24793,7 @@ class hero {
 	//              If 'x < 0' and 'y >= 0', y is a [WarpIndex] for a warp return square.
 	// @param sound: the sound to play
 	// @param forcedir: if >-1, the player is forced to face this [Direction] after the warp.
+	// @versionadded 3.0
 	// @zasm
 	//   WARPEX 9
 	//   POPARGS D5 0.0009
@@ -24311,6 +24964,7 @@ class hero {
 	
 	// Causes the player to lift the specified [lweapon] in the same way they lift combos with the Lift Glove.
 	// If an [lweapon] script lifts itself, this also functions as a [Waitframe].
+	// LWeapons do not run their scripts while in the player's hands.
 	//
 	// @zasm
 	//   HEROLIFTGRAB
@@ -25070,15 +25724,27 @@ enum ItemType {
 	IC_NOTE                    = 277,
 	IC_REFILL                  = 278,
 	IC_LIFTGLOVE               = 279,
+	// Modifies the player's gravity
+	// @versionadded 3.0
 	IC_GRAVITY_BOOTS           = 280,
+	// Modifies the player's gravity while holding Up in Sideview
+	// @versionadded 3.0
 	IC_GRAVITY_UP_BOOTS        = 281,
+	// Modifies the player's gravity while holding Down in Sideview
+	// @versionadded 3.0
 	IC_GRAVITY_DOWN_BOOTS      = 282,
+	// Modifies item cooldowns of other items
+	// @versionadded 3.0
 	IC_COOLDOWN_RING           = 283,
+	// Items of this type will immediately transform into one or more
+	// specified enemies.
+	// @versionadded 3.0
+	IC_ENEMY_AMBUSH            = 284,
 
 	//Itemclasses not less than this are reserved for future engine itemclasses
-	IC_MAXUSABLE               = 284,
+	IC_MAXUSABLE               = 285,
 
-	IC_MAX                     = 512 //Last of enum. All itemclassesare < this.
+	IC_MAX                     = 512 //Last of enum. All itemclasses are < this.
 };
 
 // Item pickup bitflags. Used with [item::Pickup].
@@ -25312,6 +25978,7 @@ class itemdata {
 
 	// After using the item, it goes on cooldown unable to be used again for this many frames.
 	//
+	// @versionadded 3.0
 	// @zasm_var IDATACOOLDOWN
 	internal int Cooldown;
 
@@ -25339,6 +26006,7 @@ class itemdata {
 
 	// The Flash CSet the item sprite uses.
 	//
+	// @versionadded 2.55.9
 	// @zasm_var IDATAFLASHCSET
 	internal int FlashCSet;
 
@@ -25468,11 +26136,6 @@ class itemdata {
 	// @zasm_var IDATAWEAPYOFS
 	internal int WeaponDrawYOffset;
 
-	// The default DrawZOffset used by this weapon when the item generates it.
-	//
-	// @zasm_var IDATAWEAPZOFS
-	internal int WeaponDrawZOffset;
-
 	// The timer for the 'Use Cost'/'Use Cost 2' of the item.
 	//
 	// @zasm_var IDATAMAGICTIMER
@@ -25537,12 +26200,14 @@ class itemdata {
 	// The Level Items that will be granted when the item is collected. See [PickupLItemLevel].
 	//
 	// @value [enum LevelItemBitflags]
+	// @versionadded 3.0
 	// @zasm_var IDATAPICKUPLITEMS
 	internal int PickupLItems;
 	
 	// The Level that [PickupLItems] will be granted for when the item is collected.
 	//
 	// @value -1 for 'current level', otherwise number of a specific 'level' (-1 <= x < [NUM_LEVELS])
+	// @versionadded 3.0
 	// @zasm_var IDATAPICKUPLITEMLEVEL
 	internal int PickupLItemLevel;
 
@@ -25717,6 +26382,7 @@ class itemdata {
 	// The [itemsprite]'s default movement flags.
 	//
 	// @value [enum MoveFlag]
+	// @versionadded 3.0
 	// @zasm_var IDATAMOVEFLAGS
 	internal bool MoveFlags[];
 	
@@ -25724,6 +26390,7 @@ class itemdata {
 	// Does not apply to some weapon types (ex. Sword, Hammer, Wand)
 	//
 	// @value [enum MoveFlag]
+	// @versionadded 3.0
 	// @zasm_var IDATAWMOVEFLAGS
 	internal bool WeaponMoveFlags[];
 
@@ -25893,6 +26560,13 @@ class itemsprite {
 	//
 	// @zasm_var ITEMDROPPEDBY
 	internal int DroppedBy;
+
+	// If >-1, this ExState will be set when the item is collected, on the screen the
+	// item spawned on ([sprite::SpawnScreen]).
+	//
+	// @versionadded 3.0
+	// @zasm_var ITEMPICKUPEXSTATE
+	internal int PickupExState;
 
 	// If set to true, the item will automatically be collected by the [Hero] as
 	// soon as possible.
@@ -26106,6 +26780,7 @@ class lweapon {
 	// If the weapon's collision is enabled. Set to false to disable collision
 	// entirely.
 	//
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var LWPNCOLLDET
 	internal bool CollDetection;
 
@@ -26172,6 +26847,34 @@ class lweapon {
 	// @zasm_var LWPNTIMEOUT
 	internal int Timeout;
 
+	// When the weapon lands from the air, it bounces based on this multiplier of it's
+	// downward velocity, and [BounceAdd].
+	// Must be >= 0.
+	//
+	// @versionadded 3.0
+	// @zasm_var LWPN_BOUNCE_MULT
+	internal int BounceMult;
+	
+	// When the weapon lands from the air, it bounces based on [BounceMult],
+	// adding this value in px/frame after the multiplier.
+	// Using a negative value will dampen the bounce, and is recommended to prevent
+	// the weapon from bouncing many tiny rapid bounces as it's velocity gets small.
+	//
+	// @versionadded 3.0
+	// @zasm_var LWPN_BOUNCE_ADD
+	internal int BounceAdd;
+	
+	// Set to true, this prevents the weapon from triggering any Combo Triggers.
+	// Also affects some melee weapon checks (ex. slash/pound combos).
+	//
+	// This being false means that scripts are not CAUSING it to ignore triggers-
+	// it does not account for other things that may disable the weapon from
+	// activating triggers (ex. the Hammer being above the player's head).
+	//
+	// @versionadded 3.0
+	// @zasm_var LWPN_NO_TRIGGERS
+	internal bool DisableTriggers;
+
 	// If < 0, the weapon behaves as normal. If == 0, the weapon pierces infinitely.
 	// If > 0, each time the weapon hits an enemy or the player, counts down by 1.
 	// When counting down from '1' to '0', the weapon dies.
@@ -26179,6 +26882,7 @@ class lweapon {
 	// have their collision disabled so they cannot hit further targets-
 	// and the PierceCount set on a lit bomb will apply to the bomb's blast.
 	//
+	// @versionadded 3.0
 	// @zasm_var LWPNPIERCE
 	internal int PierceCount;
 
@@ -26264,6 +26968,13 @@ class lweapon {
 	// @index [enum WeaponSpriteIndex]
 	// @zasm_var LWPNBURNLIGHTRADIUS
 	internal int BurnLightRadius[];
+
+	// The burning light offsets associated with sprites of the weapon.
+	//
+	// @index [enum WeaponSpriteIndex]
+	// @versionadded 3.0
+	// @zasm_var LWPNBURNLIGHTOFFSET
+	internal int BurnLightOffset[];
 
 	// @deprecated - This is now just the internal engine ID, which is the same as doing `<int>some_sprite`.
 	// @zasm_var LWEAPONSCRIPTUID
@@ -26523,7 +27234,10 @@ enum ScreenState
 	ST_SECRET             = 13, // Screen Secrets have been made permanent
 	ST_VISITED            = 14, // If set, this screen will appear on the Overworld Map
 	ST_LIGHTBEAM          = 15, // If set, the light triggers on the screen have been triggered
-	ST_NO_ENEMIES_RETURN  = 16, // If set, enemies on this screen will not spawn.
+	// If set, enemies on this screen will not spawn.
+	//
+	// @versionadded 3.0
+	ST_NO_ENEMIES_RETURN  = 16,
 };
 
 // Represents map screen(s).
@@ -26586,6 +27300,7 @@ class mapdata {
 	//
 	// May only be written to for canonical mapdata ([Game->LoadMapData]).
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATAREGIONID
 	internal int RegionID;
 
@@ -26613,9 +27328,9 @@ class mapdata {
 	// The Tile Warp type for Tile Warps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// @value [enum WarpType]
+	// @index [enum TileWarpIndex]
 	// @zasm_var MAPDATATILEWARPTYPE
-	internal int TileWarpType[];
+	internal WarpType TileWarpType[];
 
 	// The screen script that runs on this screen.
 	//
@@ -26710,9 +27425,9 @@ class mapdata {
 	// The Sidewarp type for Sidewarps A, B, C, and D; [0], [1], [2], and [3]
 	// respectively.
 	//
-	// @value [enum WarpType]
+	// @index [enum SideWarpIndex]
 	// @zasm_var MAPDATASIDEWARPTYPE
-	internal int SideWarpType[];
+	internal WarpType SideWarpType[];
 
 	// Set or get the overlay state for the warp ID corresponding to the index
 	// of this array.
@@ -26791,6 +27506,7 @@ class mapdata {
 	// Which parts of the screen state that won't reset via 'Reset Room' combos.
 	//
 	// @index [enum ScreenState]
+	// @versionadded 3.0
 	// @zasm_var MAPDATANORESETARR
 	internal bool NoResetState[];
 	
@@ -26804,6 +27520,7 @@ class mapdata {
 	// target screen.
 	//
 	// @index [enum ScreenState]
+	// @versionadded 3.0
 	// @zasm_var MAPDATANOCARRYARR
 	internal bool NoCarryState[];
 
@@ -26815,11 +27532,13 @@ class mapdata {
 	
 	// Which of the 32 ExStates should be carried over to the target screen
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATAEXCARRY
 	internal bool ExStateCarry[];
 	
 	// Which of the 32 ExStates should be reset by 'Reset Room' combos
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATAEXRESET
 	internal bool ExStateReset[];
 
@@ -27021,6 +27740,7 @@ class mapdata {
 	// NULL / [MUSIC_SILENCE] represents silence.
 	// [MUSIC_INHERIT] as a special value represents using the current dmap's Music.
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATA_MUSIC
 	internal musicdata Music;
 
@@ -27032,6 +27752,7 @@ class mapdata {
 
 	// The boolean flags for the screen.
 	//
+	// @versionadded 2.55.10
 	// @index [enum ScreenFlag]
 	// @zasm_var MAPDATA_FLAG
 	internal bool Flag[];
@@ -27054,11 +27775,13 @@ class mapdata {
 
 	// If [SFL_CUSTOM_GRAV] is set, this gravity applies on the screen.
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATA_GRAVITY_STRENGTH
 	internal int GravityStrength;
 
 	// If [SFL_CUSTOM_GRAV] is set, this terminal velocity applies on the screen.
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATA_TERMINAL_VELOCITY
 	internal int TerminalVelocity;
 	
@@ -27066,6 +27789,7 @@ class mapdata {
 	//
 	// If this is a temporary screen loading with `Game->LoadTempScreen(layer)`, then this allows access to every combo in the current region.
 	//
+	// @versionadded 3.0
 	// @zasm_var MAPDATACOMBODATAD
 	internal const combodata ComboData[];
 
@@ -27128,6 +27852,25 @@ class mapdata {
 	//
 	// @zasm_var MAPDATAEXSTATED
 	internal bool ExState[];
+	
+	// The position-specific states for each combo position.
+	// The 8 states for each position are stored using binary / bitwise, with each bit being (1 << index).
+	//
+	// If this is a temporary screen loading with `Game->LoadTempScreen(layer)`, then this allows access to every combo in the current region.
+	//
+	// @versionadded 3.0
+	// @zasm_var MAPDATACOMBOPOSSTATE
+	internal int PosState[];
+	
+	// The position-specific states for each ffc.
+	// The 8 states for each ffc are stored using binary / bitwise, with each bit being (1 << index).
+	//
+	// If this `mapdata` was loaded via [Game->LoadTempScreen] and layer 0,
+	// this array and the other FFC arrays reference the live FFCs.
+	//
+	// @versionadded 3.0
+	// @zasm_var MAPDATAFFCPOSSTATE
+	internal int FFCPosState[];
 
 	// Returns the map this mapdata points to.
 	//
@@ -27502,6 +28245,7 @@ class messagedata {
 	//   MESSAGEDATASETSTRINGR D3
 	internal void Set(char32[] str);
 }
+// @versionadded 3.0
 // @zasm_ref REFMUSIC
 class musicdata {
 	// @delete
@@ -27516,7 +28260,7 @@ class musicdata {
 	internal const int ID;
 	
 	// Returns true if this music is 'active'. The active music is whichever music is currently playing,
-	// though it remains 'active' even if the music is paused via ex. [Audio::PauseCurMIDI].
+	// though it remains 'active' even if the music is paused via ex.
 	//
 	// Always returns false for [MUSIC_SILENCE].
 	//
@@ -27613,6 +28357,8 @@ class musicdata {
 // Can be used on [combotrigger::Music] as a value indicating "don't play music".
 // [musicdata::ID] will read '-2'.
 // Should otherwise not be used.
+//
+// @versionadded 3.0
 const musicdata MUSIC_TRIGGER_NONE = <musicdata>(-2L);
 // Special [musicdata] pointer.
 // Can be used on [Screen->Music] or [mapdata::Music] to use the dmap's music.
@@ -27620,6 +28366,8 @@ const musicdata MUSIC_TRIGGER_NONE = <musicdata>(-2L);
 // Can call [MUSIC_INHERIT->Play()] to play the current screen's music.
 // [musicdata::ID] will read '-1'.
 // Should otherwise not be used.
+//
+// @versionadded 3.0
 const musicdata MUSIC_INHERIT = <musicdata>(-1L);
 // Special [musicdata] pointer. Uninitialized musicdata pointers are equivalent to this pointer.
 // Can be used on [Screen->Music], [mapdata::Music], [dmapdata::Music], or [combotrigger::Music] to stop all music.
@@ -27627,6 +28375,8 @@ const musicdata MUSIC_INHERIT = <musicdata>(-1L);
 // [musicdata::ID] will read '-1'.
 // All variables can be read from, and will return `0` ([GetPath] will give an empty string)
 // Should otherwise not be used; writing to any variables (or calling [SetPath]) is an error.
+//
+// @versionadded 3.0
 const musicdata MUSIC_SILENCE = <musicdata>NULL;
 // Enemy IDs. Used with [Screen->CreateNPC].
 enum NPCID
@@ -27805,6 +28555,7 @@ enum NPCMiscBitflags
 	NPCMF_HAMMERBREAKS             = 0x2000, // Hammer Can break Shield.
 };
 
+// @versionadded 3.0
 enum NPCFlags
 {
 	NPCF_0POWERWEAPS, // Damaged by 0-Power Weapons.
@@ -27813,6 +28564,9 @@ enum NPCFlags
 	NPCF_NOT_BEATABLE, // Doesn't Count as beatable Enemy.
 	NPCF_SPAWNFLICKER, // Flicker in when spawning
 	NPCF_SPAWNINSTANT, // Spawn instantly
+	// No Contact Damage
+	// @versionadded 3.0
+	NPCF_NO_CONTACT_DAMAGE = 7,
 	// some unused indexes
 	NPCF_SHIELD_FRONT = 24, // Shielded on Front
 	NPCF_SHIELD_LEFT, // Shielded on Left
@@ -27839,6 +28593,10 @@ enum NPCFlags
 	NPCF_TRANSLUCENT, // Is translucent
 	NPCF_IGNORE_TEMP_NO_RETURN, // Ignores temp no return
 	NPCF_IGNORE_KILL_ALL, // Ignores kill all enemies
+	// When dying, kills all summoned enemies.
+	// Summoner is determined by [npc::ParentSummoner] on the summoned enemies.
+	// @versionadded 3.0
+	NPCF_KILL_SUMMONED_ENEMIES,
 	NPCF_MAX
 };
 
@@ -28028,9 +28786,11 @@ class npc {
 	
 	// The flags of the enemy.
 	// @index [enum NPCFlags]
+	// @versionadded 3.0
 	// @zasm_var NPCFLAGS
 	internal bool Flags[];
 
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var NPCCOLLDET
 	internal bool CollDetection;
 
@@ -28049,6 +28809,7 @@ class npc {
 	//
 	// @index [enum NPCDefenseIndex]
 	// @value [enum NPCDefenseType]
+	// @length [MAX_DEFENSE]
 	// @zasm_var NPCDEFENSED
 	internal int Defense[];
 
@@ -28100,6 +28861,7 @@ class npc {
 	// The sfx (Quest->Audio->SFXData) used whenever the npc fires its weapon.
 	// If WeaponSFX <= 0 no sound will be played.
 	//
+	// @versionadded 3.0
 	// @zasm_var NPCFIRESFX
 	internal int WeaponSFX;
 
@@ -28188,6 +28950,13 @@ class npc {
 	// @zasm_var NPCDEATHSPR
 	internal int DeathSprite;
 
+	// If >-1, this ExState will be set when the npc dies, on the screen the
+	// npc spawned on ([sprite::SpawnScreen]).
+	//
+	// @versionadded 3.0
+	// @zasm_var NPCDEATHEXSTATE
+	internal int DeathExState;
+
 	// If set false, the npc will neither flash, nor flicker when invincible.
 	//
 	// @zasm_var NPCCANFLICKER
@@ -28270,6 +29039,7 @@ class npc {
 	//   BREAKSHIELD D2
 	internal void BreakShield();
 
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   REPAIRSHIELD D2
@@ -28674,6 +29444,39 @@ class npc {
 	// @value [enum NPCType]
 	// @zasm_var NPCTYPE
 	internal int Family;
+	
+	// The 'summoner' of this enemy.
+	// If the summoner is not [NULL], and has [NPCF_KILL_SUMMONED_ENEMIES],
+	//   then when the summoner dies, this enemy will also die.
+	//
+	// @versionadded 3.0
+	// @zasm_var NPC_SUMMONER_PARENT
+	internal npc ParentSummoner;
+	
+	// Summons a minion enemy with the specified npc_id.
+	// Enemy is summoned at this enemy's position.
+	// Fails if too many enemies already exist, based on the specified summon_limit.
+	// This enemy is the [ParentSummoner] of the created enemies.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   POP D2
+	//   POP D3
+	//   POP REFNPC
+	//   NPC_SUMMON_MINION D2 D3
+	internal npc SummonMinion(int npc_id, int summon_limit);
+	
+	// Summons a minion enemy randomly from the enemy list of the screens set as layers > 0.
+	// Enemy is summoned at a random position.
+	// Fails if too many enemies already exist, based on the specified summon_limit.
+	// This enemy is the [ParentSummoner] of the created enemies.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   POP D2
+	//   POP REFNPC
+	//   NPC_SUMMON_MINION_LAYER D2
+	internal npc SummonMinionFromLayer(int summon_limit);
 }
 enum NPCType
 {
@@ -28887,6 +29690,7 @@ class npcdata {
 	// The type, or 'npc class' of the npc.
 	//
 	// @value [enum NPCType]
+	// @versionadded 3.0
 	// @zasm_var NPCDATATYPE
 	internal int Type;
 
@@ -29112,6 +29916,7 @@ class npcdata {
 	// The sfx used when the npc fires its weapon.
 	// If 0 or less, no sound will be played.
 	//
+	// @versionadded 3.0
 	// @zasm_var NPCDATAFIRESFX
 	internal int WeaponSFX;
 
@@ -29128,6 +29933,7 @@ class npcdata {
 	//
 	// @value [enum SizeOverrideBitflags]
 
+	// @versionadded 3.0
 	// @zasm_var NPCDATASIZEFLAG
 	internal bool SizeFlags;
 
@@ -29196,12 +30002,14 @@ class npcdata {
 	// The [npc]'s default movement flags.
 	//
 	// @value [enum MoveFlag]
+	// @versionadded 3.0
 	// @zasm_var NPCDATAMOVEFLAGS
 	internal bool MoveFlags[];
 	
 	// The fired [eweapon]'s default movement flags.
 	//
 	// @value [enum MoveFlag]
+	// @versionadded 3.0
 	// @zasm_var NPCDATAWMOVEFLAGS
 	internal bool WeaponMoveFlags[];
 
@@ -29664,6 +30472,8 @@ enum QR
 	//
 	// If disabled, and the rule 'BS-Zelda Animation Quirks' is disabled, the Hero gains a -2 y offset when in dungeons.Having either this or
 	// 'BS-Zelda Animation Quirks' enabled will disable this -2 y offset in dungeons.
+	//
+	// @versionadded 3.0
 	qr_HERODUNGEONPOSFIX,
 
 	// 'Items Held Above Hero's Head Continue To Animate'
@@ -29721,6 +30531,8 @@ enum QR
 	// weapons. Though Candle and Book-created fire weapons are determined by the item editor for those items now, this rule still affects
 	// script-created Hero fire weapons. If disabled, the Hero will take damage from script created Hero fire weapons, even though they are Hero
 	// weapons and not enemy weapons.
+	//
+	// @versionadded 3.0
 	qr_FIREPROOFHERO,
 
 	// 'Scripted Bomb LWeapons Hurt Hero'
@@ -29852,6 +30664,8 @@ enum QR
 	// 'Invincible Hero Flickers'
 	//
 	// If enabled, the Hero will flicker when invincible or after taking damage instead of flashing colors.
+	//
+	// @versionadded 3.0
 	qr_HEROFLICKER,
 
 	// 'Shadows Flicker'
@@ -29881,8 +30695,14 @@ enum QR
 	//
 	// If enabled, pushed blocks will use the CSet of their combo when pushed. Otherwise, if disabled, they will use CSet 9.
 	qr_PUSHBLOCKCSETFIX,
-	qr_TRANSLUCENTDIVINEPROTECTIONROCKET_DEP, // @deprecated
-	qr_FLICKERINGDIVINEPROTECTIONROCKET_DEP, // @deprecated
+	// @deprecated
+	//
+	// @versionadded 3.0
+	qr_TRANSLUCENTDIVINEPROTECTIONROCKET_DEP,
+	// @deprecated
+	//
+	// @versionadded 3.0
+	qr_FLICKERINGDIVINEPROTECTIONROCKET_DEP,
 
 	// 'Combo Cycling On Layers'
 	//
@@ -30166,6 +30986,8 @@ enum QR
 	//
 	// Normally, the Hero can be hurt by their own fire weapons even if they are invincible from some source, like the clock item or scripts.
 	// Enabling this rule disables this, making them actually invincible.
+	//
+	// @versionadded 3.0
 	qr_FIREPROOFHERO2,
 
 	// 'No Position Offset Of Screen Items'
@@ -30320,6 +31142,8 @@ enum QR
 	// In older versions, Ganon Rooms used to call the function that reset the dmap's intro clock. This normally wouldn't do anything as it checks
 	// if you've already visited the dmap, but in certain circumstances this could allow Ganon to repeat the dmap's intro string. Enabling this
 	// will recreate this behavior.
+	//
+	// @versionadded 3.0
 	qr_GANONINTRO,
 	qr_MELEEMAGICCOST, // @deprecated
 
@@ -30356,7 +31180,10 @@ enum QR
 	// Otherwise, if disabled, they will be hidden from your inventory and be unselectable if you run out of ammo, until you get more ammo for it.
 	qr_NEVERDISABLEAMMOONSUBSCREEN,
 	qr_ITEMSCRIPTSKEEPRUNNING, // 'Item Scripts Continue To Run'
-	qr_SCRIPTSRUNINHEROSTEPFORWARD, // 'Scripts Draw When Stepping Forward In Dungeons'
+	// 'Scripts Draw When Stepping Forward In Dungeons'
+	//
+	// @versionadded 3.0
+	qr_SCRIPTSRUNINHEROSTEPFORWARD,
 
 	// 'Fix Scripts Running During Scrolling'
 	//
@@ -30364,7 +31191,10 @@ enum QR
 	// frame of scrolling. It also will not run prewaitdraw scripts at the end of scrolling (for when dmap did not change).
 	qr_FIXSCRIPTSDURINGSCROLLING,
 	qr_SCRIPTDRAWSINWARPS, // 'Scripts Draw During Warps'
-	qr_DYINGENEMYESDONTHURTHERO, // @deprecated
+	// @deprecated
+	//
+	// @versionadded 3.0
+	qr_DYINGENEMYESDONTHURTHERO,
 
 	// 'Triforce in Cellar Warps Hero Out'
 	//
@@ -30528,6 +31358,8 @@ enum QR
 	// 'Mirrors Use Weapon Center for Collision'
 	//
 	// If enabled, mirror/prism combos activate when the center of a weapon hits them, instead of when the edge hits them.
+	//
+	// @versionadded 3.0
 	qr_MIRRORS_USE_WEAPON_CENTER,
 
 	// 'Custom Combos Work On Layers 1 And 2'
@@ -30598,6 +31430,8 @@ enum QR
 	// 'Weapons Cannot Stunlock Enemies (block)'
 	//
 	// If enabled, enemies that are already stunned block any further stunning attacks. This prevents re-stunning them to keep them stunlocked.
+	//
+	// @versionadded 3.0
 	qr_NO_STUNLOCK_BLOCK,
 
 	// 'Higher Maximum Playtime'
@@ -31001,7 +31835,10 @@ enum QR
 	// ladder takes priority. If this rule is disabled, the flippers take priority. Note that flippers always take priority when entering into
 	// water from the left or right, regardless of this rule.
 	qr_OLD_210_WATER,
-	qr_8WAY_SHOT_SFX_DEP, // @deprecated
+	// @deprecated
+	//
+	// @versionadded 3.0
+	qr_8WAY_SHOT_SFX_DEP,
 
 	// 'BS Zelda uses walking sprites for swimming'
 	//
@@ -31648,29 +32485,39 @@ enum QR
 	//
 	// If checked, read/write to 'Game->Generic[GEN_CONTINUEHEARTS]' is in 'Hearts'. Otherwise, it will be in 'HP'. (Has no effect if
 	// 'Game->Generic[GEN_CONTINUEISPERCENT]' is true)
+	//
+	// @versionadded 3.0
 	qr_SCRIPT_CONTHP_IS_HEARTS,
 
 	// 'Allow Multiple Platform FFCs'
 	//
 	// If checked, more than one FFC with the 'Platform' flag can move the Hero in a single frame. Otherwise, the first 'Platform' FFC to move the
 	// Hero will prevent other platforms from moving the Hero that frame.
+	//
+	// @versionadded 3.0
 	qr_MULTI_PLATFORM_FFC,
 
 	// 'Separate Tap SFX for bombable walls'
 	//
 	// If checked, bombable walls will use a separate SFX 'Sword Tap (Hollow)' when tapped against, instead of the default 'Sword Tap' sound.
 	// (sounds set in the Misc SFX menu)
+	//
+	// @versionadded 3.0
 	qr_SEPARATE_BOMBABLE_TAPPING_SFX,
 
 	// 'Broken Subscreen Ammo Costs'
 	//
 	// If enabled, bombs/super bombs will check the bomb/sbomb counters to be usable, regardless of what their Cost Counters are set to.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_BOMB_AMMO_COSTS,
 
 	// 'Conveyors work on all layers + ffcs'
 	//
 	// Conveyor combos work on all layers + ffcs. If multiple conveyors overlap, only the highest layer conveyor will apply. (FFCs count as above
 	// all layers for this)
+	//
+	// @versionadded 3.0
 	qr_CONVEYORS_ALL_LAYERS,
 
 	// 'Broken WarpEx Music'
@@ -31680,16 +32527,22 @@ enum QR
 	// occur (Always resetting if it's off, and always continuing if it's on).
 	//
 	// If disabled, the reset and continue flags will work separately, not using the old behavior.
+	//
+	// @versionadded 3.0
 	qr_OLD_BROKEN_WARPEX_MUSIC,
 
 	// 'Broken Lifting/Swimming'
 	//
 	// If enabled, lifted objects won't be dropped when swimming, even when lift gloves are set to not allow lifting while swimming.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_LIFTSWIM,
 
 	// 'Broken Push (Generic) locking'
 	//
 	// If enabled, Push (Generic) combos won't lock into place via the 'Pushed' flag (ex. 'clicking into place' for a block trigger)
+	//
+	// @versionadded 3.0
 	qr_BROKEN_GENERIC_PUSHBLOCK_LOCKING,
 
 	// 'Broken Enemy Fire/Arrow Reflecting'
@@ -31697,50 +32550,68 @@ enum QR
 	// If enabled, Enemy Fire/Arrows won't reflect off of Hero shields, even when the reflect flag is set.
 	//
 	// Enemy 'Fire 2' will, contrarily, ALWAYS be BLOCKED by Hero shields, regardless of block/reflect flags.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_FLAME_ARROW_REFLECTING,
 
 	// 'Enemy Fire Lights New Dark Rooms'
 	//
 	// If enabled, enemy fire weapons will emit light by default, as Hero fire does.
+	//
+	// @versionadded 3.0
 	qr_EW_FIRE_EMITS_LIGHT,
 
 	// 'New Darkness Trans Layer Stacking'
 	//
 	// If enabled, new dark rooms with multiple transparent layers will stack the transparency. Otherwise, the transparency will not stack, drawing
 	// only one layer.
+	//
+	// @versionadded 3.0
 	qr_NEWDARK_TRANS_STACKING,
 
 	// 'Old 'Hero->Warp' Return Square'
 	//
 	// If checked, 'Hero->Warp()' uses the return square of the current screen's Sidewarp A. Otherwise, it uses return square A.
+	//
+	// @versionadded 3.0
 	qr_OLD_HERO_WARP_RETSQUARE,
 
 	// 'Broken Pushblock Top-Half Solids'
 	//
 	// If enabled, blocks will ignore the top half combo solidity when being pushed.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_PUSHBLOCK_TOP_HALF_SOLIDS,
 
 	// 'Pushblock Flag Cloning'
 	//
 	// If enabled, pushblocks will clone any non-'Push' placed flag (only numbered 59 or higher, except `Push (Generic)` which does all) on them to
 	// every square they stop in.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_PUSHBLOCK_FLAG_CLONING,
 
 	// 'Old Landing SFX'
 	//
 	// If enabled, water will use the old hardcoded splash sound when landing in it. Otherwise, the landing sound set for each combo will be used
 	// instead.
+	//
+	// @versionadded 3.0
 	qr_OLD_LANDING_SFX,
 
 	// ''Burning' triggers don't count as 'weapon triggers''
 	//
 	// If enabled, weapons triggering the 'Burning' trigger causes will not count as 'weapon triggers' for purposes of other trigger flags such as
 	// 'Kill Triggering Weapon' and 'Weapon Separate Triggers'
+	//
+	// @versionadded 3.0
 	qr_FIRE_LEVEL_TRIGGERS_ARENT_WEAPONS,
 
 	// 'Blocks Drown In Liquid'
 	//
 	// Pushable blocks can drown in liquid, similarly to the hero.
+	//
+	// @versionadded 3.0
 	qr_BLOCKS_DROWN,
 
 	// 'Strings on Layer 6 Draw Above Layer 7'
@@ -31750,11 +32621,15 @@ enum QR
 	// If disabled, these strings draw directly UNDER the subscreen instead.
 	//
 	// Has no effect at all if `Subscreen Appears Above Sprites` is unchecked.$#0#123$
+	//
+	// @versionadded 3.0
 	qr_LAYER6_STRINGS_OVER_SUBSCREEN,
 
 	// 'Pushblocks Fall In Sideview'
 	//
 	// Pushable blocks fall in sideview (after being pushed only)
+	//
+	// @versionadded 3.0
 	qr_PUSHBLOCKS_FALL_IN_SIDEVIEW,
 
 	// 'Broken Sideview Icy Floor'
@@ -31770,6 +32645,8 @@ enum QR
 	//
 	// If disabled, these colors still may look different in the editor than the player- but they will be the closest matching color in the
 	// player's palette to the color in the editor.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_SYSTEM_COLORS,
 	qr_WEAPONS_EXTRA_SPAWN_FRAME, // 'Weapons Scripts run an extra frame on spawning'
 
@@ -31781,32 +32658,44 @@ enum QR
 	// 'Lifted Weapons Run Scripts'
 	//
 	// If enabled, weapons in the player's hands run their weapon script.
+	//
+	// @versionadded 3.0
 	qr_LIFTED_WEAPONS_RUN_SCRIPTS,
 
 	// 'Bomb Booms Clear Script'
 	//
 	// If enabled, when a bomb explodes, it will stop it's script.
+	//
+	// @versionadded 3.0
 	qr_BOMB_BOOMS_CLEAR_SCRIPTS,
 
 	// 'Improved Autorotate'
 	//
 	// If enabled, weapons set to 'auto-rotate' will apply the right-dir sprite when using UseSprite, burn sprites, etc.
+	//
+	// @versionadded 3.0
 	qr_BETTER_ENGINE_AUTOROTATE,
 
 	// 'EWeapon Rocks hard-codedly break on solids'
 	//
 	// If checked, EWeapon Rocks will always break when they hit a solid. Otherwise, they only break if they have the weapon flag for breaking when
 	// they hit a solid checked.
+	//
+	// @versionadded 3.0
 	qr_EW_ROCKS_HARDCODED_BREAK_ON_SOLID,
 
 	// 'Weapons that break on solids use imprecise hitbox'
 	//
 	// If checked, weapons use a hardcoded hitbox for weapon collisions, instead of their actual set hitbox.
+	//
+	// @versionadded 3.0
 	qr_IMPRECISE_WEAPON_SOLIDITY_CHECKS,
 
 	// 'Weapons Cannot Stunlock Enemies (ignore)'
 	//
 	// If enabled, enemies that are already stunned ignore any further stunning attacks. This prevents re-stunning them to keep them stunlocked.
+	//
+	// @versionadded 3.0
 	qr_NO_STUNLOCK_IGNORE,
 
 	// 'Pitfall BlockHoles use wrong Next combo'
@@ -31823,6 +32712,8 @@ enum QR
 	// 'Old Weapon Reflection'
 	//
 	// If checked, some weapon types will not be reflected by mirror/prism combos, regardless of the 'Reflect Flags' of the combos.
+	//
+	// @versionadded 3.0
 	qr_OLD_WEAPON_REFLECTION,
 
 	// 'Old Non-Player Falling/Drowning'
@@ -31834,34 +32725,46 @@ enum QR
 	// 'Old Terminal Velocity'
 	//
 	// If enabled, terminal velocity is not applied as an absolute max speed.
+	//
+	// @versionadded 3.0
 	qr_OLD_TERMINAL_VELOCITY,
 
 	// 'Improved Player Jump/Fall Animation'
 	//
 	// If enabled, the Player's jump/fall animation will play at a consistent speed without pausing, and will loop instead of overflowing into the
 	// walking animation.
+	//
+	// @versionadded 3.0
 	qr_BETTER_PLAYER_JUMP_ANIM,
 
 	// 'Armos/Grave combo types work on layers'
 	//
 	// If enabled, armos and grave combos will work on layers.
+	//
+	// @versionadded 3.0
 	qr_ARMOS_GRAVE_ON_LAYERS,
 
 	// 'Game->LevelStates[] and GlobalStates[] don't trigger switches'
 	//
 	// If checked, setting 'Game->LevelStates[]' and 'Game->GlobalStates[] will NOT trigger the effects of these states changing. (Note: Even with
 	// this unchecked, 'Game->LevelStates[]' only causes changes when the current level's index is written to)
+	//
+	// @versionadded 3.0
 	qr_OLD_SCRIPT_LEVEL_GLOBAL_STATES,
 
 	// 'Broken Armos/Graves with Large Hitbox Player'
 	//
 	// If enabled, and 'Large Hitbox' for the Player is enabled, armos/graves will not activate from below, and will only activate from the sides
 	// if you are near their top side.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_ARMOS_GRAVE_BIGHITBOX_COLLISION,
 
 	// 'Player Draws Under Layer 1 While Diving'
 	//
 	// If enabled, the Player will be drawn under layer 1 while diving.
+	//
+	// @versionadded 3.0
 	qr_HERO_DIVE_UNDER_LAYER_1,
 
 	// 'Classic Drawing Order'
@@ -31876,6 +32779,8 @@ enum QR
 	//
 	// - Several special script 'layer timings', notably sprite related ones such as 'SPLAYER_LWEAP_ABOVE_DRAW', will no longer be used, as said
 	// 'timings' don't exist anymore.
+	//
+	// @versionadded 3.0
 	qr_CLASSIC_DRAWING_ORDER,
 
 	// 'Y-Sort Sprites'
@@ -31884,12 +32789,16 @@ enum QR
 	//
 	// When enabled, sprites which share the same Z coordinate will additionally have their draws ordered by their Y-value, such that sprites lower
 	// on the screen (higher Y values) are drawn over sprites higher on the screen.$#0#469$
+	//
+	// @versionadded 3.0
 	qr_YSORT_SPRITES,
 
 	// 'Old Weapon Animate Timings'
 	//
 	// If enabled, weapons animate when they are drawn (instead of when they are processed); and they draw their shadow during their own draw,
 	// instead of separately.
+	//
+	// @versionadded 3.0
 	qr_OLD_WEAPON_DRAW_ANIMATE_TIMING,
 
 	// 'Old Pitfall Sensitivity'
@@ -31900,16 +32809,22 @@ enum QR
 	// 'Active Shields and Roc Items on Buttons don't run scripts'
 	//
 	// If enabled, shields with 'Active Use' checked, and Roc Items with 'Button' set to non-zero, will not run their Action Script.
+	//
+	// @versionadded 3.0
 	qr_ACTIVE_SHIELD_PASSIVE_ROC_NO_SCRIPT,
 
 	// 'Map Button Closes Subscreen'
 	//
 	// If enabled, the Map button will close the active subscreen.
+	//
+	// @versionadded 3.0
 	qr_MAP_BUTTON_CLOSES_SUBSCREEN,
 
 	// 'Only 'Visit' Screens On Mappable DMaps'
 	//
 	// If enabled, screens only have their 'Visited' state set if the current dmap has the flag to allow viewing the map checked.
+	//
+	// @versionadded 3.0
 	qr_ONLY_MARK_SCREENS_VISITED_IF_MAP_VIEWABLE,
 
 	// 'Active/Map Subscreens Always 168 Tall'
@@ -31918,23 +32833,34 @@ enum QR
 	// black.
 	//
 	// Otherwise, the Active/Map subscreen will match the height based on the 'Hide Bottom 8 Pixels' setting.
+	//
+	// @versionadded 3.0
 	qr_ACTIVE_SUB_IGNORE_8PX,
 
 	// 'Mirror/Prism Combos Work On FFCs'
 	//
 	// Mirror and Prism combos work on FFCs. NOTE: This DOES NOT work for Light Beams, only weapons.
+	//
+	// @versionadded 3.0
 	qr_MIRROR_PRISM_FFCS,
 
 	// 'Weapons Better Screen Edge Hitbox'
 	//
 	// If enabled, will not die from hitting the screen edge until they are actually offscreen fully.
+	//
+	// @versionadded 3.0
 	qr_WEAPON_BETTER_SCREEN_EDGE_HITBOX,
 
 	// ''DrawCombo' ignores the 'frame' parameter'
 	//
 	// If checked, the 'DrawCombo' function will always treat the value of 'frame' as '-1'.
+	//
+	// @versionadded 3.0
 	qr_DRAWCOMBO_IGNORES_FRAME,
-	qr_SCRIPTS_6_BIT_COLOR, // 'Scripts use 6-bit color (0-63) instead of 8-bit (0-255)'
+	// 'Scripts use 6-bit color (0-63) instead of 8-bit (0-255)'
+	//
+	// @versionadded 3.0
+	qr_SCRIPTS_6_BIT_COLOR,
 
 	// 'Broken Hero Position Exposed To Scripts When Scrolling'
 	//
@@ -31957,12 +32883,16 @@ enum QR
 	// 'Inverted Dark Combo Triggers'
 	//
 	// If enabled, the combo trigger conditions for darkness / no darkness are inverted.
+	//
+	// @versionadded 3.0
 	qr_INVERTED_DARK_COMBO_TRIGGERS,
 
 	// 'Scripts Screen->DrawLight Functions Have No Offset'
 	//
 	// If enabled, the Screen->DrawLight functions never add the playing field offset, and the draw command is done instantly. When disabled, those
 	// functions respect Screen->DrawOrigin, and use the SPLAYER_DARKROOM_UNDER draw timing.
+	//
+	// @versionadded 3.0
 	qr_SCRIPTS_SCREEN_DRAW_LIGHT_NO_OFFSET,
 
 	// 'Rope enemies speed is not configurable'
@@ -31974,18 +32904,24 @@ enum QR
 	//
 	// If enabled, some internal arrays will bound the index used to the valid range for the array. When disabled, internal arrays will never bound
 	// their index. Additionally, all internal arrays will support negative indices.
+	//
+	// @versionadded 3.0
 	qr_OLD_SCRIPTS_INTERNAL_ARRAYS_BOUND_INDEX,
 
 	// 'Scripts return non-zero for out-of-bounds access of some arrays'
 	//
 	// If enabled, some arrays will return a non-zero value (typically -1) when accessing an out-of-bounds index (though most return zero). When
 	// disabled, all out-of-bounds accesses return zero.
+	//
+	// @versionadded 3.0
 	qr_OLD_SCRIPTS_ARRAYS_NON_ZERO_DEFAULT_VALUE,
 
 	// 'Scripts use legacy binary encoding for messagedata strings'
 	//
 	// If enabled, reading or writing the contents of messagedata strings will use the legacy binary encoding. When disabled, the more capable
 	// ascii encoding is used.
+	//
+	// @versionadded 3.0
 	qr_OLD_SCRIPTS_MESSAGE_DATA_BINARY_ENCODING,
 
 	// 'Old (Buggy) ZScript Volume Access'
@@ -32009,29 +32945,39 @@ enum QR
 	// 'Broken Sideview Sprite Jump'
 	//
 	// If enabled, certain sprites (enemy, weapon, and item) will stick to the ground in sideview and cannot be made to jump off via script.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_SIDEVIEW_SPRITE_JUMP,
 
 	// ''DrawTile' tall draws wrap poorly'
 	//
 	// If checked, 'DrawTile' draws taller than 1 tile will wrap each tile to the next row, instead of wrapping the entire block to the row after
 	// the block.
+	//
+	// @versionadded 3.0
 	qr_DRAWTILE_TALL_DRAWS_WRAP_POORLY,
 
 	// 'Buggy Wind w/ multiple on-screen'
 	//
 	// If multiple wind lweapons are on screen and the player is in one, the player will lose track of which wind they are in, and teleport between
 	// them.
+	//
+	// @versionadded 3.0
 	qr_BUGGY_MULTIPLE_WIND,
 
 	// 'No enemy death event for segmented enemy cores'
 	//
 	// If enabled, some enemy types 'core' enemy / main body will not issue a death event for generic scripts.
+	//
+	// @versionadded 3.0
 	qr_NO_DEATH_EVENTS_FOR_SEGMENTED_ENEMY_CORES,
 
 	// 'Broken Combo Change + 'Copycat' triggers'
 	//
 	// If enabled, triggering a combo that changes the combo and triggers a copycat, the combo it changes into will be IMMEDIATELY triggered by the
 	// same copycat effect.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_COPYCAT_SELF_TRIGGER,
 
 	// 'Broken Liquid Passive Damage'
@@ -32040,12 +32986,16 @@ enum QR
 	//
 	// It will also EITHER not emit player damage events OR not use the hit sound properly, depending on if the water is shallow or not and if 'New
 	// Shallow Water Detection' is enabled or not.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_WATER_PASSIVE_DAMAGE,
 
 	// 'Broken Combo Trigger Self-Triggering'
 	//
 	// If enabled, some combo trigger effects may cause the same trigger to trigger again. This may have negative effects, such as double-charging
 	// a cost, or toggling a state on and back off instead of just on.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_SELF_TRIGGERING_TRIGGERS,
 
 	// '2.50 Division Truncation'
@@ -32096,11 +33046,16 @@ enum QR
 	// 'Binary Operations use true 32-bit Int'
 	//
 	// COMPAT - treats all binary operations as 'long' type
+	//
+	// @versionadded 3.0
 	qr_PARSER_BINARY_32BIT,
 	qr_ALWAYS_DEALLOCATE_ARRAYS, // @deprecated
 	qr_ONDEATH_RUNS_AFTER_DEATH_ANIM, // 'Hero OnDeath script runs AFTER engine death animation'
 	qr_DISALLOW_SETTING_RAFTING, // 'Don't Allow Setting Action to Rafting'
-	qr_WEAPONS_EXTRA_DEATH_FRAME, // 'Weapons Live One Extra Frame With WDS_DEAD'
+	// 'Weapons Live One Extra Frame With WDS_DEAD'
+	//
+	// @versionadded 3.0
+	qr_WEAPONS_EXTRA_DEATH_FRAME,
 	qr_250WRITEEDEFSCRIPT, // 'Writing npc->Defense[NPCD_SCRIPT] Sets All Script Defences'
 	qr_SETENEMYWEAPONSPRITESONWPNCHANGE, // 'Writing npc->Weapon Sets its Weapon Sprite'
 	qr_BROKENCHARINTDRAWING, // 'Broken DrawInteger and DrawCharacter Scaling'
@@ -32128,6 +33083,8 @@ enum QR
 	// this behavior to simulate Slash->Next before it was a thing, and even after Slash->Next was introduced, it was used as a way to avoid making
 	// another slash->Next setup by just putting a flag over it, saving combo space/keeping organization. The new behavior (used if this rule is
 	// disabled) will ignore the secret flag, treating it as just a regular Slash combo.
+	//
+	// @versionadded 3.0
 	qr_OLD_SLASHNEXT_SECRETS,
 	qr_STEP_IS_FLOAT, // 'Sprite->Step uses new, precise values'
 	qr_OLDMAPDATAFLAGS, // @deprecated
@@ -32157,12 +33114,19 @@ enum QR
 	// 'Fairy Rings Remove Shield Jinxes'
 	//
 	// If enabled, fairy ring flags will heal shield jinxes when the Hero steps on them.
+	//
+	// @versionadded 3.0
 	qr_SHIELDBUBBLE,
-	qr_SETENEMYWEAPONSOUNDSONWPNCHANGE, // 'Writing npc->Weapon Sets its Weapon Sound'
+	// 'Writing npc->Weapon Sets its Weapon Sound'
+	//
+	// @versionadded 3.0
+	qr_SETENEMYWEAPONSOUNDSONWPNCHANGE,
 
 	// 'Broken Conveyors'
 	//
 	// If enabled, conveyors will affect the hero when rafting.
+	//
+	// @versionadded 3.0
 	qr_BROKEN_CONVEYORS,
 
 	// 'Game->Suspend[susptFFCSCRIPTS] suspends screen scripts'
@@ -32170,6 +33134,8 @@ enum QR
 	// If checked, setting 'Game->Suspend[susptFFCSCRIPTS]' will suspend screen scripts.
 	//
 	// If disabled only the ffcscripts will be suspended.
+	//
+	// @versionadded 3.0
 	qr_ZS_OLD_SUSPEND_FFC,
 	qr_MAX
 };
@@ -32272,6 +33238,8 @@ class randgen {
 
 internal const randgen RandGen;
 // Clears all regions for a given map.
+//
+// @versionadded 3.0
 void ClearRegion(int map)
 {
 	SetRegion(map, 0, 16, 8, 0);
@@ -32280,7 +33248,9 @@ void ClearRegion(int map)
 // Sets a rectangular area to the given region id.
 //
 // This modifies the canonical screens, and as such will not take effect until
-// the next screen load, and will persist after the next game load.
+// the next screen load. It also will not persist after the next game load.
+//
+// @versionadded 3.0
 void SetRegion(int map, int origin_screen, int width, int height, int region_id)
 {
 	for (int x = 0; x < width; x++)
@@ -32347,10 +33317,12 @@ class Region {
 	// This is the same as [Game->CurScreen].
 	//
 	// @zasm_var REGION_ORIGIN_SCREEN
-	internal const long OriginScreenIndex;
+	internal const int OriginScreenIndex;
 
 	// Returns true if the given screen index is inside the current region.
 	// When not in a region, only returns true if screen is equal to [Game->CurScreen].
+	//
+	// @versionadded 3.0
 	bool IncludesScreen(int screen)
 	{
 		if (this->ID)
@@ -32371,11 +33343,13 @@ class Region {
 	// Returns 0 if a screen is not in the current region.
 	//
 	// Example: If the current region is 4x4 and the origin is screen 5, `RelativeScreenX(8) == 3`.
+	//
+	// @versionadded 3.0
 	int RelativeScreenX(int screen)
 	{
 		if (this->ID)
 		{
-			int origin_screen_index = this->OriginScreenIndex * 10000;
+			int origin_screen_index = this->OriginScreenIndex;
 			return screen%16 - origin_screen_index%16;
 		}
 
@@ -32386,11 +33360,13 @@ class Region {
 	// Returns 0 if a screen is not in the current region.
 	//
 	// Example: If the current region is 4x4 and the origin is screen 5, `RelativeScreenY(8) == 3`.
+	//
+	// @versionadded 3.0
 	int RelativeScreenY(int screen)
 	{
 		if (this->ID)
 		{
-			int origin_screen_index = this->OriginScreenIndex * 10000;
+			int origin_screen_index = this->OriginScreenIndex;
 			return Floor(screen/16) - Floor(origin_screen_index/16);
 		}
 
@@ -32398,6 +33374,8 @@ class Region {
 	}
 
 	// Given a screen index, returns the world offset in the x direction for the current region.
+	//
+	// @versionadded 3.0
 	int WorldOffsetX(int screen)
 	{
 		if (this->ID)
@@ -32407,6 +33385,8 @@ class Region {
 	}
 
 	// Given a screen index, returns the world offset in the y direction for the current region.
+	//
+	// @versionadded 3.0
 	int WorldOffsetY(int screen)
 	{
 		if (Region->ID)
@@ -32419,6 +33399,8 @@ class Region {
 // The region the [Hero] is currently in.
 internal const Region Region;
 // Used with [save_menu::Flags].
+//
+// @versionadded 3.0
 enum SaveMenuFlags
 {
 	SMENU_CONFIRM_A, // If checked, the A button can confirm, in addition to START.
@@ -32428,6 +33410,8 @@ enum SaveMenuFlags
 	SMENU_DONT_KILL_SFX, // If checked, the menu opening will not stop SFX that are playing.
 };
 // Used with [save_menu::OptionFlags].
+//
+// @versionadded 3.0
 @Bitflags("int")
 enum SaveMenuOptionFlags
 {
@@ -32442,6 +33426,7 @@ enum SaveMenuOptionFlags
 // 
 // Load with [Game->LoadSaveMenu].
 //
+// @versionadded 3.0
 // @zasm_ref REFSAVEMENU
 class save_menu
 {
@@ -32868,7 +33853,10 @@ enum ScreenFlag
 	SFL_ENEMIES_ITEM = 1, // Killing enemies spawns screen item.
 	SFL_ENEMIES_SECRETS = 15, // Enemies->Secrets.
 	SFL_ENEMIES_SECRETS_PERM = 28, // Enemies->Secrets (perm).
-	SFL_ENEMIES_STAY_DEAD = 71, // Enemies->Stay Dead - once all enemies are killed they will not respawn again
+	// Enemies->Stay Dead - once all enemies are killed they will not respawn again
+	//
+	// @versionadded 3.0
+	SFL_ENEMIES_STAY_DEAD = 71,
 	SFL_ENEMIES_CHAIN_TRIGGERS = 70, // Chain 'Enemies->' Triggers.
 	SFL_TRAPS_IGNORE_SOLID = 14, // Traps Ignore Solidity.
 	SFL_ENEMIES_LEADER = 85, // Ringleader. The first enemy listed in the screen's enemy list will be a 'Ringleader'. When this enemy dies, all other enemies will die.
@@ -32892,7 +33880,11 @@ enum ScreenFlag
 	SFL_SCRIPT_5 = 60,
 	
 	// Gravity
-	SFL_CUSTOM_GRAV = 74, // use screen-specific [screendata::GravityStrength|Gravity Strength] and [screendata::TerminalVelocity|Terminal Velocity]
+	//
+	// use screen-specific [screendata::GravityStrength|Gravity Strength] and [screendata::TerminalVelocity|Terminal Velocity]
+	//
+	// @versionadded 3.0
+	SFL_CUSTOM_GRAV = 74,
 };
 
 // Screen Flag groups, used with [Screen->Flags].
@@ -32959,8 +33951,14 @@ enum ScreenFlagWarp
 	SFW_MAZEOVERRIDE,  //maze Overrides Sidewarps
 	SFW_SPRITECARRY, //Sprites carry over. 
 	SFW_DISABLE_MIRROR, //Disable Magic Mirror
-	SFW_MAZE_CAN_GET_LOST, //Maze Can Get Lost
-	SFW_MAZE_LOOPY, //Maze Loopy
+	// Maze Can Get Lost
+	//
+	// @versionadded 3.0
+	SFW_MAZE_CAN_GET_LOST,
+	// Maze Loopy
+	//
+	// @versionadded 3.0
+	SFW_MAZE_LOOPY,
 	
 	SFW_LAST
 };
@@ -33141,6 +34139,7 @@ class screendata {
 	// The [combodata] of each of the [NUM_COMBO_POS] combo positions on the screen.
 	// Read-only, modify by editing the [ComboD] ID.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODATAD
 	internal const combodata ComboData[];
 	
@@ -33200,6 +34199,13 @@ class screendata {
 	//
 	// @zasm_var SCREENEXSTATED
 	internal bool ExState[];
+	
+	// The position-specific states for each of the [NUM_COMBO_POS] combo positions.
+	// The 8 states for each position are stored using binary / bitwise, with each bit being (1 << index).
+	//
+	// @versionadded 3.0
+	// @zasm_var SCREENCOMBOPOSSTATE
+	internal int PosState[];
 
 	// Whether or not the current [Region] is 'lit'. Applies to Classic Darkrooms.
 	//
@@ -33266,6 +34272,7 @@ class screendata {
 	//
 	// This only refers to the screen denoted by [Index].
 	//
+	// @versionadded 2.55.10
 	// @index [enum ScreenFlag]
 	// @zasm_var SCREEN_FLAG
 	internal bool Flag[];
@@ -33292,11 +34299,13 @@ class screendata {
 
 	// If [SFL_CUSTOM_GRAV] is set, this gravity applies on the screen.
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATA_GRAVITY_STRENGTH
 	internal int GravityStrength;
 
 	// If [SFL_CUSTOM_GRAV] is set, this terminal velocity applies on the screen.
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATA_TERMINAL_VELOCITY
 	internal int TerminalVelocity;
 
@@ -33365,9 +34374,8 @@ class screendata {
 	// respectively.
 	//
 	// @index [enum TileWarpIndex]
-	// @value [enum WarpType]
 	// @zasm_var SCREENDATATILEWARPTYPE
-	internal int TileWarpType[];
+	internal WarpType TileWarpType[];
 
 	// Set or get the overlay state for the warp ID corresponding to the index
 	// of this array.
@@ -33440,9 +34448,8 @@ class screendata {
 	// respectively.
 	//
 	// @index [enum SideWarpIndex]
-	// @value [enum WarpType]
 	// @zasm_var SCREENDATASIDEWARPTYPE
-	internal int SideWarpType[];
+	internal WarpType SideWarpType[];
 
 	// Set or get the overlay state for the warp ID corresponding to the index
 	// of this array.
@@ -33513,6 +34520,7 @@ class screendata {
 	// Which parts of the screen state that won't reset via 'Reset Room' combos.
 	//
 	// @index [enum ScreenState]
+	// @versionadded 3.0
 	// @zasm_var SCREENDATANORESETARR
 	internal bool NoResetState[];
 	
@@ -33527,6 +34535,7 @@ class screendata {
 	// target screen.
 	//
 	// @index [enum ScreenState]
+	// @versionadded 3.0
 	// @zasm_var SCREENDATANOCARRYARR
 	internal bool NoCarryState[];
 
@@ -33540,11 +34549,13 @@ class screendata {
 	
 	// Which of the 32 ExStates should be carried over to the target screen
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATAEXCARRY
 	internal bool ExStateCarry[];
 	
 	// Which of the 32 ExStates should be reset by 'Reset Room' combos
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATAEXRESET
 	internal bool ExStateReset[];
 
@@ -33662,6 +34673,7 @@ class screendata {
 	// NULL / [MUSIC_SILENCE] represents silence.
 	// [MUSIC_INHERIT] as a special value represents using the current dmap's Music.
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATA_MUSIC
 	internal musicdata Music;
 	
@@ -34020,7 +35032,13 @@ class screendata {
 	internal void DrawInteger(int layer, int x, int y, int font, int color,
 							  int bg_color, int width, int height, int value,
 							  int num_decimal_places = 0, int opacity = OP_OPAQUE);
-
+	
+	// Draws a tile block of 'block_w' x 'block_h', where the top-left tile is 'tile',
+	// with the specified drawing parameters. 'transparency' determines if color 0
+	// should be transparent or actually drawn.
+	// If 'xscale'/'yscale' are >-1, they specify a width/height in pixels to scale
+	// the draw to.
+	//
 	// @zasm
 	//   DRAWTILER
 	//   POPARGS D5 0.0015
@@ -34028,6 +35046,16 @@ class screendata {
 						   int block_h, int cset, int xscale = -1, int yscale = -1,
 						   int rx = 0, int ry = 0, int rot_degrees = 0,
 						   int flip = 0, bool transparency = true, int opacity = OP_OPAQUE);
+	
+	// Draws a quarter-tile portion of the specified tile with the
+	// specified drawing parameters.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   DRAWMINITILE
+	//   POPARGS D5 0.0007
+	internal void DrawMiniTile(int layer, int x, int y, int tile,
+		CornerIndex quarter, int cset, int opacity = OP_OPAQUE);
 
 	// As DrawTile(), but draws with a cloaked effect.
 	//
@@ -34121,6 +35149,19 @@ class screendata {
 	//   POPARGS D5 0.0006
 	internal void DrawScreen(int layer, int map, int screen, int x, int y,
 							 int rotation = 0);
+	
+	// Draws the specified mapdata to the screen.
+	// Only draws the mapdata provided, not layerscreens of that mapdata.
+	// When using a temp mapdata that contains the combos for an entire region,
+	// that layer of the entire region will be drawn.
+	// Only combos will be drawn, FFCs are excluded.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   DRAWMAPDATA
+	//   POPARGS D5 0.0005
+	internal void DrawMapdata(int layer, mapdata source, int x,
+							 int y, int opacity = OP_OPAQUE);
 
 	// @zasm
 	//   BITMAPR
@@ -34158,6 +35199,7 @@ class screendata {
 	// You may specify a color to 'int lit' to use a lit mode. This tints the
 	// entire bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   TILEBLIT
 	//   POPARGS D5 0.0017
@@ -34187,6 +35229,7 @@ class screendata {
 	// You may specify a color to 'int lit' to use a lit mode. This tints the
 	// entire bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   COMBOBLIT
 	//   POPARGS D5 0.0017
@@ -34585,6 +35628,7 @@ enum ExtendMode
 	EXT_NOSHADOW                   = 4, // Extended. NPC has no shadow.
 };
 
+// @versionadded 3.0
 enum MoveFlag
 {
 	MV_OBEYS_GRAVITY,
@@ -34621,7 +35665,7 @@ class sprite {
 
 	// The screen index this sprite was created on. Does not update as the sprite moves around a region.
 	//
-	// [Hero]: This is always equal to the top-left screen of the current region, equivalent to [Game->CurScreen].
+	// [Hero]: This is equal to the screen that the player first entered the region.
 	//
 	// @versionadded 3.0
 	// @zasm_var SPRITE_SPAWN_SCREEN
@@ -34711,6 +35755,14 @@ class sprite {
 	//
 	// @zasm_var SPRITE_SCRIPT_TILE
 	internal int ScriptTile;
+
+	// The sprite is invisible for this many frames.
+	// If < -1, invisibility does not run out. If == -1, this is
+	// "engine invisibility", and the engine might clear it at any time.
+	//
+	// @versionadded 3.0
+	// @zasm_var SPRITE_INVIS_CLK
+	internal int InvisibleTimer;
 
 	// If the sprite should be extended (large). Set to 3 to extend, 0 otherwise.
 	//
@@ -34891,6 +35943,19 @@ class sprite {
 	// @zasm_var SPRITE_LIGHT_RADIUS
 	internal int LightRadius;
 
+	// The offset of the light emitted by this sprite, in pixels.
+	// Positive offset goes in the [Dir], while negative is opposite of [Dir].
+	//
+	// @zasm_var SPRITE_LIGHT_OFFSET
+	internal int LightOffset;
+	
+	// The sprite has no collision for this many frames.
+	// If < 0, does not run out.
+	//
+	// @versionadded 3.0
+	// @zasm_var SPRITE_NOCOLL_CLK
+	internal int NoCollisionTimer;
+
 	// The shape of light emitted by this sprite.
 	//
 	// @value [enum LightShape]
@@ -34931,6 +35996,44 @@ class sprite {
 	//
 	// @zasm_var SPRITE_SHADOW_YOFS
 	internal int ShadowYOffset;
+
+	// How far (in pixels) past the viewport edge this sprite's engine logic runs before it is suspended.
+	// Only active in scrolling regions. Considers both visual tile size and hitbox ([HitWidth], [HitHeight]).
+	//
+	// Disabled if 0 (the sprite is never suspended).
+	//
+	// [Hero]: Does not apply.
+	//
+	// @versionadded 3.0
+	// @default 48 for eweapons and npcs, 0 for all other sprites
+	// @zasm_var SPRITE_VIEWPORT_SUSPEND_RANGE
+	internal int ViewportSuspendRange;
+
+	// How far (in pixels) past the viewport edge this sprite can travel before
+	// being removed. Considers both visual tile size and hitbox ([HitWidth], [HitHeight]).
+	//
+	// Disabled if 0. Note that 0 only disables despawning via *this* field; the
+	// sprite may still be removed by its type's normal off-screen handling:
+	//
+	//   - Weapons: removed once entirely off the viewport, via the standard weapon
+	//     screen-edge clipping. The exact margin depends on the weapon type and the
+	//     screen-edge quest rules; weapons are also removed at the region bounds.
+	//   - Enemies: killed when out of bounds, unless the enemy is immortal, has a
+	//     movement flag letting it leave the screen, or is exempted by the
+	//     out-of-bounds-enemies quest rule / enemy editor flag.
+	//   - Items: removed when they travel well outside the region (roughly 256px to
+	//     the sides, 176px above, and 176px below the region bounds).
+	//
+	// To avoid despawning even from these default behaviors, set this variable to a very
+	// high number.
+	//
+	// [Hero]: Does not apply.
+	// [ffc]: Does not apply for changers or stationary FFCs.
+	//
+	// @versionadded 3.0
+	// @default 0
+	// @zasm_var SPRITE_VIEWPORT_DESPAWN_RANGE
+	internal int ViewportDespawnRange;
 
 	// An array of 32 misc values for scripts to use.
 	//
@@ -35244,12 +36347,45 @@ enum TransitionFlag
 
 enum SubscreenWidgetType
 {
-	SUBWIDG_NULL, SUBWIDG_FRAME, SUBWIDG_TEXT, SUBWIDG_LINE, SUBWIDG_RECT,
-	SUBWIDG_TIME, SUBWIDG_MMETER, SUBWIDG_LMETER, SUBWIDG_BTNITM, SUBWIDG_COUNTER,
-	SUBWIDG_OLDCTR, SUBWIDG_MMAPTITLE, SUBWIDG_MMAP, SUBWIDG_LMAP, SUBWIDG_BGCOLOR,
-	SUBWIDG_ITEMSLOT, SUBWIDG_MCGUFF_FRAME, SUBWIDG_MCGUFF, SUBWIDG_TILEBLOCK, SUBWIDG_MINITILE,
-	SUBWIDG_SELECTOR, SUBWIDG_LGAUGE, SUBWIDG_MGAUGE, SUBWIDG_TEXTBOX, SUBWIDG_SELECTEDTEXT,
-	SUBWIDG_MISCGAUGE, SUBWIDG_BTNCOUNTER, SUBWIDG_COUNTERPERCBAR, SUBWIDG_ITEMCOOLDOWNGAUGE, SUBWIDG_ITEMCOOLDOWNTEXT,
+	SUBWIDG_NULL,
+	SUBWIDG_FRAME,
+	SUBWIDG_TEXT,
+	SUBWIDG_LINE,
+	SUBWIDG_RECT,
+
+	SUBWIDG_TIME,
+	SUBWIDG_MMETER,
+	SUBWIDG_LMETER,
+	SUBWIDG_BTNITM,
+	SUBWIDG_COUNTER,
+
+	SUBWIDG_OLDCTR,
+	SUBWIDG_MMAPTITLE,
+	SUBWIDG_MMAP,
+	SUBWIDG_LMAP,
+	SUBWIDG_BGCOLOR,
+
+	SUBWIDG_ITEMSLOT,
+	SUBWIDG_MCGUFF_FRAME,
+	SUBWIDG_MCGUFF,
+	SUBWIDG_TILEBLOCK,
+	SUBWIDG_MINITILE,
+
+	SUBWIDG_SELECTOR,
+	SUBWIDG_LGAUGE,
+	SUBWIDG_MGAUGE,
+	SUBWIDG_TEXTBOX,
+	SUBWIDG_SELECTEDTEXT,
+
+	SUBWIDG_MISCGAUGE,
+	SUBWIDG_BTNCOUNTER,
+	// @versionadded 3.0
+	SUBWIDG_COUNTERPERCBAR,
+	// @versionadded 3.0
+	SUBWIDG_ITEMCOOLDOWNGAUGE,
+	// @versionadded 3.0
+	SUBWIDG_ITEMCOOLDOWNTEXT,
+
 	SUBWIDG_MAX
 };
 
@@ -35267,16 +36403,46 @@ enum SubscreenWidgetGenFlag
 	SUBW_GENFL_SELECTABLE, // If the widget is "selectable" by the subscreen cursor
 	SUBW_GENFL_PGMODE_NOWRAP, // If going left from the leftmost page or right from the rightmost page should do nothing instead of wrapping, when changing pages
 	SUBW_GENFL_SELECTOR_OVERRIDE, // If this widget uses a customly overridden subscreen selector cursor graphic
-	SUBW_GENFL_REQ_COUNTER_MAX, // If the counter requirement should use the "max" of the counter, instead of it's plain value
-	SUBW_GENFL_REQ_COUNTER_PERC, // If the counter requirement should use the "percentage of max" of the counter, instead of it's plain value (overrides [SUBW_GENFL_REQ_COUNTER_MAX])
-	SUBW_GENFL_REQ_INVERT_LITEM, // If the level item requirement should require *not having any of the LItems*, instead of having all of the level items
-	SUBW_GENFL_PGGOTO_SWAPMAPSUBSCR, // If the widget's page swapping changes between the active and map subscreens.
-	SUBW_GENFL_REQ_INVERT_SCRSTATE, // If the screen state/exstate requirements should require *not having any states* instead of having all states.
-	SUBW_GENFL_REQ_ANY_ITEM, // If the 'required items' requirement should be satisfied by any one of the items, instead of needing them all.
-	SUBW_GENFL_REQ_ANY_LITEM, // If the level item requirement should be satisified with any level item, instead of needing them all.
-	SUBW_GENFL_REQ_ANY_SCRSTATE, // If the screen state/exstate requirements should be satisfied with any of the states, instead of needing them all.
-	SUBW_GENFL_REQ_INVERT_LSTATE, // If the level state requirement should require *not having any of the lavel states*, instead of having all the level states.
-	SUBW_GENFL_REQ_ANY_LSTATE, // If the level state requirement should be satisified with any level state, instead of needing them all.
+	// If the counter requirement should use the "max" of the counter, instead of it's plain value
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_COUNTER_MAX,
+	// If the counter requirement should use the "percentage of max" of the counter, instead of it's plain value (overrides [SUBW_GENFL_REQ_COUNTER_MAX])
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_COUNTER_PERC,
+	// If the level item requirement should require *not having any of the LItems*, instead of having all of the level items
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_INVERT_LITEM,
+	// If the widget's page swapping changes between the active and map subscreens.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_PGGOTO_SWAPMAPSUBSCR,
+	// If the screen state/exstate requirements should require *not having any states* instead of having all states.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_INVERT_SCRSTATE,
+	// If the 'required items' requirement should be satisfied by any one of the items, instead of needing them all.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_ANY_ITEM,
+	// If the level item requirement should be satisified with any level item, instead of needing them all.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_ANY_LITEM,
+	// If the screen state/exstate requirements should be satisfied with any of the states, instead of needing them all.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_ANY_SCRSTATE,
+	// If the level state requirement should require *not having any of the lavel states*, instead of having all the level states.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_INVERT_LSTATE,
+	// If the level state requirement should be satisified with any level state, instead of needing them all.
+	//
+	// @versionadded 3.0
+	SUBW_GENFL_REQ_ANY_LSTATE,
 	SUBW_GENFL_MAX
 };
 
@@ -35286,7 +36452,10 @@ enum SubscreenPageMode
 	SUB_PGMODE_NEXT, //next page
 	SUB_PGMODE_PREV, //previous page
 	SUB_PGMODE_TARG, //specified page
-	SUB_PGMODE_CURRENT, //transition to same page
+	// transition to same page
+	//
+	// @versionadded 3.0
+	SUB_PGMODE_CURRENT,
 	SUB_PGMODE_MAX
 };
 
@@ -35337,7 +36506,10 @@ enum //Special Subscreen Color Values
 	SUB_COLOR_HERODOT     = -32,
 	SUB_COLOR_MSGTXT      = -33,
 	SUB_COLOR_TRANSPARENT = -34,
-	SUB_COLOR_MIN         = -35
+	// Uses a default color value specific to the widget + color type.
+	// @versionadded 3.0
+	SUB_COLOR_DEFAULT     = -35,
+	SUB_COLOR_MIN         = -36
 };
 enum //Special Subscreen Tile Values
 {
@@ -35390,7 +36562,9 @@ enum // Flags for SUBWIDG_COUNTER
 {
 	SUBW_COUNTER_FLAG_SHOW0,
 	SUBW_COUNTER_FLAG_ONLYSEL,
+	// @versionadded 3.0
 	SUBW_COUNTER_FLAG_MAXCTR,
+	// @versionadded 3.0
 	SUBW_COUNTER_FLAG_FRACTION,
 	SUBW_COUNTER_NUMFLAGS
 };
@@ -35410,7 +36584,20 @@ enum // Flags for [SUBWIDG_MMAP]
 	SUBW_MMAP_FLAG_SHOWMAP, // If the map itself is drawn
 	SUBW_MMAP_FLAG_SHOWPLAYER, // If the player marker is drawn
 	SUBW_MMAP_FLAG_SHOWCOMPASS, // If the compass marker is drawn
-	SUBW_MMAP_VISITED_REQ_MAP, // If visited rooms are only drawn once map is obtained
+	// If visited rooms are only drawn once map is obtained
+	//
+	// @versionadded 3.0
+	SUBW_MMAP_VISITED_REQ_MAP,
+	// If rooms are drawn even when the dmap has a specified map tile.
+	//
+	// @versionadded 3.0
+	SUBW_MMAP_DRAW_OVER_MAPTILE,
+	// If enabled, the map BG (dmap-specific tile and generic bgs both included)
+	// will not be drawn. Room colors will still be drawn if [SUBW_MMAP_FLAG_SHOWMAP]
+	// is enabled.
+	//
+	// @versionadded 3.0
+	SUBW_MMAP_ONLY_ROOMS,
 	SUBW_MMAP_NUMFLAGS
 };
 enum // Flags for SUBWIDG_LMAP
@@ -35429,7 +36616,9 @@ enum // Flags for SUBWIDG_ITEMSLOT
 {
 	SUBW_ITEMSLOT_FLAG_INVIS,
 	SUBW_ITEMSLOT_FLAG_NON_EQUIPPABLE,
+	// @versionadded 3.0
 	SUBW_ITEMSLOT_MOVE_IGNORE_SPEC_SELTEXT,
+	// @versionadded 3.0
 	SUBW_ITEMSLOT_MOVE_IGNORE_SPEC_DISPLAY,
 	SUBW_ITEMSLOT_FLAG_NO_INTERACT_WO_ITEM,
 	SUBW_ITEMSLOT_FLAG_NO_INTERACT_WO_EQUIP,
@@ -35502,15 +36691,21 @@ enum // Flags for SUBWIDG_BTNCOUNTER
 {
 	SUBW_BTNCOUNTER_FLAG_SHOW0,
 	SUBW_BTNCOUNTER_FLAG_NOCOLLAPSE,
+	// @versionadded 3.0
 	SUBW_BTNCOUNTER_FLAG_MAXCTR,
+	// @versionadded 3.0
 	SUBW_BTNCOUNTER_FLAG_FRACTION,
 	SUBW_BTNCOUNTER_NUMFLAGS
 };
 enum // Flags for SUBWIDG_COUNTERPERCBAR
 {
+	// @versionadded 3.0
 	SUBW_COUNTERPERCBAR_TRANSP,
+	// @versionadded 3.0
 	SUBW_COUNTERPERCBAR_VERTICAL,
+	// @versionadded 3.0
 	SUBW_COUNTERPERCBAR_INVERT,
+	// @versionadded 3.0
 	SUBW_COUNTERPERCBAR_NUMFLAGS
 };
 
@@ -35803,6 +36998,7 @@ class subscreendata {
 	// Opens the specified subscreen (at the next moment possible).
 	// Only works on Active / Map subscreens.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP REFSUBSCREENDATA
 	//   SUBDATA_OPEN
@@ -35812,6 +37008,7 @@ class subscreendata {
 	// that is currently running during a subscreendata script (i.e.
 	// 'this->Close()')
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP REFSUBSCREENDATA
 	//   SUBDATA_CLOSE
@@ -35911,6 +37108,7 @@ class subscreenpage {
 }
 enum SubscreenItemButton
 {
+	// @versionadded 3.0
 	ITMBTN_NONE = -1,
 	ITMBTN_A,
 	ITMBTN_B,
@@ -35919,6 +37117,7 @@ enum SubscreenItemButton
 	NUM_ITMBTN
 };
 
+// @versionadded 3.0
 enum ConditionType
 {
 	CONDTY_NONE,
@@ -36080,6 +37279,7 @@ class subscreenwidget {
 	//
 	// @index [enum ItemID]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQOWNITEMS
 	internal bool RequiredOwnedItems[];
 
@@ -36087,6 +37287,7 @@ class subscreenwidget {
 	//
 	// @index [enum ItemID]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQUNOWNITEMS
 	internal bool RequiredUnownedItems[];
 	
@@ -36095,6 +37296,7 @@ class subscreenwidget {
 	//
 	// @length 256
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_DMAP_FLOOR
 	internal bool RequiredDMapFloors[];
 	
@@ -36103,6 +37305,7 @@ class subscreenwidget {
 	//
 	// @length [NUM_LEVELS]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_DMAP_LEVEL
 	internal bool RequiredDMapLevels[];
 	
@@ -36111,6 +37314,7 @@ class subscreenwidget {
 	//
 	// @length [MAX_DMAPS]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_DMAP
 	internal bool RequiredDMaps[];
 	
@@ -36119,6 +37323,7 @@ class subscreenwidget {
 	//
 	// @length [Game->MapCount]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_MAP
 	internal bool RequiredMaps[];
 	
@@ -36127,6 +37332,7 @@ class subscreenwidget {
 	//
 	// @length 128
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_SCREEN
 	internal bool RequiredScreens[];
 	
@@ -36139,6 +37345,7 @@ class subscreenwidget {
 	//
 	// @value [enum CounterIndex]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQCOUNTER
 	internal int RequiredCounter;
 
@@ -36148,12 +37355,14 @@ class subscreenwidget {
 	//
 	// @value [enum ConditionType]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQCOUNTERCOND
 	internal int RequiredCounterCond;
 
 	// The counter value this widget requires to be active/visible.
 	// The [RequiredCounter] must relate to this value based on the [RequiredCounterCond].
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQCOUNTERVAL
 	internal int RequiredCounterValue;
 
@@ -36162,12 +37371,14 @@ class subscreenwidget {
 	//
 	// @value [enum LevelItemBitflags]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQLITEMS
 	internal int RequiredLItems;
 
 	// The Level that [RequiredLItems] are checked for. If set to '-1', uses the
 	// current level.
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQLITEMLEVEL
 	internal int RequiredLItemLevel;
 	
@@ -36176,22 +37387,26 @@ class subscreenwidget {
 	//
 	// @index 0-31
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_LEVEL_STATE
 	internal bool RequiredLStates[];
 	
 	// The Level that [RequiredLStates] are checked for. If set to '-1', uses the
 	// current level.
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_LEVEL_STATE_LEVEL
 	internal int RequiredLStateLevel;
 	
 	// The Map to require screen states or exstates for.
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_SCRSTATE_MAP
 	internal int RequiredScreenStateMap;
 	
 	// The Map to require screen states or exstates for. If '-1', uses the current map+screen, ignoring [RequiredScreenStateMap].
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_SCRSTATE_SCREEN
 	internal int RequiredScreenStateScreen;
 	
@@ -36200,6 +37415,7 @@ class subscreenwidget {
 	//
 	// @index [enum ScreenState]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_SCRSTATE_STATE
 	internal bool RequiredScreenStates[];
 	
@@ -36208,11 +37424,13 @@ class subscreenwidget {
 	//
 	// @index 0-31
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQ_SCRSTATE_EXSTATE
 	internal bool RequiredScreenExStates[];
 	
 	// If set to 'true', the widget will not be active/visible.
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGREQSCRIPTDISABLED
 	internal bool ScriptDisabled;
 
@@ -36486,6 +37704,7 @@ class subscreenwidget {
 	// - [SUBWIDG_COUNTER]
 	// - [SUBWIDG_BTNCOUNTER]
 	//
+	// @versionadded 2.55.8
 	// @zasm_var SUBWIDGTY_COLOR_TXT2
 	internal int ColorFullText;
 
@@ -36509,6 +37728,7 @@ class subscreenwidget {
 	// - [SUBWIDG_COUNTER]
 	// - [SUBWIDG_BTNCOUNTER]
 	//
+	// @versionadded 2.55.8
 	// @zasm_var SUBWIDGTY_COLOR_SHD2
 	internal int ColorFullShadow;
 
@@ -36525,6 +37745,7 @@ class subscreenwidget {
 	// - [SUBWIDG_BGCOLOR]
 	// - [SUBWIDG_COUNTERPERCBAR]
 	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
+	// - [SUBWIDG_MMAP]: [SUB_COLOR_DEFAULT] uses different Misc Colors depending on the dmap.
 	//
 	// @zasm_var SUBWIDGTY_COLOR_BG
 	internal int ColorBG;
@@ -36534,6 +37755,7 @@ class subscreenwidget {
 	// - [SUBWIDG_COUNTER]
 	// - [SUBWIDG_BTNCOUNTER]
 	//
+	// @versionadded 2.55.8
 	// @zasm_var SUBWIDGTY_COLOR_BG2
 	internal int ColorFullBG;
 
@@ -36651,8 +37873,18 @@ class subscreenwidget {
 	//
 	// - [SUBWIDG_MMAP]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGTY_COLOR_VISITED
 	internal int ColorVisited;
+
+	// The widget's color index used to indicate non-visited rooms.
+	// Used for visited rooms too, if [ColorVisited] is transparent.
+	//
+	// - [SUBWIDG_MMAP]: [SUB_COLOR_DEFAULT] uses different Misc Colors depending on the dmap.
+	//
+	// @versionadded 3.0
+	// @zasm_var SUBWIDGTY_COLOR_UNVISITED
+	internal int ColorUnvisited;
 
 	// The itemclass used by the widget (0 <= ItemType < IC_MAXUSABLE)
 	//
@@ -36660,6 +37892,7 @@ class subscreenwidget {
 	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	// - [SUBWIDG_ITEMCOOLDOWNTEXT]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGTY_ITEMCLASS
 	internal int ItemType;
 
@@ -36724,6 +37957,7 @@ class subscreenwidget {
 	// - [SUBWIDG_MISCGAUGE] - 4 values
 	// - [SUBWIDG_ITEMCOOLDOWNGAUGE] - 4 values
 	//
+	// @value [enum CornerIndex]
 	// @zasm_var SUBWIDGTY_CORNER
 	internal int Corner[];
 
@@ -36866,6 +38100,7 @@ class subscreenwidget {
 	//
 	// - [SUBWIDG_ITEMCOOLDOWNGAUGE]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGTY_TOTAL
 	internal int Total;
 
@@ -36881,6 +38116,7 @@ class subscreenwidget {
 	//
 	// - [SUBWIDG_MMAP]
 	//
+	// @versionadded 3.0
 	// @zasm_var SUBWIDGTY_LITEMS
 	internal int LItems;
 
@@ -36953,6 +38189,7 @@ class subscreenwidget {
 	// Checks the requirements / conditions of this widget.
 	// See [RequiredOwnedItems], [RequiredUnownedItems], [RequiredCounter], [RequiredLItems], [ScriptDisabled]
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP REFSUBSCREENWIDG
 	//   SUBWIDG_CHECK_CONDITIONS D2
@@ -36960,6 +38197,7 @@ class subscreenwidget {
 
 	// Checks that the widget is visible- meaning, it both passes [CheckConditions] and [VisibleFlags].
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   POP REFSUBSCREENWIDG
 	//   SUBWIDG_CHECK_VISIBLE D2
@@ -37035,6 +38273,7 @@ class Text {
 }
 
 internal const Text Text;
+// @versionadded 3.0
 enum ViewportMode
 {
 	// Position the viewport such that the [Viewport::Target] is in the middle of it (but bounded by the edges of the current region).
@@ -37057,6 +38296,7 @@ class Viewport {
 
 	// Defaults to [VIEW_MODE_CENTER_AND_BOUND], and is reset at the beginning of scrolling.
 	//
+	// @versionadded 3.0
 	// @zasm_var VIEWPORT_MODE
 	internal ViewportMode Mode;
 
@@ -37065,6 +38305,7 @@ class Viewport {
 	//
 	// Defaults to [Hero], and is reset at the beginning of scrolling.
 	//
+	// @versionadded 3.0
 	// @zasm_var VIEWPORT_TARGET
 	internal sprite Target;
 
@@ -37103,6 +38344,8 @@ class Viewport {
 	//
 	// Note: this function ignores the fact that the bottom 8 pixels may not be visible
 	// given [qr_HIDE_BOTTOM_8_PIXELS].
+	//
+	// @versionadded 3.0
 	bool Contains(int x, int y)
 	{
 		return x >= this->X && x < this->X + this->Width && y >= this->Y && y < this->Y + this->Height;
@@ -37110,6 +38353,7 @@ class Viewport {
 }
 
 internal const Viewport Viewport;
+// @versionadded 3.0
 enum WebsocketState {
     WEBSOCKET_STATE_CONNECTING = 0L,
     WEBSOCKET_STATE_OPEN = 1L,
@@ -37117,12 +38361,14 @@ enum WebsocketState {
     WEBSOCKET_STATE_CLOSED = 3L
 };
 
+// @versionadded 3.0
 enum WebsocketType {
     WEBSOCKET_MESSAGE_TYPE_TEXT = 1L,  // send text data
     WEBSOCKET_MESSAGE_TYPE_BINARY = 2L // send binary data
 };
 
 // @tutorial /tutorials/websockets
+// @versionadded 3.0
 // @zasm_ref REFWEBSOCKET
 class websocket {
 	// @zasm
@@ -37211,6 +38457,7 @@ class ZInfo {
 	// Copies the name of the specified item class into the buffer.
 	//
 	// @param [ItemType] itemclass_id
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   POP D3
@@ -38214,7 +39461,7 @@ bool checkCFlag(int x, int y, int x2, int y2, int flag)
 		    {
 			    if(current->ID != LW_BRANG) continue;
 		    }
-		    if(!current->CollDetection) continue;
+		    if(current->NoCollisionTimer) continue;
 				
 				if(WeaponCollision(current, x, y, x2, y2))
 				{
@@ -39072,8 +40319,8 @@ namespace GhostBasedMovement
 
 	void FixCoords(npc n)
 	{
-		n->X = (n->X & 0xF0) + ((n->X&8)?16:0);
-		n->Y = (n->Y & 0xF0) + ((n->Y&8)?16:0);
+		n->X = Round(n->X / 16) * 16;
+		n->Y = Round(n->Y / 16) * 16;
 	}
 	int LinedUp(npc n, int range, bool eightWay)
 	{
@@ -39846,7 +41093,7 @@ DEFINE MISC_SIZE			= 32;
 DEFINE NPC_ATTRIBUTES_SIZE		= 32;
 DEFINE ITEM_ATTRIBUTES_SIZE		= 10;
 DEFINE GAMEMISC_SIZE 		= 32;
-DEFINE MAX_DEFENSE 			= 42;
+DEFINE MAX_DEFENSE 			= 41;
 
 DEFINE SCREEN_W 			= 256; // Width of the screen, in pixels.
 DEFINE SCREEN_H 			= 176; // Height of the screen, in pixels.
@@ -40181,13 +41428,21 @@ enum
 // MIDI values, used for [musicdata::MIDI]
 enum
 {
+	// @versionadded 3.0
 	BUILTIN_MIDI_TRIFORCE = -7,
+	// @versionadded 3.0
 	BUILTIN_MIDI_TITLE = -6,
+	// @versionadded 3.0
 	BUILTIN_MIDI_OVERWORLD = -5,
+	// @versionadded 3.0
 	BUILTIN_MIDI_LEVEL9 = -4,
+	// @versionadded 3.0
 	BUILTIN_MIDI_GAMEOVER = -3,
+	// @versionadded 3.0
 	BUILTIN_MIDI_ENDING = -2,
+	// @versionadded 3.0
 	BUILTIN_MIDI_DUNGEON = -1,
+	// @versionadded 3.0
 	BUILTIN_MIDI_NONE = 0,
 };
 
@@ -40524,13 +41779,13 @@ bool Collision(item i, int cmb) { return Collision(cmb,i); }
 //Set checkcoldetection to true if you wish to return false from an lweapon with ColDetection disabled. 
 bool Collision(lweapon l, int cmb, bool checkcoldetection) 
 { 
-	if ( checkcoldetection && !l->CollDetection ) return false;
+	if ( checkcoldetection && l->NoCollisionTimer ) return false;
 	else return Collision(cmb,l); 
 }
 
 bool Collision(int cmb, lweapon l, bool checkcoldetection) 
 { 
-	if ( checkcoldetection && !l->CollDetection ) return false;
+	if ( checkcoldetection && l->NoCollisionTimer ) return false;
 	else return Collision(cmb,l); 
 }
 
@@ -40538,13 +41793,13 @@ bool Collision(int cmb, lweapon l, bool checkcoldetection)
 //Set checkcoldetection to true if you wish to return false from an eweapon with ColDetection disabled. 
 bool Collision(eweapon e, int cmb, bool checkcoldetection) 
 {
-	if ( checkcoldetection && !e->CollDetection ) return false;
+	if ( checkcoldetection && e->NoCollisionTimer ) return false;
 	else return Collision(cmb,e); 
 }
 
 bool Collision(int cmb, eweapon e, bool checkcoldetection) 
 {
-	if ( checkcoldetection && !e->CollDetection ) return false;
+	if ( checkcoldetection && e->NoCollisionTimer ) return false;
 	else return Collision(cmb,e); 
 }
 
@@ -40552,13 +41807,13 @@ bool Collision(int cmb, eweapon e, bool checkcoldetection)
 //Set checkcoldetection to true if you wish to return false from an NPC with ColDetection disabled. 
 bool Collision(npc n, int cmb, bool checkcoldetection) 
 { 
-	if ( checkcoldetection && !n->CollDetection ) return false;
+	if ( checkcoldetection && n->NoCollisionTimer ) return false;
 	else return Collision(cmb,n); 
 }
 
 bool Collision(int cmb, npc n, bool checkcoldetection) 
 { 
-	if ( checkcoldetection && !n->CollDetection ) return false;
+	if ( checkcoldetection && n->NoCollisionTimer ) return false;
 	else return Collision(cmb,n); 
 }
 
@@ -40566,7 +41821,7 @@ bool Collision(int cmb, npc n, bool checkcoldetection)
 //Set checkcoldetection to true if you wish to return false from an NPC with ColDetection disabled. 
 bool Collision(int cmb, bool checkcoldetection) 
 {
-	if ( checkcoldetection && !Hero->CollDetection ) return false;
+	if ( checkcoldetection && Hero->NoCollisionTimer ) return false;
 	else return Collision(cmb); 
 }
 
@@ -40631,7 +41886,7 @@ bool Collision(int cmb,  int a1, int b1, int c1, int d1, int a2, int b2, int c2,
 //Set checkcoldetection true if you wish weapons without collision to automatically return false.
 bool CollisionDir(int cmb, lweapon l, int dir, bool checkcoldetection) 
 {
-	if ( checkcoldetection && !l->CollDetection ) return false;
+	if ( checkcoldetection && l->NoCollisionTimer ) return false;
 	if ( l->Dir != dir ) return false;
 	return Collision(cmb,l);
 }
@@ -40643,7 +41898,7 @@ bool CollisionDir(int cmb, lweapon l, int dir, bool checkcoldetection)
 //Set checkcoldetection true if you wish weapons without collision to automatically return false.
 bool CollisionDir(int cmb, lweapon l, int dir, bool facingspecificdir, bool checkcoldetection) 
 {
-	if ( checkcoldetection && !l->CollDetection ) return false;
+	if ( checkcoldetection && l->NoCollisionTimer ) return false;
 	if ( facingspecificdir && l->Dir != dir ) return false;
 	if ( !facingspecificdir && l->Dir == dir ) return false;
 	return Collision(cmb,l);
@@ -40865,6 +42120,7 @@ void EToLWeapon(eweapon a, lweapon b) { EWeaponToLWeapon(a,b);}
 lweapon EtoLWeapon(eweapon a){return EtoLWeapon(a);}
 
 // @param [EWeaponType] type
+// @versionadded 3.0
 int EtoLWeaponType(int type)
 {
 	return EWeaponToLWeaponType(type);
@@ -40913,7 +42169,7 @@ lweapon EWeaponToLWeapon(eweapon a)
 	b->Step = a->Step;
 	b->Angle = a->Angle;
 	b->Angular = a->Angular;
-	b->CollDetection = a->CollDetection;
+	b->NoCollisionTimer = a->NoCollisionTimer;
 	b->DeadState = a->DeadState;
 	b->Flash = a->Flash;
 	b->Flip = a->Flip;
@@ -40970,7 +42226,7 @@ void EWeaponToLWeapon(eweapon a, lweapon b)
 	b->Step = a->Step;
 	b->Angle = a->Angle;
 	b->Angular = a->Angular;
-	b->CollDetection = a->CollDetection;
+	b->NoCollisionTimer = a->NoCollisionTimer;
 	b->DeadState = a->DeadState;
 	b->Flash = a->Flash;
 	b->Flip = a->Flip;
@@ -40989,6 +42245,7 @@ void EWeaponToLWeapon(eweapon a, lweapon b)
 //Converts the ID (type) of a given weapon to its opposite class. 
 //Returns -1 if the type is illegal.
 // @param [EWeaponType] type
+// @versionadded 3.0
 int EWeaponToLWeaponType(int type)
 {
 	switch(type)
@@ -41342,6 +42599,7 @@ void LtoEWeapon(lweapon a, eweapon b) { LWeaponToEWeapon(a,b);}
 eweapon LtoEWeapon(lweapon a){return LtoEWeapon(a);}
 
 // @param [LWeaponType] type
+// @versionadded 3.0
 int LtoEWeaponType(int type)
 {
 	return LWeaponToEWeaponType(type);
@@ -41388,7 +42646,7 @@ void LWeaponToEWeapon(lweapon a, eweapon b){
 	b->Step = a->Step;
 	b->Angle = a->Angle;
 	b->Angular = a->Angular;
-	b->CollDetection = a->CollDetection;
+	b->NoCollisionTimer = a->NoCollisionTimer;
 	b->DeadState = a->DeadState;
 	b->Flash = a->Flash;
 	b->Flip = a->Flip;
@@ -41444,7 +42702,7 @@ eweapon LWeaponToEWeapon(lweapon a){
 	b->Step = a->Step;
 	b->Angle = a->Angle;
 	b->Angular = a->Angular;
-	b->CollDetection = a->CollDetection;
+	b->NoCollisionTimer = a->NoCollisionTimer;
 	b->DeadState = a->DeadState;
 	b->Flash = a->Flash;
 	b->Flip = a->Flip;
@@ -41465,6 +42723,7 @@ eweapon LWeaponToEWeapon(lweapon a){
 //Converts the ID (type) of a given weapon to its opposite class. 
 //Returns -1 if the type is illegal.
 // @param [LWeaponType] type
+// @versionadded 3.0
 int LWeaponToEWeaponType(int type)
 {
 	switch(type)
@@ -43672,7 +44931,7 @@ lweapon Duplicate(lweapon a)
 	b->Step = a->Step;
 	b->Angle = a->Angle;
 	b->Angular = a->Angular;
-	b->CollDetection = a->CollDetection;
+	b->NoCollisionTimer = a->NoCollisionTimer;
 	b->DeadState = a->DeadState;
 	b->Flash = a->Flash;
 	b->Flip = a->Flip;
@@ -43725,7 +44984,7 @@ eweapon Duplicate(eweapon a)
 	b->Step = a->Step;
 	b->Angle = a->Angle;
 	b->Angular = a->Angular;
-	b->CollDetection = a->CollDetection;
+	b->NoCollisionTimer = a->NoCollisionTimer;
 	b->DeadState = a->DeadState;
 	b->Flash = a->Flash;
 	b->Flip = a->Flip;

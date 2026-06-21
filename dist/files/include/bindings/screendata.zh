@@ -165,7 +165,10 @@ enum ScreenFlag
 	SFL_ENEMIES_ITEM = 1, // Killing enemies spawns screen item.
 	SFL_ENEMIES_SECRETS = 15, // Enemies->Secrets.
 	SFL_ENEMIES_SECRETS_PERM = 28, // Enemies->Secrets (perm).
-	SFL_ENEMIES_STAY_DEAD = 71, // Enemies->Stay Dead - once all enemies are killed they will not respawn again
+	// Enemies->Stay Dead - once all enemies are killed they will not respawn again
+	//
+	// @versionadded 3.0
+	SFL_ENEMIES_STAY_DEAD = 71,
 	SFL_ENEMIES_CHAIN_TRIGGERS = 70, // Chain 'Enemies->' Triggers.
 	SFL_TRAPS_IGNORE_SOLID = 14, // Traps Ignore Solidity.
 	SFL_ENEMIES_LEADER = 85, // Ringleader. The first enemy listed in the screen's enemy list will be a 'Ringleader'. When this enemy dies, all other enemies will die.
@@ -189,7 +192,11 @@ enum ScreenFlag
 	SFL_SCRIPT_5 = 60,
 	
 	// Gravity
-	SFL_CUSTOM_GRAV = 74, // use screen-specific [screendata::GravityStrength|Gravity Strength] and [screendata::TerminalVelocity|Terminal Velocity]
+	//
+	// use screen-specific [screendata::GravityStrength|Gravity Strength] and [screendata::TerminalVelocity|Terminal Velocity]
+	//
+	// @versionadded 3.0
+	SFL_CUSTOM_GRAV = 74,
 };
 
 // Screen Flag groups, used with [Screen->Flags].
@@ -256,8 +263,14 @@ enum ScreenFlagWarp
 	SFW_MAZEOVERRIDE,  //maze Overrides Sidewarps
 	SFW_SPRITECARRY, //Sprites carry over. 
 	SFW_DISABLE_MIRROR, //Disable Magic Mirror
-	SFW_MAZE_CAN_GET_LOST, //Maze Can Get Lost
-	SFW_MAZE_LOOPY, //Maze Loopy
+	// Maze Can Get Lost
+	//
+	// @versionadded 3.0
+	SFW_MAZE_CAN_GET_LOST,
+	// Maze Loopy
+	//
+	// @versionadded 3.0
+	SFW_MAZE_LOOPY,
 	
 	SFW_LAST
 };
@@ -438,6 +451,7 @@ class screendata {
 	// The [combodata] of each of the [NUM_COMBO_POS] combo positions on the screen.
 	// Read-only, modify by editing the [ComboD] ID.
 	//
+	// @versionadded 3.0
 	// @zasm_var COMBODATAD
 	internal const combodata ComboData[];
 	
@@ -497,6 +511,13 @@ class screendata {
 	//
 	// @zasm_var SCREENEXSTATED
 	internal bool ExState[];
+	
+	// The position-specific states for each of the [NUM_COMBO_POS] combo positions.
+	// The 8 states for each position are stored using binary / bitwise, with each bit being (1 << index).
+	//
+	// @versionadded 3.0
+	// @zasm_var SCREENCOMBOPOSSTATE
+	internal int PosState[];
 
 	// Whether or not the current [Region] is 'lit'. Applies to Classic Darkrooms.
 	//
@@ -563,6 +584,7 @@ class screendata {
 	//
 	// This only refers to the screen denoted by [Index].
 	//
+	// @versionadded 2.55.10
 	// @index [enum ScreenFlag]
 	// @zasm_var SCREEN_FLAG
 	internal bool Flag[];
@@ -589,11 +611,13 @@ class screendata {
 
 	// If [SFL_CUSTOM_GRAV] is set, this gravity applies on the screen.
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATA_GRAVITY_STRENGTH
 	internal int GravityStrength;
 
 	// If [SFL_CUSTOM_GRAV] is set, this terminal velocity applies on the screen.
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATA_TERMINAL_VELOCITY
 	internal int TerminalVelocity;
 
@@ -662,9 +686,8 @@ class screendata {
 	// respectively.
 	//
 	// @index [enum TileWarpIndex]
-	// @value [enum WarpType]
 	// @zasm_var SCREENDATATILEWARPTYPE
-	internal int TileWarpType[];
+	internal WarpType TileWarpType[];
 
 	// Set or get the overlay state for the warp ID corresponding to the index
 	// of this array.
@@ -737,9 +760,8 @@ class screendata {
 	// respectively.
 	//
 	// @index [enum SideWarpIndex]
-	// @value [enum WarpType]
 	// @zasm_var SCREENDATASIDEWARPTYPE
-	internal int SideWarpType[];
+	internal WarpType SideWarpType[];
 
 	// Set or get the overlay state for the warp ID corresponding to the index
 	// of this array.
@@ -810,6 +832,7 @@ class screendata {
 	// Which parts of the screen state that won't reset via 'Reset Room' combos.
 	//
 	// @index [enum ScreenState]
+	// @versionadded 3.0
 	// @zasm_var SCREENDATANORESETARR
 	internal bool NoResetState[];
 	
@@ -824,6 +847,7 @@ class screendata {
 	// target screen.
 	//
 	// @index [enum ScreenState]
+	// @versionadded 3.0
 	// @zasm_var SCREENDATANOCARRYARR
 	internal bool NoCarryState[];
 
@@ -837,11 +861,13 @@ class screendata {
 	
 	// Which of the 32 ExStates should be carried over to the target screen
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATAEXCARRY
 	internal bool ExStateCarry[];
 	
 	// Which of the 32 ExStates should be reset by 'Reset Room' combos
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATAEXRESET
 	internal bool ExStateReset[];
 
@@ -959,6 +985,7 @@ class screendata {
 	// NULL / [MUSIC_SILENCE] represents silence.
 	// [MUSIC_INHERIT] as a special value represents using the current dmap's Music.
 	//
+	// @versionadded 3.0
 	// @zasm_var SCREENDATA_MUSIC
 	internal musicdata Music;
 	
@@ -1317,7 +1344,13 @@ class screendata {
 	internal void DrawInteger(int layer, int x, int y, int font, int color,
 							  int bg_color, int width, int height, int value,
 							  int num_decimal_places = 0, int opacity = OP_OPAQUE);
-
+	
+	// Draws a tile block of 'block_w' x 'block_h', where the top-left tile is 'tile',
+	// with the specified drawing parameters. 'transparency' determines if color 0
+	// should be transparent or actually drawn.
+	// If 'xscale'/'yscale' are >-1, they specify a width/height in pixels to scale
+	// the draw to.
+	//
 	// @zasm
 	//   DRAWTILER
 	//   POPARGS D5 0.0015
@@ -1325,6 +1358,16 @@ class screendata {
 						   int block_h, int cset, int xscale = -1, int yscale = -1,
 						   int rx = 0, int ry = 0, int rot_degrees = 0,
 						   int flip = 0, bool transparency = true, int opacity = OP_OPAQUE);
+	
+	// Draws a quarter-tile portion of the specified tile with the
+	// specified drawing parameters.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   DRAWMINITILE
+	//   POPARGS D5 0.0007
+	internal void DrawMiniTile(int layer, int x, int y, int tile,
+		CornerIndex quarter, int cset, int opacity = OP_OPAQUE);
 
 	// As DrawTile(), but draws with a cloaked effect.
 	//
@@ -1418,6 +1461,19 @@ class screendata {
 	//   POPARGS D5 0.0006
 	internal void DrawScreen(int layer, int map, int screen, int x, int y,
 							 int rotation = 0);
+	
+	// Draws the specified mapdata to the screen.
+	// Only draws the mapdata provided, not layerscreens of that mapdata.
+	// When using a temp mapdata that contains the combos for an entire region,
+	// that layer of the entire region will be drawn.
+	// Only combos will be drawn, FFCs are excluded.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   DRAWMAPDATA
+	//   POPARGS D5 0.0005
+	internal void DrawMapdata(int layer, mapdata source, int x,
+							 int y, int opacity = OP_OPAQUE);
 
 	// @zasm
 	//   BITMAPR
@@ -1455,6 +1511,7 @@ class screendata {
 	// You may specify a color to 'int lit' to use a lit mode. This tints the
 	// entire bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   TILEBLIT
 	//   POPARGS D5 0.0017
@@ -1484,6 +1541,7 @@ class screendata {
 	// You may specify a color to 'int lit' to use a lit mode. This tints the
 	// entire bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   COMBOBLIT
 	//   POPARGS D5 0.0017

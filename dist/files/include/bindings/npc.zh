@@ -175,6 +175,7 @@ enum NPCMiscBitflags
 	NPCMF_HAMMERBREAKS             = 0x2000, // Hammer Can break Shield.
 };
 
+// @versionadded 3.0
 enum NPCFlags
 {
 	NPCF_0POWERWEAPS, // Damaged by 0-Power Weapons.
@@ -183,6 +184,9 @@ enum NPCFlags
 	NPCF_NOT_BEATABLE, // Doesn't Count as beatable Enemy.
 	NPCF_SPAWNFLICKER, // Flicker in when spawning
 	NPCF_SPAWNINSTANT, // Spawn instantly
+	// No Contact Damage
+	// @versionadded 3.0
+	NPCF_NO_CONTACT_DAMAGE = 7,
 	// some unused indexes
 	NPCF_SHIELD_FRONT = 24, // Shielded on Front
 	NPCF_SHIELD_LEFT, // Shielded on Left
@@ -209,6 +213,10 @@ enum NPCFlags
 	NPCF_TRANSLUCENT, // Is translucent
 	NPCF_IGNORE_TEMP_NO_RETURN, // Ignores temp no return
 	NPCF_IGNORE_KILL_ALL, // Ignores kill all enemies
+	// When dying, kills all summoned enemies.
+	// Summoner is determined by [npc::ParentSummoner] on the summoned enemies.
+	// @versionadded 3.0
+	NPCF_KILL_SUMMONED_ENEMIES,
 	NPCF_MAX
 };
 
@@ -398,9 +406,11 @@ class npc {
 	
 	// The flags of the enemy.
 	// @index [enum NPCFlags]
+	// @versionadded 3.0
 	// @zasm_var NPCFLAGS
 	internal bool Flags[];
 
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var NPCCOLLDET
 	internal bool CollDetection;
 
@@ -419,6 +429,7 @@ class npc {
 	//
 	// @index [enum NPCDefenseIndex]
 	// @value [enum NPCDefenseType]
+	// @length [MAX_DEFENSE]
 	// @zasm_var NPCDEFENSED
 	internal int Defense[];
 
@@ -470,6 +481,7 @@ class npc {
 	// The sfx (Quest->Audio->SFXData) used whenever the npc fires its weapon.
 	// If WeaponSFX <= 0 no sound will be played.
 	//
+	// @versionadded 3.0
 	// @zasm_var NPCFIRESFX
 	internal int WeaponSFX;
 
@@ -558,6 +570,13 @@ class npc {
 	// @zasm_var NPCDEATHSPR
 	internal int DeathSprite;
 
+	// If >-1, this ExState will be set when the npc dies, on the screen the
+	// npc spawned on ([sprite::SpawnScreen]).
+	//
+	// @versionadded 3.0
+	// @zasm_var NPCDEATHEXSTATE
+	internal int DeathExState;
+
 	// If set false, the npc will neither flash, nor flicker when invincible.
 	//
 	// @zasm_var NPCCANFLICKER
@@ -640,6 +659,7 @@ class npc {
 	//   BREAKSHIELD D2
 	internal void BreakShield();
 
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   REPAIRSHIELD D2
@@ -1044,4 +1064,37 @@ class npc {
 	// @value [enum NPCType]
 	// @zasm_var NPCTYPE
 	internal int Family;
+	
+	// The 'summoner' of this enemy.
+	// If the summoner is not [NULL], and has [NPCF_KILL_SUMMONED_ENEMIES],
+	//   then when the summoner dies, this enemy will also die.
+	//
+	// @versionadded 3.0
+	// @zasm_var NPC_SUMMONER_PARENT
+	internal npc ParentSummoner;
+	
+	// Summons a minion enemy with the specified npc_id.
+	// Enemy is summoned at this enemy's position.
+	// Fails if too many enemies already exist, based on the specified summon_limit.
+	// This enemy is the [ParentSummoner] of the created enemies.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   POP D2
+	//   POP D3
+	//   POP REFNPC
+	//   NPC_SUMMON_MINION D2 D3
+	internal npc SummonMinion(int npc_id, int summon_limit);
+	
+	// Summons a minion enemy randomly from the enemy list of the screens set as layers > 0.
+	// Enemy is summoned at a random position.
+	// Fails if too many enemies already exist, based on the specified summon_limit.
+	// This enemy is the [ParentSummoner] of the created enemies.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   POP D2
+	//   POP REFNPC
+	//   NPC_SUMMON_MINION_LAYER D2
+	internal npc SummonMinionFromLayer(int summon_limit);
 }

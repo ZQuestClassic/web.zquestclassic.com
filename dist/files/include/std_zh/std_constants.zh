@@ -105,7 +105,7 @@ DEFINE MISC_SIZE			= 32;
 DEFINE NPC_ATTRIBUTES_SIZE		= 32;
 DEFINE ITEM_ATTRIBUTES_SIZE		= 10;
 DEFINE GAMEMISC_SIZE 		= 32;
-DEFINE MAX_DEFENSE 			= 42;
+DEFINE MAX_DEFENSE 			= 41;
 
 DEFINE SCREEN_W 			= 256; // Width of the screen, in pixels.
 DEFINE SCREEN_H 			= 176; // Height of the screen, in pixels.
@@ -440,13 +440,21 @@ enum
 // MIDI values, used for [musicdata::MIDI]
 enum
 {
+	// @versionadded 3.0
 	BUILTIN_MIDI_TRIFORCE = -7,
+	// @versionadded 3.0
 	BUILTIN_MIDI_TITLE = -6,
+	// @versionadded 3.0
 	BUILTIN_MIDI_OVERWORLD = -5,
+	// @versionadded 3.0
 	BUILTIN_MIDI_LEVEL9 = -4,
+	// @versionadded 3.0
 	BUILTIN_MIDI_GAMEOVER = -3,
+	// @versionadded 3.0
 	BUILTIN_MIDI_ENDING = -2,
+	// @versionadded 3.0
 	BUILTIN_MIDI_DUNGEON = -1,
+	// @versionadded 3.0
 	BUILTIN_MIDI_NONE = 0,
 };
 

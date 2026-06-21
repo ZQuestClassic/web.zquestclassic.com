@@ -130,6 +130,15 @@ class bitmap {
 						   int yscale = -1, int rx = 0, int ry = 0,
 						   int rot_degrees = 0, int flip = 0,
 						   bool transparency = true, int opacity = OP_OPAQUE);
+	
+	//Identical to [Screen->DrawMiniTile], but it draws to a target bitmap.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   BMPDRAWMINITILE
+	//   POPARGS D5 0.0008
+	internal void DrawMiniTile(int layer, int x, int y, int tile,
+		CornerIndex quarter, int cset, int opacity = OP_OPAQUE);
 
 	// Identical to [Screen->DrawTileCloaked], but it draws to a target bitmap.
 	//
@@ -271,6 +280,19 @@ class bitmap {
 	//   POPARGS D5 0.0007
 	internal void DrawScreen(int layer, int map, int source_screen, int x,
 							 int y, int rotation = 0);
+	
+	// Draws the specified mapdata to the bitmap.
+	// Only draws the mapdata provided, not layerscreens of that mapdata.
+	// When using a temp mapdata that contains the combos for an entire region,
+	// that layer of the entire region will be drawn.
+	// Only combos will be drawn, FFCs are excluded.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   BMPDRAWMAPDATA
+	//   POPARGS D5 0.0006
+	internal void DrawMapdata(int layer, mapdata source, int x,
+							 int y, int opacity = OP_OPAQUE);
 
 	// BLITS THE BITMAP ON POINTER 'b' TO A TARGET BITMAP.
 	//
@@ -359,6 +381,7 @@ class bitmap {
 	// @param lit - if non-zero, the color to use a lit mode. This tints the entire
 	//              bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   BMPTILEBLIT
 	//   POPARGS D5 0.0018
@@ -383,6 +406,7 @@ class bitmap {
 	// @param lit - if non-zero, the color to use a lit mode. This tints the entire
 	//              bitmap using that color index of the main palette.
 	//
+	// @versionadded 3.0
 	// @zasm
 	//   BMPCOMBOBLIT
 	//   POPARGS D5 0.0018

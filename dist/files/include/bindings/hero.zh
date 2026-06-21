@@ -42,6 +42,7 @@ enum HeroAction
 	LA_MAX
 };
 
+// @versionadded 3.0
 enum HeroSliding
 {
 	SLD_NONE,
@@ -50,6 +51,16 @@ enum HeroSliding
 	// sliding in the air (momentum from ice)
 	SLD_AIR,
 	SLD_MAX
+};
+
+// Used with [Hero->HammerPos]
+// @versionadded 3.0
+enum HammerPosition
+{
+	HMRPOS_NONE, // Hammer is not in use
+	HMRPOS_UP, // Hammer is above the player's head
+	HMRPOS_ANGLE, // Hammer is at an angle
+	HMRPOS_DOWN, // Hammer is hitting the ground
 };
 
 // Used with [Hero->SetItemSlot].
@@ -84,6 +95,7 @@ enum WarpEffect
 @Bitflags("int")
 enum WarpBitflags
 {
+	// @versionadded 3.0
 	WARP_FLAG_NONE                 = 0x000,
 	WARP_FLAG_SCRIPTDRAW           = 0x001,
 	WARP_FLAG_PLAYSOUNDS           = 0x002,
@@ -171,6 +183,7 @@ class hero {
 	//   If non-zero, the item cannot be used.
 	//
 	// @index [enum ItemID]
+	// @versionadded 3.0
 	// @zasm_var HEROITEMCOOLDOWN
 	internal int ItemCooldown[];
 
@@ -202,6 +215,13 @@ class hero {
 	//
 	// @zasm_var HEROSTEPRATE
 	internal int Step;
+	
+	// This amount will be added to [Step] this frame.
+	// Resets to 0 each frame after the Hero's movement.
+	//
+	// @versionadded 3.0
+	// @zasm_var HERO_TMP_STEPBOOST
+	internal int TempStepBoost;
 
 	// The offset from corners that the Hero's movement will 'shove' them
 	// around. Ranges from 0-16
@@ -226,6 +246,8 @@ class hero {
 	// @zasm_var HEROHEALTHBEEP
 	internal int HealthBeep;
 
+	// If the player is invisible or not.
+	// @deprecated Use [InvisibleTimer] instead!
 	// @zasm_var LINKINVIS
 	internal bool Invisible;
 
@@ -239,6 +261,7 @@ class hero {
 	// @zasm_var HERONOSTEPFORWARD
 	internal bool NoStepForward;
 
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var LINKINVINC
 	internal bool CollDetection;
 
@@ -418,37 +441,58 @@ class hero {
 	// @zasm_var HEROISWARPING
 	internal const bool IsWarping;
 
-	// The X-coordinate at which the Hero will respawn upon drowning or such.
+	// If true, the engine will not update [RespawnX], [RespawnY],
+	// [RespawnDMap], or [RespawnScreen].
+	//
+	// Combo triggers [TRIGFLAG_RESPAWN_HERE] and [TRIGFLAG_RESET_RESPAWN]
+	// change this value.
+	//
+	// @versionadded 3.0
+	// @zasm_var HEROFORCEDRESPAWN
+	internal bool ForcedHazardRespawn;
+	
+	// The Hazard Respawn X-coordinate, where the Hero will respawn upon drowning or such.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNX
 	internal int RespawnX;
 
-	// The Y-coordinate at which the Hero will respawn upon drowning or such.
+	// The Hazard Respawn Y-coordinate, where the Hero will respawn upon drowning or such.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNY
 	internal int RespawnY;
 
-	// The DMap at which the Hero will respawn upon drowning or such.
+	// The Hazard Respawn DMap, where the Hero will respawn upon drowning or such.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNDMAP
 	internal int RespawnDMap;
 
-	// The screen at which the Hero will respawn upon drowning or such.
+	// The Hazard Respawn screen, where the Hero will respawn upon drowning or such.
+	// This value is absolute, not accounting for dmap offsets.
 	//
 	// The engine may overwrite this value upon changing screens or standing on
-	// safe ground.
+	// safe ground, unless [ForcedHazardRespawn] is true.
 	//
 	// @zasm_var HERORESPAWNSCR
 	internal int RespawnScreen;
+
+	// The Hazard Respawn screen, where the Hero will respawn upon drowning or such.
+	// This value is relative to the dmap offset of [RespawnDMap].
+	//
+	// The engine may overwrite this value upon changing screens or standing on
+	// safe ground, unless [ForcedHazardRespawn] is true.
+	//
+	// @versionadded 3.0
+	// @zasm_var HERORESPAWNDMSCR
+	internal int RespawnDMapScreen;
 
 	// The timer for the switchhook effect. If > 0, a switch effect is active.
 	//
@@ -500,6 +544,7 @@ class hero {
 
 	// The [lweapon] currently held by the player. Overwriting this directly will delete any [lweapon] previously held.
 	// If an [lweapon] script lifts itself, this also functions as a [Waitframe].
+	// LWeapons do not run their scripts while in the player's hands.
 	//
 	// @zasm_var HEROLIFTEDWPN
 	internal lweapon LiftedWeapon;
@@ -575,11 +620,13 @@ class hero {
 
 	// @value [enum HeroSliding]
 
+	// @versionadded 3.0
 	// @zasm_var HEROSLIDING
 	internal const int Sliding;
 
 	// The icy combo the Hero is sliding on.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICECMB
 	internal const int IceCombo;
 
@@ -589,6 +636,7 @@ class hero {
 	// If the specified combo is not an Icy Floor combo that affects the Hero,
 	// no sliding will occur.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROSCRICECMB
 	internal int ScriptIceCombo;
 
@@ -596,6 +644,7 @@ class hero {
 	// Has no effect unless the Hero is [Sliding].
 	// If the Hero is not [Sliding], the engine will clear these to `0`.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEVX
 	internal int IceVx;
 
@@ -603,6 +652,7 @@ class hero {
 	// Has no effect unless the Hero is [Sliding].
 	// If the Hero is not Sliding, the engine will clear these to `0`.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEVY
 	internal int IceVy;
 
@@ -618,6 +668,7 @@ class hero {
 	// be somewhere between the IceCombo's deceleration and half of the Hero's
 	// step speed.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEENTRYFRAMES
 	internal int IceEntryFrames;
 
@@ -633,6 +684,7 @@ class hero {
 	// be somewhere between the IceCombo's deceleration and half of the Hero's
 	// step speed.
 	//
+	// @versionadded 3.0
 	// @zasm_var HEROICEENTRYMAXFRAMES
 	internal int IceEntryMaxFrames;
 
@@ -641,23 +693,34 @@ class hero {
 	
 	// X-offset for the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_XOFF
 	internal int ItemBoxXOffset;
 	
 	// Y-offset for the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_YOFF
 	internal int ItemBoxYOffset;
 	
 	// Width of the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_WIDTH
 	internal int ItemBoxWidth;
 	
 	// Height of the player's item collection hitbox.
 	//
+	// @versionadded 3.0
 	// @zasm_var HERO_ITEMBOX_HEIGHT
 	internal int ItemBoxHeight;
+	
+	// The position the Hammer is currently being held in.
+	//
+	// @value [enum HammerPosition]
+	// @versionadded 3.0
+	// @zasm_var HERO_HAMMER_POS
+	internal const int HammerPos;
 
 	// The current A and B button items (combined bitwise). Doesn't work for item IDs > 255.
 	//
@@ -709,6 +772,7 @@ class hero {
 	//              If 'x < 0' and 'y >= 0', y is a [WarpIndex] for a warp return square.
 	// @param sound: the sound to play
 	// @param forcedir: if >-1, the player is forced to face this [Direction] after the warp.
+	// @versionadded 3.0
 	// @zasm
 	//   WARPEX 9
 	//   POPARGS D5 0.0009
@@ -879,6 +943,7 @@ class hero {
 	
 	// Causes the player to lift the specified [lweapon] in the same way they lift combos with the Lift Glove.
 	// If an [lweapon] script lifts itself, this also functions as a [Waitframe].
+	// LWeapons do not run their scripts while in the player's hands.
 	//
 	// @zasm
 	//   HEROLIFTGRAB

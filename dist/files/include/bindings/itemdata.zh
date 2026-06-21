@@ -262,15 +262,27 @@ enum ItemType {
 	IC_NOTE                    = 277,
 	IC_REFILL                  = 278,
 	IC_LIFTGLOVE               = 279,
+	// Modifies the player's gravity
+	// @versionadded 3.0
 	IC_GRAVITY_BOOTS           = 280,
+	// Modifies the player's gravity while holding Up in Sideview
+	// @versionadded 3.0
 	IC_GRAVITY_UP_BOOTS        = 281,
+	// Modifies the player's gravity while holding Down in Sideview
+	// @versionadded 3.0
 	IC_GRAVITY_DOWN_BOOTS      = 282,
+	// Modifies item cooldowns of other items
+	// @versionadded 3.0
 	IC_COOLDOWN_RING           = 283,
+	// Items of this type will immediately transform into one or more
+	// specified enemies.
+	// @versionadded 3.0
+	IC_ENEMY_AMBUSH            = 284,
 
 	//Itemclasses not less than this are reserved for future engine itemclasses
-	IC_MAXUSABLE               = 284,
+	IC_MAXUSABLE               = 285,
 
-	IC_MAX                     = 512 //Last of enum. All itemclassesare < this.
+	IC_MAX                     = 512 //Last of enum. All itemclasses are < this.
 };
 
 // Item pickup bitflags. Used with [item::Pickup].
@@ -504,6 +516,7 @@ class itemdata {
 
 	// After using the item, it goes on cooldown unable to be used again for this many frames.
 	//
+	// @versionadded 3.0
 	// @zasm_var IDATACOOLDOWN
 	internal int Cooldown;
 
@@ -531,6 +544,7 @@ class itemdata {
 
 	// The Flash CSet the item sprite uses.
 	//
+	// @versionadded 2.55.9
 	// @zasm_var IDATAFLASHCSET
 	internal int FlashCSet;
 
@@ -660,11 +674,6 @@ class itemdata {
 	// @zasm_var IDATAWEAPYOFS
 	internal int WeaponDrawYOffset;
 
-	// The default DrawZOffset used by this weapon when the item generates it.
-	//
-	// @zasm_var IDATAWEAPZOFS
-	internal int WeaponDrawZOffset;
-
 	// The timer for the 'Use Cost'/'Use Cost 2' of the item.
 	//
 	// @zasm_var IDATAMAGICTIMER
@@ -729,12 +738,14 @@ class itemdata {
 	// The Level Items that will be granted when the item is collected. See [PickupLItemLevel].
 	//
 	// @value [enum LevelItemBitflags]
+	// @versionadded 3.0
 	// @zasm_var IDATAPICKUPLITEMS
 	internal int PickupLItems;
 	
 	// The Level that [PickupLItems] will be granted for when the item is collected.
 	//
 	// @value -1 for 'current level', otherwise number of a specific 'level' (-1 <= x < [NUM_LEVELS])
+	// @versionadded 3.0
 	// @zasm_var IDATAPICKUPLITEMLEVEL
 	internal int PickupLItemLevel;
 
@@ -909,6 +920,7 @@ class itemdata {
 	// The [itemsprite]'s default movement flags.
 	//
 	// @value [enum MoveFlag]
+	// @versionadded 3.0
 	// @zasm_var IDATAMOVEFLAGS
 	internal bool MoveFlags[];
 	
@@ -916,6 +928,7 @@ class itemdata {
 	// Does not apply to some weapon types (ex. Sword, Hammer, Wand)
 	//
 	// @value [enum MoveFlag]
+	// @versionadded 3.0
 	// @zasm_var IDATAWMOVEFLAGS
 	internal bool WeaponMoveFlags[];
 

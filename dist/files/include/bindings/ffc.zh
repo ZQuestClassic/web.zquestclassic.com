@@ -3,7 +3,7 @@ enum FFCFlag
 {
 	FFCF_OVERLAY                   = 0,  // Draw Over (draw between layers 4 and 5).
 	FFCF_TRANS                     = 1,  // Translucent.
-	FFCF_SOLID                     = 2,  // Solidity (Partially Implemented).
+	FFCF_SOLID                     = 2,  // Solidity
 	FFCF_CARRYOVER                 = 3,  // Carry Over.
 	FFCF_STATIONARY                = 4,  // Stationary.
 	FFCF_CHANGER                   = 5,  // Is A Changer.
@@ -15,6 +15,28 @@ enum FFCFlag
 	FFCF_IGNORECHANGER             = 11, // The FFC ignores changers.
 	FFCF_IMPRECISIONCHANGER        = 12, // The FFC is affected by changers if it is within 1px on both axis, not subpixel alignment.
 	FFCF_LENSINVIS                 = 13, // Not visible to the lens of truth.
+	// Acts as a 'Platform'
+	// @versionadded 3.0
+	FFCF_PLATFORM                  = 14,
+	// Solidity only if the FFC's combo has some solid part
+	// @versionadded 3.0
+	FFCF_SOLID_IF_COMBO_SOLID      = 15,
+	
+	// Changer: Become This Combo+CSet
+	// @versionadded 3.0
+	FFCF_CHANGE_COMBO              = 27,
+	// Changer: Become Previous Combo
+	// @versionadded 3.0
+	FFCF_PREV_COMBO                = 28,
+	// Changer: Become Next Combo
+	// @versionadded 3.0
+	FFCF_NEXT_COMBO                = 29,
+	// Changer: Swap w/ Prev FFC
+	// @versionadded 3.0
+	FFCF_PREV_FFC                  = 30,
+	// Changer: Swap w/ Next FFC
+	// @versionadded 3.0
+	FFCF_NEXT_FFC                  = 31,
 };
 
 const int MIN_FFC = 1;
@@ -55,6 +77,7 @@ class ffc {
 	
 	// The FFC's index within the current screen (0-indexed).
 	//
+	// @versionadded 3.0
 	// @zasm_var FFCINDEX
 	internal const int ScreenFFCIndex;
 
@@ -65,6 +88,7 @@ class ffc {
 
 	// The layer the FFC draws on. Unused if [FFCF_OVERLAY] is set.
 	//
+	// @versionadded 3.0
 	// @zasm_var FFCLAYER
 	internal int Layer;
 
@@ -103,6 +127,13 @@ class ffc {
 	// @index [enum FFCFlag]
 	// @zasm_var FFFLAGSD
 	internal bool Flags[];
+	
+	// The position-specific states for this ffc.
+	//
+	// @length 8
+	// @versionadded 3.0
+	// @zasm_var FFC_POSSTATE
+	internal bool PosState[];
 
 	// The hitbox width, in pixels (1 to 64), of the FFC. Unless the FFC is
 	// [ffc::Flags], the type of its combo will affect this area. NOTE: Not all
@@ -133,4 +164,14 @@ class ffc {
 
 	// @zasm_var FFCLASTCHANGERY
 	internal int LastChangerY;
+	
+	// Attempts to trigger the ffc's combo with it's trigger number 'trig_index'.
+	// Returns true on success, false on failure.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   POP D2
+	//   POP REFFFC
+	//   FFCTRIGGER D2
+	internal bool Trigger(int trig_index = 0);
 }

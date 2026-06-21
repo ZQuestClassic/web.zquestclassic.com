@@ -153,6 +153,7 @@ class lweapon {
 	// If the weapon's collision is enabled. Set to false to disable collision
 	// entirely.
 	//
+	// @deprecated use [sprite::NoCollisionTimer] instead!
 	// @zasm_var LWPNCOLLDET
 	internal bool CollDetection;
 
@@ -219,6 +220,34 @@ class lweapon {
 	// @zasm_var LWPNTIMEOUT
 	internal int Timeout;
 
+	// When the weapon lands from the air, it bounces based on this multiplier of it's
+	// downward velocity, and [BounceAdd].
+	// Must be >= 0.
+	//
+	// @versionadded 3.0
+	// @zasm_var LWPN_BOUNCE_MULT
+	internal int BounceMult;
+	
+	// When the weapon lands from the air, it bounces based on [BounceMult],
+	// adding this value in px/frame after the multiplier.
+	// Using a negative value will dampen the bounce, and is recommended to prevent
+	// the weapon from bouncing many tiny rapid bounces as it's velocity gets small.
+	//
+	// @versionadded 3.0
+	// @zasm_var LWPN_BOUNCE_ADD
+	internal int BounceAdd;
+	
+	// Set to true, this prevents the weapon from triggering any Combo Triggers.
+	// Also affects some melee weapon checks (ex. slash/pound combos).
+	//
+	// This being false means that scripts are not CAUSING it to ignore triggers-
+	// it does not account for other things that may disable the weapon from
+	// activating triggers (ex. the Hammer being above the player's head).
+	//
+	// @versionadded 3.0
+	// @zasm_var LWPN_NO_TRIGGERS
+	internal bool DisableTriggers;
+
 	// If < 0, the weapon behaves as normal. If == 0, the weapon pierces infinitely.
 	// If > 0, each time the weapon hits an enemy or the player, counts down by 1.
 	// When counting down from '1' to '0', the weapon dies.
@@ -226,6 +255,7 @@ class lweapon {
 	// have their collision disabled so they cannot hit further targets-
 	// and the PierceCount set on a lit bomb will apply to the bomb's blast.
 	//
+	// @versionadded 3.0
 	// @zasm_var LWPNPIERCE
 	internal int PierceCount;
 
@@ -311,6 +341,13 @@ class lweapon {
 	// @index [enum WeaponSpriteIndex]
 	// @zasm_var LWPNBURNLIGHTRADIUS
 	internal int BurnLightRadius[];
+
+	// The burning light offsets associated with sprites of the weapon.
+	//
+	// @index [enum WeaponSpriteIndex]
+	// @versionadded 3.0
+	// @zasm_var LWPNBURNLIGHTOFFSET
+	internal int BurnLightOffset[];
 
 	// @deprecated - This is now just the internal engine ID, which is the same as doing `<int>some_sprite`.
 	// @zasm_var LWEAPONSCRIPTUID
