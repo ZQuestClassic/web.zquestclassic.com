@@ -15618,6 +15618,10 @@ namespace Emily
 //
 //   Same as deprecated, but the compiler never shows a deprecation message. Only the documentation site will.
 //
+// @deprecated_future <message>
+//
+//   Mark as planned to be deprecated later. Only the documentation site shows this.
+//
 // @exit
 //
 //   Mark that the function exits the script.
@@ -15688,6 +15692,7 @@ import "bindings/subscreenpage.zh"
 import "bindings/subscreenwidget.zh"
 import "bindings/text.zh"
 import "bindings/viewport.zh"
+import "bindings/weapondata.zh"
 import "bindings/websocket.zh"
 import "bindings/viewport.zh"
 import "bindings/zinfo.zh"
@@ -16097,6 +16102,13 @@ class bitmap {
 
 	// Identical to [Screen->Arc], but it draws to a target bitmap.
 	//
+	// Opaque fills with color 0 write color 0 to the bitmap, so a filled `Arc`
+	// can be used to carve transparent pie-slice regions out of a bitmap.
+	//
+	// @versionchanged 3.0 Filled pie slices used to draw garbage (often filling
+	// everything but the slice) for wrap-around angle spans, slices partially
+	// offscreen, or tiny radii. All angle spans now draw correctly. Opaque fills
+	// with color 0 used to draw nothing; they now write color 0.
 	// @zasm
 	//   BMPARCR
 	//   POPARGS D5 0.0015
@@ -17067,6 +17079,18 @@ class combodata {
 	// @zasm_var COMBODGENFLAGARR
 	internal bool GenFlags[];
 
+	// Certain features, such as [LF_LARGE_LIFTABLE], use this directions to connect to
+	// other combos forming a 'Large Combo'.
+	// If a direction is set on this combo, and the combo on the same layer in that direction
+	// has the opposite direction set, the combos will be connected for features that use
+	// large combos.
+	//
+	// @index [enum Direction]
+	// @length 4
+	// @versionadded 3.0
+	// @zasm_var COMBOD_LARGECOMBO_DIRS
+	internal bool LargeComboDirs[];
+
 	// The GFX combo/cset used to display the object, if 'Other Combo GFX' is
 	// the GFX mode.
 	//
@@ -17149,12 +17173,14 @@ class combodata {
 	// The radius of light that will be emitted by the lifted weapon.
 	//
 	// @versionadded 3.0
+	// @deprecated use [LiftWeaponData] / [weapondata::BurnLightRadius] instead!
 	// @zasm_var COMBODLIFTLIGHTRAD
 	internal int LiftLightRadius;
 	
 	// The [LightShape] the lifted weapon will use, if light is emitted.
 	//
 	// @versionadded 3.0
+	// @deprecated use [LiftWeaponData] / [weapondata::LightShape] instead!
 	// @zasm_var COMBODLIFTLIGHTSHAPE
 	internal int LiftLightShape;
 
@@ -17521,6 +17547,16 @@ class combodata {
 	// @versionadded 3.0
 	// @zasm_var COMBODTRIGPUSHTIME
 	internal int TrigPushTime;
+	
+	// The [weapondata] for this combo's lift weapon.
+	// @versionadded 3.0
+	// @zasm_var COMBODATA_LIFT_WEAPONDATA
+	internal const weapondata LiftWeaponData;
+	
+	// The [weapondata] for this combo's misc weapon.
+	// @versionadded 3.0
+	// @zasm_var COMBODATA_MISC_WEAPONDATA
+	internal const weapondata MiscWeaponData;
 }
 
 enum ComboTriggerFlag
@@ -17915,6 +17951,20 @@ enum ComboTriggerFlag
 	//
 	// @versionadded 3.0
 	TRIGFLAG_COMBOPOSSTATE_UNSET,
+	// Trigger effect: cause all combos in this combo's 'Large Combo' group
+	// as determined by [combodata::LargeComboDirs] to trigger all triggers they
+	// have with [TRIGFLAG_TRIGGERED_BY_LARGE_COMBO_COPYCAT] set, and the same
+	// [combotrigger::LargeComboCopycatID].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_TRIGGER_LARGE_COMBO_COPYCAT,
+	// Trigger cause: caused when any combo in this combo's 'Large Combo' group
+	// as determined by [combodata::LargeComboDirs] trigger a trigger they
+	// have with [TRIGFLAG_TRIGGER_LARGE_COMBO_COPYCAT] set, and the same
+	// [combotrigger::LargeComboCopycatID].
+	//
+	// @versionadded 3.0
+	TRIGFLAG_TRIGGERED_BY_LARGE_COMBO_COPYCAT,
 
 	TRIGFLAG_MAX
 };
@@ -18051,6 +18101,13 @@ class combotrigger {
 	//
 	// @zasm_var CMBTRIGCOPYCAT
 	internal int Copycat;
+
+	// Used by [TRIGFLAG_TRIGGER_LARGE_COMBO_COPYCAT] and
+	// [TRIGFLAG_TRIGGERED_BY_LARGE_COMBO_COPYCAT].
+	//
+	// @versionadded 3.0
+	// @zasm_var CMBTRIG_LARGECOMBO_COPYCAT
+	internal int LargeComboCopycatID;
 
 	// The item pickup bitflags for the spawned item.
 	//
@@ -18649,6 +18706,15 @@ enum WeaponFlag
 	//
 	// @versionadded 3.0
 	WFLAG_TEMP_IGNORE_SOLID,
+	// The weapon will be carried by conveyor combos.
+	//
+	// @versionadded 3.0
+	WFLAG_OBEY_CONVEYORS,
+	// If carried by the [Hero], the weapon can be carried across screen boundaries,
+	// even when QRs would normally prevent this.
+	//
+	// @versionadded 3.0
+	WFLAG_CARRYABLE_CROSS_SCREEN,
 	WFLAG_MAX
 };
 
@@ -19402,7 +19468,12 @@ enum ComboLiftFlag
 	LF_SPECIALITEM,
 	LF_NOUCSET,
 	LF_NOWPNCMBCSET,
-	LF_BREAKONSOLID, // TODO: Deprecate this with new weapon_data access
+	// @deprecated use [combodata::LiftWeaponData] / [weapondata::Flags] / [WFLAG_BREAKS_ON_SOLID] instead!
+	LF_BREAKONSOLID,
+	// If this combo is part of a larger liftable object, as
+	// defined via [combodata::LargeComboDirs].
+	// @versionadded 3.0
+	LF_LARGE_LIFTABLE,
 };
 
 // Used with [Hero->LiftFlags].
@@ -19514,6 +19585,12 @@ enum SpecialDrawLayer
 	// This is just after the Hero's draw and the [Hero->LiftedWeapon] is drawn.
 	// @versionadded 3.0
 	SPLAYER_OVER_PROMPT_COMBO,
+	// Just under the [Graphics->SpriteLayerTarget] sprite, if it exists.
+	// @versionadded 3.0
+	SPLAYER_SPRITE_TARGET_UNDER,
+	// Just over the [Graphics->SpriteLayerTarget] sprite, if it exists.
+	// @versionadded 3.0
+	SPLAYER_SPRITE_TARGET_OVER,
 };
 
 // Used with [itemdata::SizeFlags], [itemdata::WeaponSizeFlags], [npcdata::SizeFlags].
@@ -19869,10 +19946,17 @@ class dmapdata {
 	// @zasm_var DMAPDATAPSUBSCRIPT
 	internal int PSubScript;
 
-	// The 8 InitD values shared by the Active and Passive Subscreen Scripts.
+	// The 8 InitD values used by the Active Subscreen Script.
+	// [qr_SCRIPTS_SHARE_INITD] makes changing this array also change [PassiveSubInitD].
 	//
 	// @zasm_var DMAPDATASUBINITD
 	internal untyped SubInitD[];
+
+	// The 8 InitD values used by the Passive Subscreen Script.
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATAPSUBINITD
+	internal untyped PassiveSubInitD[];
 
 	// Which dmapdata script to use as a replacement for the engine fullscreen
 	// map (0 for none).
@@ -20581,7 +20665,13 @@ class ffc {
 	// @zasm_var FFCHEIGHT
 	internal int EffectHeight;
 
-	// Represents the ID of another FFC this one is 'linked' to.
+	// The number of another FFC on the same screen that this one is 'linked'
+	// to (1 to 128), or 0 if not linked. While linked, this FFC moves with
+	// the linked FFC's velocity instead of its own.
+	//
+	// Note: this is the FFC's 1-indexed position within its own screen (one
+	// more than [ScreenFFCIndex]), not an [ID] - the two only coincide for
+	// the first screen of a region.
 	//
 	// @zasm_var FFLINK
 	internal int Link;
@@ -21273,12 +21363,18 @@ enum EventDataIndex_HeroHit //[Game->EventData] indexes for [GENSCR_EVENT_HERO_H
 	GENEV_HEROHIT_DAMAGE, //Damage to be taken
 	GENEV_HEROHIT_HITDIR, //[Direction] to be knocked in
 	GENEV_HEROHIT_NULLIFY, //Bool: to nullify the hit, or not
-	GENEV_HEROHIT_NAYRUON, //Bool: if [IC_NAYRUSLOVE] will nullify the damage, or not
+	//Bool: if [IC_NAYRUSLOVE] or [IC_CBYRNA] will nullify the damage, or not.
+	// @versionadded 2.55.15
+	GENEV_HEROHIT_INVINCIBLE,
 	GENEV_HEROHIT_IFRAMES, //Number of IFrames to have after hit, if not nullified
 	GENEV_HEROHIT_HITTYPE, //What type of object is hitting the hero ([ObjectType])
 	GENEV_HEROHIT_HITOBJ, //The pointer to that object
 	GENEV_HEROHIT_HITTYPE2, //A second type of object ([ObjectType], can be [OBJTYPE_NONE])
-	GENEV_HEROHIT_HITOBJ2 //The pointer to the second object
+	GENEV_HEROHIT_HITOBJ2, //The pointer to the second object
+	//Bool: if [IC_NAYRUSLOVE] or [IC_CBYRNA] will nullify the knockback, or not.
+	// @versionadded 2.55.15
+	GENEV_HEROHIT_INVINCIBLE_KB,
+	GENEV_HEROHIT_NAYRUON = GENEV_HEROHIT_INVINCIBLE
 };
 enum EventDataIndex_CollectItem //[Game->EventData] indexes for [GENSCR_EVENT_COLLECT_ITEM]
 {
@@ -23398,6 +23494,9 @@ internal long LongDistance(long x1, long y1, long x2, long y2);
 internal long LongDistance(long x1, long y1, long x2, long y2, long scale);
 
 // Compares the contents of the two strings.
+// Returns 0 if they are equal.
+// Returns 1 if the first string is 'greater' than the second string.
+// Returns -1 if the first string is 'less' than the second string.
 //
 // @zasm
 //   POP D1
@@ -23406,6 +23505,8 @@ internal long LongDistance(long x1, long y1, long x2, long y2, long scale);
 internal int strcmp(char32[] str1, char32[] str2);
 
 // Compares the contents of the two strings, up to a length limit.
+// See [strcmp] for more details on comparison / return values.
+// Only the first 'num_chars' characters are compared.
 //
 // @zasm
 //   POP D1
@@ -23415,6 +23516,8 @@ internal int strcmp(char32[] str1, char32[] str2);
 internal int strncmp(char32[] str1, char32[] str2, int num_chars);
 
 // Compares the contents of the two strings, case-insensitively.
+// See [strcmp] for more details on comparison / return values.
+// All alphabetical characters are considered lower-case for comparison.
 //
 // @zasm
 //   POP D1
@@ -23423,6 +23526,9 @@ internal int strncmp(char32[] str1, char32[] str2, int num_chars);
 internal int stricmp(char32[] str1, char32[] str2);
 
 // Compares the contents of the two strings, up to a length limit, case-insensitively.
+// See [strcmp] for more details on comparison / return values.
+// Only the first 'num_chars' characters are compared.
+// All alphabetical characters are considered lower-case for comparison.
 //
 // @zasm
 //   POP D1
@@ -23509,6 +23615,7 @@ internal void ltou(char32[] string);
 internal void convcase(char32[] string);
 
 // Converts the value [val] to a string, and writes to [dest].
+// Returns the number of characters used.
 //
 // @zasm
 //   POP D3
@@ -23517,6 +23624,7 @@ internal void convcase(char32[] string);
 internal int itoa(char32[] dest, int val);
 
 // Converts [val] to a string, as hexadecimal, and writes to [dest].
+// Returns the number of characters used.
 //
 // @zasm
 //   POP D3
@@ -23537,7 +23645,7 @@ internal int xtoi(char32[] str);
 //   POP D1
 //   POP D0
 //   STRCAT D2
-internal int strcat(char32[] dest, char32[] src);
+internal char32[] strcat(char32[] dest, char32[] src);
 
 // Returns the first index of [str] that contains the character [c].
 //
@@ -23547,7 +23655,7 @@ internal int strcat(char32[] dest, char32[] src);
 //   STRCHR D2
 internal int strchr(char32[] str, char32 c);
 
-// Returns the length in [str] before any character in 'chars' is found.
+// Returns the length in [str] before any character in [chars] is found.
 //
 // @zasm
 //   POP D1
@@ -23555,14 +23663,13 @@ internal int strchr(char32[] str, char32 c);
 //   STRCSPN D2
 internal int strcspn(char32[] str, char32[] chars);
 
-// Returns the number of characters in a string before a character not contained
-// in 'string_keys' is found
+//  Returns the length in [str] before any character NOT in [chars] is found.
 //
 // @zasm
 //   POP D1
 //   POP D0
 //   STRSPN D2
-internal int strspn(char32[] str, char32[] string_keys);
+internal int strspn(char32[] str, char32[] chars);
 
 // Returns the index of the first instance of the string [tofind] within [str].
 //
@@ -23696,7 +23803,7 @@ internal T Choose<T>(...T[] values);
 //
 // @zasm
 //   PUSHV -1
-//   ARRAYPUSH
+//   ARRAYPUSH 0 ; Set to script object type in compiler
 //   POPARGS D5 0.0003
 internal bool ArrayPushBack<T>(T[] arr, T val);
 
@@ -23705,7 +23812,7 @@ internal bool ArrayPushBack<T>(T[] arr, T val);
 //
 // @zasm
 //   PUSHV 0
-//   ARRAYPUSH
+//   ARRAYPUSH 0 ; Set to script object type in compiler
 //   POPARGS D5 0.0003
 internal bool ArrayPushFront<T>(T[] arr, T val);
 
@@ -23714,7 +23821,7 @@ internal bool ArrayPushFront<T>(T[] arr, T val);
 // back of the array will be targetted.
 //
 // @zasm
-//   ARRAYPUSH
+//   ARRAYPUSH 0 ; Set to script object type in compiler
 //   POPARGS D5 0.0003
 internal bool ArrayPushAt<T>(T[] arr, T val, int index);
 
@@ -23909,6 +24016,15 @@ class Graphics {
 	//
 	// @zasm_var IS8BITTILE
 	internal const bool Is8BitTile[];
+	
+	// The sprite being targetted by [SPLAYER_SPRITE_TARGET_UNDER] and [SPLAYER_SPRITE_TARGET_OVER]
+	// for the current script (each script stores a separate copy of this value).
+	//
+	// Defaults to [NULL] for most scripts, except for scripts attached to a sprite object,
+	// which default this to the attached sprite.
+	// @versionadded 3.0
+	// @zasm_var GRAPHICS_SPRITE_LAYER_TARGET
+	internal sprite SpriteLayerTarget;
 
 	// Creates a 'wave' effect, as a 'Wavy' warp type uses.
 	//
@@ -25913,11 +26029,23 @@ class itemdata {
 	// @zasm_var IDATAPOWER
 	internal int Power;
 
-	// The 8 InitD values shared by the item's Action, Pickup, and Sprite
-	// scripts.
+	// The 8 InitD values used by the Action script.
+	// [qr_SCRIPTS_SHARE_INITD] makes changing this array also change [PickupInitD] and [SpriteInitD].
 	//
 	// @zasm_var IDATAINITDD
 	internal untyped InitD[];
+	
+	// The 8 InitD values used by the item's Pickup script.
+	//
+	// @versionadded 3.0
+	// @zasm_var IDATACOLLECTINITD
+	internal untyped PickupInitD[];
+	
+	// The 8 InitD values used by the item's Sprite script.
+	//
+	// @versionadded 3.0
+	// @zasm_var IDATASPRITEINITD
+	internal untyped SpriteInitD[];
 
 	// The Hero Tile Modifier associated with this item.
 	//
@@ -26088,51 +26216,61 @@ class itemdata {
 
 	// The overrided weapon type that the weapon will act like.
 	//
+	// @deprecated use [WeaponData] / [weapondata::Weapon] instead!
 	// @zasm_var IDATAUSEWPN
 	internal int Weapon;
 
 	// The 8 InitD values for the weapon script.
 	//
+	// @deprecated use [WeaponData] / [weapondata::InitD] instead!
 	// @zasm_var IDATAWPNINITD
 	internal untyped WeaponInitD[];
 
 	// The item's lweapon script
 	//
+	// @deprecated use [WeaponData] / [weapondata::Script] instead!
 	// @zasm_var IDATAWEAPONSCRIPT
 	internal int WeaponScript;
 
 	// The hitbox offset of the sprite, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::HitXOffset] instead!
 	// @zasm_var IDATAWEAPHXOFS
 	internal int WeaponHitXOffset;
 
 	// The hitbox offset of the sprite, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::HitYOffset] instead!
 	// @zasm_var IDATAWEAPHYOFS
 	internal int WeaponHitYOffset;
 
 	// The hitbox size of the sprite, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::HitWidth] instead!
 	// @zasm_var IDATAWEAPHXSZ
 	internal int WeaponHitWidth;
 
 	// The hitbox size of the sprite, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::HitHeight] instead!
 	// @zasm_var IDATAWEAPHYSZ
 	internal int WeaponHitHeight;
 
 	// The Z-Height of the hitbox, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::HitZHeight] instead!
 	// @zasm_var IDATAWEAPHZSZ
 	internal int WeaponHitZHeight;
 
 	// The visual offset of the sprite, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::DrawXOffset] instead!
 	// @zasm_var IDATAWEAPXOFS
 	internal int WeaponDrawXOffset;
 
 	// The visual offset of the sprite, in pixels.
 	//
+	// @deprecated use [WeaponData] / [weapondata::DrawYOffset] instead!
 	// @zasm_var IDATAWEAPYOFS
 	internal int WeaponDrawYOffset;
 
@@ -26222,16 +26360,19 @@ class itemdata {
 	// apply from the itemdata, for any [lweapon] created by this item.
 	//
 	// @value [enum SizeOverrideBitflags]
+	// @deprecated use [WeaponData] / [weapondata::SizeFlags] instead!
 	// @zasm_var IDATAOVERRIDEFLWEAP
 	internal int WeaponSizeFlags;
 
 	// The visual size of the sprite, in tiles.
 	//
+	// @deprecated use [WeaponData] / [weapondata::TileWidth] instead!
 	// @zasm_var IDATATILEWWEAP
 	internal int WeaponTileWidth;
 
 	// The visual size of the sprite, in tiles.
 	//
+	// @deprecated use [WeaponData] / [weapondata::TileHeight] instead!
 	// @zasm_var IDATATILEHWEAP
 	internal int WeaponTileHeight;
 
@@ -26273,6 +26414,7 @@ class itemdata {
 	// If true, the weapon created by this item will update its sprite when lit
 	// on fire using [BurnSprites].
 	//
+	// @deprecated use [WeaponData] / [weapondata::Flags] / [WFLAG_UPDATE_BURNSPR] instead!
 	// @zasm_var IDATAUSEBURNSPR
 	internal bool UseBurnSprites;
 
@@ -26280,12 +26422,14 @@ class itemdata {
 	// fire.
 	//
 	// @index [enum ItemBurnIndex]
+	// @deprecated use [WeaponData] / [weapondata::BurnSprites] instead!
 	// @zasm_var IDATABURNINGSPR
 	internal int BurnSprites[];
 
 	// The burning light radii from `Graphics->Sprites->Burning`.
 	//
 	// @index [enum ItemBurnIndex]
+	// @deprecated use [WeaponData] / [weapondata::BurnLightRadius] instead!
 	// @zasm_var IDATABURNINGLIGHTRAD
 	internal int BurnLightRadius[];
 
@@ -26325,6 +26469,7 @@ class itemdata {
 	// defense resolution is used in place of `None`.
 	//
 	// @deprecated_alias Defence
+	// @deprecated use [WeaponData] / [weapondata::Defense] instead!
 	// @zasm_var IDATAUSEDEF
 	internal int Defense;
 
@@ -26390,6 +26535,7 @@ class itemdata {
 	// Does not apply to some weapon types (ex. Sword, Hammer, Wand)
 	//
 	// @value [enum MoveFlag]
+	// @deprecated use [WeaponData] / [weapondata::MoveFlags] instead!
 	// @versionadded 3.0
 	// @zasm_var IDATAWMOVEFLAGS
 	internal bool WeaponMoveFlags[];
@@ -26441,6 +26587,11 @@ class itemdata {
 	// @value [enum ItemType]
 	// @zasm_var IDATATYPE
 	internal int Family;
+	
+	// The [weapondata] for this item's weapon.
+	// @versionadded 3.0
+	// @zasm_var IDATA_WEAPONDATA
+	internal const weapondata WeaponData;
 }
 typedef itemsprite item;
 
@@ -26464,7 +26615,7 @@ class itemsprite {
 
 	// Max number of itemsprites currently allowed.
 	//
-	// @deprecated_getter
+	// @deprecated_getter Max
 	// @zasm_var SPRITEMAXITEM
 	internal int Max;
 
@@ -26700,7 +26851,7 @@ class lweapon {
 
 	// Returns the max number of weapons currently allowed.
 	//
-	// @deprecated_getter SPRITEMAXLWPN
+	// @deprecated_getter Max
 	// @zasm_var SPRITEMAXLWPN
 	internal int Max;
 
@@ -26838,7 +26989,6 @@ class lweapon {
 	// Unblockable bitflags.
 	//
 	// @value [enum UnblockableBitflags]
-
 	// @zasm_var LWPNUNBL
 	internal int Unblockable;
 
@@ -26945,6 +27095,10 @@ class lweapon {
 	// @zasm_var LWPNDEATHSFX
 	internal int DeathSFX;
 
+	// The required Lift Glove level to lift this weapon.
+	// If 0, the weapon cannot be lifted.
+	// If >0, the weapon can be lifted by gloves >= this level.
+	//
 	// @zasm_var LWPNLIFTLEVEL
 	internal int LiftLevel;
 
@@ -28049,6 +28203,9 @@ enum MessageFlag
 	                      // instead of the UL of a 2x2 adjustable frame
 	MSGFLAG_TRANS_BG,     // If the background should be translucent
 	MSGFLAG_TRANS_FG,     // If the text should be translucent
+	// If the string should ignore 'Messages Freeze All Action'.
+	// @versionadded 3.0
+	MSGFLAG_NOFREEZE,
 };
 
 // @versionadded 3.0
@@ -28057,6 +28214,24 @@ enum MessageSegmentType
 	MSG_SEGMENT_TYPE_INVALID,
 	MSG_SEGMENT_TYPE_LITERAL,
 	MSG_SEGMENT_TYPE_COMMAND,
+};
+
+// Anchor positions relative to message boxes, used for icons
+// ([messagedata::MoreIconAnchor], [messagedata::ScrollUpIconAnchor], [messagedata::ScrollDownIconAnchor])
+// @versionadded 3.0
+enum MessageAnchor
+{
+	MSG_ANCH_TOP,
+	MSG_ANCH_BOTTOM,
+	MSG_ANCH_LEFT,
+	MSG_ANCH_RIGHT,
+	MSG_ANCH_TOPLEFT,
+	MSG_ANCH_TOPRIGHT,
+	MSG_ANCH_BOTTOMLEFT,
+	MSG_ANCH_BOTTOMRIGHT,
+	MSG_ANCH_CENTER,
+	MSG_ANCH_SCREEN,
+	MSG_ANCH_SCREEN_YOFFSET,
 };
 
 // For accessing and editing message strings (`Quests > Strings`).
@@ -28116,6 +28291,24 @@ class messagedata {
 	//
 	// @zasm_var MESSAGEDATASFX
 	internal int Sound;
+
+	// The SFX to play when player input advances the text.
+	//
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ADVSFX
+	internal int SoundAdvance;
+
+	// The SFX to play when player input changes the selected menu option.
+	//
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_MENUMOVE_SFX
+	internal int SoundMenuMove;
+
+	// The SFX to play when player input closes a menu.
+	//
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_MENUCLOSE_SFX
+	internal int SoundMenuClose;
 
 	// The list position of the messagedata as it is displayed in ZQ.
 	//
@@ -28225,9 +28418,112 @@ class messagedata {
 	// 2. 7 numbers: [MSG_SEGMENT_TYPE_COMMAND] 6 12 1 2 1 2 (`\TextColor\1\2\<space>`)
 	// 3. 3 numbers: [MSG_SEGMENT_TYPE_LITERAL] 18 5 (`"World"`)
 	//
+	// Command args are returned at full precision: for the few commands that accept them,
+	// args may have decimal places (e.g. `\SetCurrentScreenD\0\26.5\` returns an arg of `26.5`).
+	//
 	// @versionadded 3.0
 	// @zasm_var MESSAGEDATASEGMENTS
 	internal const int[] Segments;
+	
+	// The type of shadow to use on the text.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_SHADOW_TYPE
+	internal ShadowType ShadowType;
+	
+	// The color of shadow to use on the text.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_SHADOW_COLOR
+	internal int ShadowColor;
+	
+	// The sprite to use for the 'More Icon'.
+	// The 'More Icon' is displayed when the user needs to press A/B to see more.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_MORE_SPRITE
+	internal int MoreIconSprite;
+	
+	// The anchor to use for the 'More Icon'. This determines what part of the message box
+	// the [MoreIconX]/[MoreIconY] are relative to.
+	// The 'More Icon' is displayed when the user needs to press A/B to see more.
+	//
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_MORE_ANCHOR
+	internal MessageAnchor MoreIconAnchor;
+	
+	// The X (relative to the [MoreIconAnchor]) to draw the 'More Icon' at.
+	// The 'More Icon' is displayed when the user needs to press A/B to see more.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_MORE_X
+	internal int MoreIconX;
+	
+	// The Y (relative to the [MoreIconAnchor]) to draw the 'More Icon' at.
+	// The 'More Icon' is displayed when the user needs to press A/B to see more.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_MORE_Y
+	internal int MoreIconY;
+	
+	// The sprite to use for the 'Scroll Up Icon'.
+	// The 'Scroll Up Icon' is displayed when the user can press Up to scroll up.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLUP_SPRITE
+	internal int ScrollUpIconSprite;
+	
+	// The anchor to use for the 'Scroll Up Icon'. This determines what part of the message box
+	// the [ScrollUpIconX]/[ScrollUpIconY] are relative to.
+	// The 'Scroll Up Icon' is displayed when the user can press Up to scroll up.
+	//
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLUP_ANCHOR
+	internal MessageAnchor ScrollUpIconAnchor;
+	
+	// The X (relative to the [ScrollUpIconAnchor]) to draw the 'Scroll Up Icon' at.
+	// The 'Scroll Up Icon' is displayed when the user can press Up to scroll up.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLUP_X
+	internal int ScrollUpIconX;
+	
+	// The Y (relative to the [ScrollUpIconAnchor]) to draw the 'Scroll Up Icon' at.
+	// The 'Scroll Up Icon' is displayed when the user can press Up to scroll up.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLUP_Y
+	internal int ScrollUpIconY;
+	
+	// The sprite to use for the 'Scroll Down Icon'.
+	// The 'Scroll Down Icon' is displayed when the user can press Down to scroll down.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLDOWN_SPRITE
+	internal int ScrollDownIconSprite;
+	
+	// The anchor to use for the 'Scroll Down Icon'. This determines what part of the message box
+	// the [ScrollDownIconX]/[ScrollDownIconY] are relative to.
+	// The 'Scroll Down Icon' is displayed when the user can press Down to scroll down.
+	//
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLDOWN_ANCHOR
+	internal MessageAnchor ScrollDownIconAnchor;
+	
+	// The X (relative to the [ScrollDownIconAnchor]) to draw the 'Scroll Down Icon' at.
+	// The 'Scroll Down Icon' is displayed when the user can press Down to scroll down.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLDOWN_X
+	internal int ScrollDownIconX;
+	
+	// The Y (relative to the [ScrollDownIconAnchor]) to draw the 'Scroll Down Icon' at.
+	// The 'Scroll Down Icon' is displayed when the user can press Down to scroll down.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_ICON_SCROLLDOWN_Y
+	internal int ScrollDownIconY;
+	
+	// The speed in pixels/frame that the string scrolls when the player is scrolling
+	// manually using the up/down buttons.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_SCROLL_SPEED_ACTIVE
+	internal int ScrollSpeedActive;
+	
+	// The speed in pixels/frame that the string scrolls when scrolling to fit new text
+	// on screen, or to scroll a selected menu choice into view.
+	// @versionadded 3.0
+	// @zasm_var MESSAGEDATA_SCROLL_SPEED_PASSIVE
+	internal int ScrollSpeedPassive;
 
 	// Loads the raw message data into the provided string buffer.
 	//
@@ -28940,13 +29236,15 @@ class npc {
 	// @zasm_var NPCKNOCKBACKSPEED
 	internal int SlideSpeed;
 
-	// The spawn sprite used by the npc, 0-255
+	// The spawn sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCSPAWNSPR
 	internal int SpawnSprite;
 
-	// The death sprite used by the npc, 0-255
+	// The death sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDEATHSPR
 	internal int DeathSprite;
 
@@ -28992,7 +29290,11 @@ class npc {
 	// @zasm_var NPCSCRIPTUID
 	internal const int UID;
 
-	// @deprecated
+	// @versionadded 3.0
+	// @zasm_var NPCPARENTUID
+	internal npc Parent;
+
+	// @deprecated - use [Parent] or [Parent->UID] instead.
 	// @zasm_var NPCPARENTUID
 	internal int ParentUID;
 
@@ -29477,6 +29779,11 @@ class npc {
 	//   POP REFNPC
 	//   NPC_SUMMON_MINION_LAYER D2
 	internal npc SummonMinionFromLayer(int summon_limit);
+	
+	// The [weapondata] for this enemy's weapon.
+	// @versionadded 3.0
+	// @zasm_var NPC_WEAPONDATA
+	internal const weapondata WeaponData;
 }
 enum NPCType
 {
@@ -29976,26 +30283,31 @@ class npcdata {
 
 	// The weapon action script assigned to this npc.
 	//
+	// @deprecated use [WeaponData] / [weapondata::Script] instead!
 	// @zasm_var NPCDATAWEAPONSCRIPT
 	internal int WeaponScript;
 
 	// The eight InitD args assigned to the weapon script used by this npc.
 	//
+	// @deprecated use [WeaponData] / [weapondata::InitD] instead!
 	// @zasm_var NPCDATAWEAPONINITD
 	internal int WeaponInitD[];
 
-	// The shadow sprite used by the npc, 0-255
+	// The shadow sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDSHADOWSPR
 	internal int ShadowSprite;
 
-	// The spawn sprite used by the npc, 0-255
+	// The spawn sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDSPAWNSPR
 	internal int SpawnSprite;
 
-	// The death sprite used by the npc, 0-255
+	// The death sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDDEATHSPR
 	internal int DeathSprite;
 	
@@ -30009,6 +30321,7 @@ class npcdata {
 	// The fired [eweapon]'s default movement flags.
 	//
 	// @value [enum MoveFlag]
+	// @deprecated use [WeaponData] / [weapondata::MoveFlags] instead!
 	// @versionadded 3.0
 	// @zasm_var NPCDATAWMOVEFLAGS
 	internal bool WeaponMoveFlags[];
@@ -30025,6 +30338,11 @@ class npcdata {
 	// @value [enum NPCType]
 	// @zasm_var NPCDATATYPE
 	internal int Family;
+	
+	// The [weapondata] for this enemy's weapon.
+	// @versionadded 3.0
+	// @zasm_var NPCDATA_WEAPONDATA
+	internal const weapondata WeaponData;
 }
 const rgb INVALID_COLOR = <rgb>(-1);
 
@@ -31077,7 +31395,10 @@ enum QR
 	// 'No Solid Damage Combos'
 	//
 	// Disables solid damage combos. You can only take damage by stepping on a walkable damage combo. Note that this does not affect solid sideview
-	// damage combos that you step on, you will still take damage from those even if this rule is on.$#0#361$
+	// damage combos that you step on, you will still take damage from those even if this rule is on.
+	//
+	// Related QRs:
+	// - [qr_NO_SIDEVIEW_SOLID_DAMAGE|No Sideview Solid Damage]
 	qr_NOSOLIDDAMAGECOMBOS,
 
 	// 'Draining Rupees Can Still Be Spent'
@@ -31712,7 +32033,7 @@ enum QR
 	// Candle limited uses per screen is shared between candles
 	qr_CANDLES_SHARED_LIMIT,
 
-	// 'Classic Respawn Points'
+	// 'Classic Hazard Respawn Points'
 	//
 	// Respawn points on drowning/pitfall will always be the screen entry point with this checked.
 	//
@@ -32307,20 +32628,38 @@ enum QR
 
 	// 'Sensitive Solid Damage Combos'
 	//
-	// Solid damage combos only check the center of the Hero's hitbox. Does not affect sideview damage combos you step on. Does nothing if 'No
-	// Solid Damage Combos' or 'Lenient Solid Damage Combos' is checked.$#0#145,360$
+	// Solid damage combos check closer to the edge of the Hero's hitbox. Does not affect sideview damage combos you step on. Does nothing if 'No
+	// Solid Damage Combos' or 'Lenient Solid Damage Combos' is checked.
+	//
+	// Related QRs:
+	// - [qr_NOSOLIDDAMAGECOMBOS|No Solid Damage Combos]
+	// - [qr_LENIENT_SOLID_DAMAGE|Lenient Solid Damage Combos]
 	qr_SENSITIVE_SOLID_DAMAGE,
 
 	// 'Lenient Solid Damage Combos'
 	//
 	// Solid damage combos only check the center of the Hero's hitbox. Does not affect sideview damage combos you step on. Does nothing if 'No
-	// Solid Damage Combos' is checked.$#0#145$
+	// Solid Damage Combos' is checked.
+	//
+	// Related QRs:
+	// - [qr_NOSOLIDDAMAGECOMBOS|No Solid Damage Combos]
 	qr_LENIENT_SOLID_DAMAGE,
 
 	// 'No Sideview Solid Damage'
 	//
-	// Disables taking damage by stepping on solid sideview damage. Does not affect damage taken by walkin into solid damage combos.$#0#145$
+	// Disables taking damage by stepping on solid sideview damage. Does not affect damage taken by walkin into solid damage combos.
+	//
+	// Related QRs:
+	// - [qr_NOSOLIDDAMAGECOMBOS|No Solid Damage Combos]
 	qr_NO_SIDEVIEW_SOLID_DAMAGE,
+
+	// 'Disable F6 Menu'
+	//
+	// The 'F6' hotkey will be disabled, and the 'End Game' menu option will be greyed out. The script function 'Game->ShowContinueScreen()' will
+	// also not function.
+	//
+	// @versionadded 3.0
+	qr_DISABLE_F6,
 
 	// 'Old FFC Functionality'
 	//
@@ -32355,7 +32694,11 @@ enum QR
 	// 'Newer Hero Movement'
 	//
 	// Alters the Hero's movement; with this enabled, most of the effects of 'New Hero Movement' and 'Disable 4-Way Movement's Gridlock' apply, and
-	// the Hero's collision code is newly cleaned up.$#0#199,200$
+	// the Hero's collision code is newly cleaned up.
+	//
+	// Related QRs:
+	// - [qr_NEW_HERO_MOVEMENT|New Hero Movement]
+	// - [qr_DISABLE_4WAY_GRIDLOCK|Disable 4-Way Movement's Gridlock]
 	qr_NEW_HERO_MOVEMENT2,
 
 	// 'Carryables Can't Leave Screen'
@@ -32620,8 +32963,6 @@ enum QR
 	//
 	// If disabled, these strings draw directly UNDER the subscreen instead.
 	//
-	// Has no effect at all if `Subscreen Appears Above Sprites` is unchecked.$#0#123$
-	//
 	// @versionadded 3.0
 	qr_LAYER6_STRINGS_OVER_SUBSCREEN,
 
@@ -32769,11 +33110,7 @@ enum QR
 
 	// 'Classic Drawing Order'
 	//
-	// When enabled, uses the classic drawing order code. When disabled, uses the newer drawing code, which has several effects:
-	//
-	// - 'Negative' layers draw in the proper order (-3 is behind -2)
-	//
-	// - Scripts can draw to layers '-1' through '-7' to draw in the BG
+	// When enabled, uses the classic drawing order code. When disabled, uses the newer drawing code, which changes:
 	//
 	// - Sprites (enemies, weapons, player, etc) are drawn in their Z-order. This means that higher enemies will be drawn above lower enemies.
 	//
@@ -32788,7 +33125,10 @@ enum QR
 	// Requires 'Classic Drawing Order' be disabled.
 	//
 	// When enabled, sprites which share the same Z coordinate will additionally have their draws ordered by their Y-value, such that sprites lower
-	// on the screen (higher Y values) are drawn over sprites higher on the screen.$#0#469$
+	// on the screen (higher Y values) are drawn over sprites higher on the screen.
+	//
+	// Related QRs:
+	// - [qr_CLASSIC_DRAWING_ORDER|Classic Drawing Order]
 	//
 	// @versionadded 3.0
 	qr_YSORT_SPRITES,
@@ -32939,7 +33279,10 @@ enum QR
 	// 'Scripts Draw During Frozen Messages'
 	//
 	// If checked, script draws will continue to clear during frozen messages. Otherwise, they will not clear until the message has closed and all
-	// draws during the message will be ignored.$#0#111$
+	// draws during the message will be ignored.
+	//
+	// Related QRs:
+	// - [qr_MSGFREEZE|Messages Freeze All Action]
 	qr_SCRIPTDRAWSFROZENMSG,
 
 	// 'Broken Sideview Sprite Jump'
@@ -32998,31 +33341,290 @@ enum QR
 	// @versionadded 3.0
 	qr_BROKEN_SELF_TRIGGERING_TRIGGERS,
 
-	// '2.50 Division Truncation'
+	// 'Old Item Hitboxes'
 	//
-	// COMPAT - This replicates an old bug with division.
-	qr_PARSER_250DIVISION = 80 * 8,
+	// If enabled, items will use relatively weird hitboxes, and the player will also use a weird hitbox calculation for picking them up. This
+	// weirdness is how items have worked in ZC for a long time, but makes it difficult to do things like customize item hitboxes per-item and
+	// still having them work properly.
+	//
+	// If disabled, items use a standard 16x16 hitbox by default, and the player's collision check uses a customizable hitbox for items (see
+	// 'Quest->Hero').
+	//
+	// @versionadded 3.0
+	qr_OLD_ITEM_HITBOXES,
+
+	// 'Subscreen Selector fits to item hitboxes'
+	//
+	// If enabled, the subscreen selector will fit itself to the hitbox of an Item Slot widget's item.
+	//
+	// @versionadded 3.0
+	qr_SUBSCR_SELECTOR_USES_ITEM_HITBOX,
+
+	// 'Broken 0-power BRang/HShot'
+	//
+	// If enabled, boomerangs and hookshots with 0 power set in the item editor will ignore script changes to their power (including via Enemy Hit
+	// generic events) when hitting enemies with 'Damaged by Power 0 weapons' unchecked.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_0_DAMAGE_BRANG_HSHOT,
+
+	// 'Pause Sliding While Attacking'
+	//
+	// If enabled, the Hero will temporarily stop sliding on ice while in the 'attacking' state. The sliding will resume when the attacking state
+	// ends, at the same momentum as before it was paused.
+	//
+	// @versionadded 3.0
+	qr_PAUSE_ICE_SLIDING_WHILE_ATTACKING,
+
+	// 'Broken Spin Tile Combo Change'
+	//
+	// If enabled, Spin Tile combos won't change combos when activating.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_SPINTILE_COMBO_CHANGE,
+
+	// 'Sprite Light Radius Ignores Hit Offsets'
+	//
+	// If enabled, sprites that emit light will ignore hit offsets when calculating the center position.
+	//
+	// @versionadded 3.0
+	qr_LIGHT_RADIUS_IGNORE_HIT_OFFSETS,
+
+	// 'Broken Solid Conveyors in Sideview'
+	//
+	// If enabled, solid conveyors in sideview will not work properly. They may still work in extremely specific situations, but not consistently
+	// or how they should.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_SV_SOLID_CONVEYORS,
+
+	// 'Items Ignore Hitbox For Conveyors'
+	//
+	// If enabled, items will use a hardcoded 16x16 hitbox with no offset for conveyors.
+	//
+	// @versionadded 3.0
+	qr_ITEM_CONVEYORS_IGNORE_HITBOX,
+
+	// 'Items Use Hardcoded Sideview Hitbox'
+	//
+	// If enabled, items will use a hardcoded 16x16 hitbox with no offset for sideview gravity.
+	//
+	// @versionadded 3.0
+	qr_ITEMS_HARDCODED_SIDEVIEW_HITBOX,
+
+	// 'Weapons Use Hardcoded Sideview Hitbox'
+	//
+	// If enabled, weapons will use a hardcoded 16x16 hitbox with no offset for sideview gravity.
+	//
+	// @versionadded 3.0
+	qr_WEAPONS_HARDCODED_SIDEVIEW_HITBOX,
+
+	// 'Broken Pushblock Trigger Groups'
+	//
+	// If enabled, moving Pushblocks will not count towards trigger groups.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_PUSHBLOCK_TRIGGER_GROUPS,
+
+	// 'Old Layer Draw Order'
+	//
+	// When enabled, layer -3 draws in front of layer -2, and script draws / FFCs cannot directly use layers -1 to -7. Also, layer 7 script draws
+	// will only work if 'Subscreen Appears Above Sprites' is also enabled.
+	//
+	// @versionadded 3.0
+	qr_OLD_LAYER_DRAW_ORDER,
+
+	// 'Map Spoils Darkrooms'
+	//
+	// When enabled, the Map will not spoil darkrooms.When disabled, for New Darkrooms, it will draw the proper darkness- for old darkrooms, they
+	// will simply be blacked-out.
+	//
+	// @versionadded 3.0
+	qr_MAP_SPOILS_DARKROOMS,
+
+	// 'BS Overworld Ignores Map'
+	//
+	// When enabled, BS Overworlds will show rooms marked on the map even without that level's Map item.
+	//
+	// @versionadded 3.0
+	qr_BS_OW_IGNORES_MAP_ITEM,
+
+	// 'Broken Enemy Sideview Platform Hitbox'
+	//
+	// When enabled, enemies will use their old hit detection for sideview hitboxes, which doesn't properly check the correct size of the hitbox,
+	// or account for hit offsets.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_ENEMY_SIDEVIEW_PLATFORM_HITBOX,
+
+	// 'Hazard Respawn Half-Gridlock'
+	//
+	// If checked, the player's hazard respawn point checks will snap to the nearest half-grid (8px) position. Does nothing if 'Classic Hazard
+	// Respawn Points' is enabled.
+	//
+	// Related QRs:
+	// - [qr_OLD_RESPAWN_POINTS|Classic Hazard Respawn Points]
+	//
+	// @versionadded 3.0
+	qr_RESPAWN_POINTS_HALF_GRID,
+
+	// 'Broken Solids Pushing Player'
+	//
+	// When enabled, moving solid objects won't be able to push the player into pitfall combos, but WILL be able to push them while they are
+	// drowning/falling.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_PLAYER_SOLIDPUSH,
+
+	// 'Rerolled Drops Always Roll 'Nothing''
+	//
+	// If enabled, drops that would be 'rerolled' instead become 'Nothing' drops.
+	//
+	// @versionadded 3.0
+	qr_SMARTDROPS_NOTHING,
+
+	// 'Bridges Cover Less Stuff'
+	//
+	// When enabled, Bridge combos won't cover certain things, like Warp/Step/Save/Slash combos, Step->/Dive-> combo triggers, Fairy Ring / Weapon
+	// placed flags, etc. Also, bridges on layers above 2 will not affect most things.
+	//
+	// @versionadded 3.0
+	qr_OLD_BRIDGE_COMBO_COVER,
+
+	// 'Subscreen Minimap uses dmap-based state instead of map-based'
+	//
+	// If enabled, the Visited color for minimap widgets will use the dmap Charted state, instead of the Visited screen state.
+	//
+	// @versionadded 3.0
+	qr_MINIMAP_VISITED_CHARTED,
+
+	// 'Allow Jumping While Charging'
+	//
+	// Allow the player to jump while charging up a charged attack.
+	//
+	// @versionadded 3.0
+	qr_ALLOW_JUMP_WHILE_CHARGING,
+
+	// 'Quake Hammer In Air'
+	//
+	// When enabled, charged hammer attacks can be released in the air. Otherwise, the charge will not release while airborne, requiring landing to
+	// unleash the attack.
+	//
+	// @versionadded 3.0
+	qr_QUAKE_HAMMER_IN_AIR,
+
+	// 'Message 'More...' ignores flashing settings'
+	//
+	// When enabled, the 'More...' icon for strings will never flash.
+	//
+	// @versionadded 3.0
+	qr_NO_FLASHING_MSG_MORE,
+
+	// 'Lens 'Disable Secrets' disables hints too'
+	//
+	// When enabled, the lens 'Disable Secrets' flag will also disable the Show Hints flag.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_LENS_HINTS_SECRETS,
+
+	// 'Bridge Combos Work Above Layer 2'
+	//
+	// If checked, Bridge combos will work even above layer 2.
+	//
+	// @versionadded 3.0
+	qr_BRIDGES_ABOVE_2,
+
+	// 'Chests, Signposts, Lockblocks Work Above Layer 2'
+	//
+	// If checked, Chest, Signpost, and Lockblock combos will work even above layer 2.
+	//
+	// @versionadded 3.0
+	qr_CHESTS_SIGNS_LOCKBLOCKS_ABOVE_2,
+
+	// 'Knockback knocks Hero through Sideview Platforms'
+	//
+	// When enabled, the Hero's knockback collision check doesn't account for sideview platforms, knocking the player through them rather than
+	// stopping on them.
+	//
+	// @versionadded 3.0
+	qr_KNOCKBACK_THROUGH_PLATFORMS,
+
+	// 'Broken FFC Solids in Sideview'
+	//
+	// When enabled, the code used for ffc 'platform's in sideview uses broken collision checks, and player ceiling / floor collision will not
+	// properly account for off-grid solidity, possibly clipping the player into solid ffcs.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_SIDEVIEW_SOLID_FFC_COLLISION,
+
+	// 'Old Summoner Counts'
+	//
+	// When enabled, enemies that summon other enemies will use the old method of checking if there are already too many enemies. 'Summon' types
+	// will check how many of the target enemy ID exist, while 'Summon (Layer)' types check the total enemy count on-screen.
+	//
+	// When disabled, summoner enemies will count the number of enemies they themselves have summoned instead, allowing per-summoner limits.
+	//
+	// @versionadded 3.0
+	qr_OLD_SUMMONER_COUNTS,
+
+	// 'Broken Large Armos Anim'
+	//
+	// When enabled, enemies with the 'Armos (4-frame)' anim style and 'Armos' walk style will always add 20 to their starting tile when they
+	// randomly start 'faster'.
+	//
+	// If disabled, these enemies will instead add a multiple of 20 large enough to be on a tile not in a row already used by the animation.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_LARGE_ARMOS_ANIM,
+
+	// 'Broken SCC Map Args'
+	//
+	// When enabled, some SCCs checking or setting states on other screens will use the wrong Map, off-by-1 from the specified map.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_SCC_MAP_ARGS,
+
+	// 'Old Long SCC Args'
+	//
+	// When enabled, some SCCs will divide certain args by 10000.
+	//
+	// @versionadded 3.0
+	qr_OLD_LONG_SCC_ARGS,
+
+	// 'Strings Don't Scroll'
+	//
+	// When enabled, strings will cut off when they reach their bottom margin, rather than scrolling.
+	//
+	// 'Old String Margins' being enabled takes priority over this setting.
+	//
+	// Related QRs:
+	// - [qr_OLD_STRING_EDITOR_MARGINS|Old String Margins]
+	//
+	// @versionadded 3.0
+	qr_STRINGS_DONT_SCROLL,
+
+	// 'Messages Scroll In Segments'
+	//
+	// If enabled, messages that are larger than their message box will be separated into segments, such that each segment is the full height of
+	// the message box, and scrolling will always show a full segment at a time. Each segment will wait for the player to press to advance before
+	// continuing to the next.
+	//
+	// Related QRs:
+	// - [qr_OLD_STRING_EDITOR_MARGINS|Old String Margins]
+	// - [qr_STRINGS_DONT_SCROLL|Strings Don't Scroll]
+	//
+	// @versionadded 3.0
+	qr_STRING_SEGMENTED_SCROLL,
+	qr_PARSER_250DIVISION = 80 * 8, // @deprecated
 
 	// 'Disable Tracing'
 	//
 	// OPTION - Disables 'Trace()', 'printf()', and similar commands.
 	qr_PARSER_NO_LOGGING,
-
-	// 'Short-Circuit Boolean Operations'
-	//
-	// COMPAT REVERSE - applies short-circuit.
-	qr_PARSER_SHORT_CIRCUIT,
-
-	// '2.50 Value of 'true' is 0.0001'
-	//
-	// COMPAT - replicates old behavior possibly needed for ZASM
-	qr_PARSER_BOOL_TRUE_DECIMAL,
+	qr_PARSER_SHORT_CIRCUIT, // @deprecated
+	qr_PARSER_BOOL_TRUE_DECIMAL, // @deprecated
 	qr_SPRITEXY_IS_FLOAT, // 'Sprite Coordinates are Float'
-
-	// 'True MAX_INT sizing'
-	//
-	// COMPAT REVERSE - Uses 214748.3648 as the max value, instead of 214747 (similar for negative min value)
-	qr_PARSER_TRUE_INT_SIZE,
+	qr_PARSER_TRUE_INT_SIZE, // @deprecated
 	qr_WPNANIMFIX, // @deprecated
 	qr_NOSCRIPTSDURINGSCROLL, // @deprecated
 
@@ -33042,10 +33644,7 @@ enum QR
 	qr_NOITEMWAITDRAW, // 'No Item Script Waitdraw()'
 	qr_TRACESCRIPTIDS, // 'Print Script Metadata on Traces'
 	qr_FIXDRUNKINPUTS, // 'Writing to INPUT Overrides Drunk State'
-
-	// 'Binary Operations use true 32-bit Int'
-	//
-	// COMPAT - treats all binary operations as 'long' type
+	// @deprecated
 	//
 	// @versionadded 3.0
 	qr_PARSER_BINARY_32BIT,
@@ -33525,6 +34124,16 @@ class save_menu
 	// 
 	// @zasm_var SAVEMENU_OPTY
 	internal int Y;
+	
+	// The X Offset applied to the Selected option and cursor
+	//
+	// @zasm_var SAVEMENU_SEL_OPT_OFFSET_X
+	internal int SelectedXOffset;
+	
+	// The Y Offset applied to the Selected option and cursor
+	//
+	// @zasm_var SAVEMENU_SEL_OPT_OFFSET_Y
+	internal int SelectedYOffset;
 
 	// The alignment of the text within the textbox
 	// 
@@ -33627,6 +34236,21 @@ class save_menu
 	// @zasm_var SAVEMENU_OPT_COLOR_PICKED
 	internal int PickedColors[];
 
+	// The shadow types for each option.
+	//
+	// @zasm_var SAVEMENU_OPT_SHADOW_TYPE
+	internal ShadowType ShadowTypes[];
+
+	// The shadow colors for each option.
+	//
+	// @zasm_var SAVEMENU_OPT_COLOR_SHADOW
+	internal int ShadowColors[];
+
+	// The shadow colors for each option which are used when the option is selected.
+	//
+	// @zasm_var SAVEMENU_OPT_COLOR_SHADOW_PICKED
+	internal int PickedShadowColors[];
+
 	// The Font IDs for each option.
 	//
 	// @zasm_var SAVEMENU_OPT_FONTS
@@ -33636,6 +34260,89 @@ class save_menu
 	//
 	// @zasm_var SAVEMENU_OPT_FRZSCR
 	internal int FrozenScripts[];
+	
+	// The number of Misc Texts that exist for this menu.
+	//
+	// @zasm_var SAVEMENU_NUM_MISCTEXTS
+	internal const int NumMiscTexts;
+
+	// Deletes the misc text at [index].
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSAVEMENU
+	//   SAVEMENU_REMOVE_MISCTEXT D2
+	internal void RemoveMiscText(int index);
+
+	// Adds a new misc text at [index]. Negative index adds at the end.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFSAVEMENU
+	//   SAVEMENU_ADD_MISCTEXT D2
+	internal void AddMiscText(int index = -1);
+
+	// Swaps the misc texts at [index_1] and [index_2].
+	//
+	// @zasm
+	//   POP D3
+	//   POP D2
+	//   POP REFSAVEMENU
+	//   SAVEMENU_SWAP_MISCTEXT D2 D3
+	internal void SwapMiscTexts(int index_1, int index_2);
+
+	// Fills the buffer with the string for misc text [index]
+	//
+	// @zasm
+	//   POP D3
+	//   POP D2
+	//   POP REFSAVEMENU
+	//   SAVEMENU_MISCTEXT_GET_STRING D2 D3
+	internal void GetMiscTextString(int index, char32[] buffer);
+
+	// Sets the string for misc text [index] to the contents of the buffer
+	//
+	// @zasm
+	//   POP D3
+	//   POP D2
+	//   POP REFSAVEMENU
+	//   SAVEMENU_MISCTEXT_SET_STRING D2 D3
+	internal void SetMiscTextString(int index, char32[] buffer);
+	
+	// The text colors for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_COLOR
+	internal int MiscTextColors[];
+	
+	// The shadow type for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_SHADOW_TYPE
+	internal int MiscTextShadowTypes[];
+	
+	// The shadow color for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_SHADOW_COLOR
+	internal int MiscTextShadowColors[];
+	
+	// The font for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_FONT
+	internal int MiscTextFonts[];
+	
+	// The x for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_X
+	internal int MiscTextX[];
+	
+	// The y for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_Y
+	internal int MiscTextY[];
+	
+	// The text alignment for each misc text.
+	//
+	// @zasm_var SAVEMENU_MISCTEXT_TEXT_ALIGN
+	internal int MiscTextAlign[];
 }
 // Data for a [portal] that is remembered in the save file for when you return to the screen.
 // 
@@ -34930,6 +35637,31 @@ class screendata {
 						 int scale = 1, int rx = 0, int ry = 0, int rot_degrees = 0,
 						 bool fill = true, int opacity = OP_OPAQUE);
 
+	// Draws an arc - a piece of a circle's edge - on the specified layer of the
+	// current screen. The circle is centered at `(x, y)` with radius `radius * scale`.
+	//
+	// Angles are in degrees and rotate counter-clockwise as seen on screen:
+	// 0 points right (east), 90 points up (north), 180 points left (west), and
+	// 270 (or equivalently -90) points down (south).
+	//
+	// The arc is swept counter-clockwise from `start_degrees` to `end_degrees`,
+	// wrapping around the circle if needed, so it always covers
+	// `(end_degrees - start_degrees) % 360` degrees. For example,
+	// `Screen->Arc(l, x, y, r, 0, 90, c)` sweeps the quarter circle from east up
+	// to north (the top-right), while `Screen->Arc(l, x, y, r, 90, 0, c)` sweeps
+	// the other 270 degrees.
+	//
+	// If `closed` is true, both ends of the arc are connected to the center with
+	// straight lines, forming a pie slice; if `fill` is also true, the slice is
+	// drawn filled. If `closed` is false, only the arc's edge is drawn and `fill`
+	// is ignored.
+	//
+	// The result is then rotated by `rot_degrees` around the point `(rx, ry)`.
+	//
+	// @versionchanged 3.0 Filled pie slices used to draw garbage (often filling
+	// everything but the slice) for wrap-around angle spans, slices partially
+	// offscreen, or tiny radii. All angle spans now draw correctly. Opaque fills
+	// with color 0 used to draw nothing; they now write color 0.
 	// @zasm
 	//   ARCR
 	//   POPARGS D5 0.0014
@@ -35665,11 +36397,12 @@ class sprite {
 
 	// The screen index this sprite was created on. Does not update as the sprite moves around a region.
 	//
-	// [Hero]: This is equal to the screen that the player first entered the region.
+	// [Hero]: This is equal to the origin screen of the region, and cannot be modified.
+	// [ffc]: This is the screen the FFC belongs to, and cannot be modified.
 	//
 	// @versionadded 3.0
 	// @zasm_var SPRITE_SPAWN_SCREEN
-	internal const int SpawnScreen;
+	internal int SpawnScreen;
 
 	// The screen index this sprite is currently on, updating as it moves around.
 	//
@@ -36166,7 +36899,7 @@ class spritedata {
 	internal int Misc;
 }
 // @zasm_ref REFSTACK
-class stack {
+class stack<T> {
 	// @zasm
 	//   LOADSTACK
 	internal stack();
@@ -36217,8 +36950,8 @@ class stack {
 	// @zasm
 	//   POP D2
 	//   POP REFSTACK
-	//   STACKPUSHBACK D2
-	internal void PushBack(untyped val);
+	//   STACKPUSHBACK D2 0 ; Set to script object type in compiler
+	internal void PushBack(T val);
 
 	// Pushes the given value to the back or front of the stack.
 	//
@@ -36227,8 +36960,8 @@ class stack {
 	// @zasm
 	//   POP D2
 	//   POP REFSTACK
-	//   STACKPUSHFRONT D2
-	internal void PushFront(untyped val);
+	//   STACKPUSHFRONT D2 0 ; Set to script object type in compiler
+	internal void PushFront(T val);
 
 	// Removes the back or front element of the stack, and returns it.
 	//
@@ -36237,7 +36970,7 @@ class stack {
 	// @zasm
 	//   POP REFSTACK
 	//   STACKPOPBACK D2
-	internal untyped PopBack();
+	internal T PopBack();
 
 	// Removes the back or front element of the stack, and returns it.
 	//
@@ -36246,7 +36979,7 @@ class stack {
 	// @zasm
 	//   POP REFSTACK
 	//   STACKPOPFRONT D2
-	internal untyped PopFront();
+	internal T PopFront();
 
 	// Returns the back or front element of the stack, without removing it.
 	//
@@ -36255,7 +36988,7 @@ class stack {
 	// @zasm
 	//   POP REFSTACK
 	//   STACKPEEKBACK D2
-	internal untyped PeekBack();
+	internal T PeekBack();
 
 	// Returns the back or front element of the stack, without removing it.
 	//
@@ -36264,7 +36997,7 @@ class stack {
 	// @zasm
 	//   POP REFSTACK
 	//   STACKPEEKFRONT D2
-	internal untyped PeekFront();
+	internal T PeekFront();
 
 	// Returns the element at the index 'ind', which is a LONG value. This means
 	// that `0L` is the first element, `1L` is the second, etc.
@@ -36273,7 +37006,7 @@ class stack {
 	//   POP D2
 	//   POP REFSTACK
 	//   STACKGET D2
-	internal untyped Get(long ind);
+	internal T Get(long ind);
 
 	// Overwrites the element at the index 'ind' (which is a LONG value) with
 	// 'val'. This means that `0L` is the first element, `1L` is the second,
@@ -36283,8 +37016,8 @@ class stack {
 	//   POP D3
 	//   POP D2
 	//   POP REFSTACK
-	//   STACKSET D2 D3
-	internal void Set(long ind, untyped val);
+	//   STACKSET D2 D3 0 ; Set to script object type in compiler
+	internal void Set(long ind, T val);
 }
 enum //Subscreen Types
 {
@@ -38353,6 +39086,256 @@ class Viewport {
 }
 
 internal const Viewport Viewport;
+// Flags for [weapondata::MiscFlags]
+// @versionadded 3.0
+enum WeapDataFlag
+{
+	// If the [weapondata::LightRadius] and [weapondata::LightOffset] first values
+	// should be applied, even if [WFLAG_UPDATE_BURNSPR] is not set for the weapon.
+	WDATA_GLOW_RAD,
+	// If the [weapondata::Step] should be applied.
+	WDATA_SET_STEP,
+};
+
+// Represents settings for [lweapon]s and [eweapon]s.
+// See [npcdata::WeaponData], [npc::WeaponData], [itemdata::WeaponData],
+// [combodata::MiscWeaponData], [combodata::LiftWeaponData].
+//
+// @versionadded 3.0
+// @zasm_ref REFWEAPDATA
+class weapondata {
+	// Create a new blank weapon data.
+	//
+	// @zasm
+	//   CREATEWEAPDATA
+	internal weapondata();
+	
+	// If the weapondata is valid or not.
+	// A weapondata could become invalid if, for example, it was from
+	// [npc::WeaponData], but the source npc died.
+	//
+	// @zasm_var WEAPDATA_VALID
+	internal const bool Valid;
+	
+	// Flags related to the weapondata.
+	//
+	// @index [enum WeapDataFlag]
+	// @zasm_var WEAPDATA_MISC_FLAGS
+	internal bool MiscFlags[];
+	
+	// Flags related to movement.
+	//
+	// @index [enum MoveFlag]
+	// @zasm_var WEAPDATA_MOVE_FLAGS
+	internal bool MoveFlags[];
+	
+	// Weapon flags.
+	//
+	// @index [enum WeaponFlag]
+	// @zasm_var WEAPDATA_WEAP_FLAGS
+	internal bool Flags[];
+	
+	// Sprites used based on burn level, if [Flags] has [WFLAG_UPDATE_BURNSPR].
+	//
+	// @index [enum ItemBurnIndex]
+	// @zasm_var WEAPDATA_BURN_SPRITES
+	internal int BurnSprites[];
+	
+	// If [Flags] has [WFLAG_UPDATE_BURNSPR], Light Radius used is based on burn level,
+	// Otherwise, if [MiscFlags] has [WDATA_GLOW_RAD], index 0 of this array will be applied.
+	//
+	// @index [enum ItemBurnIndex]
+	// @zasm_var WEAPDATA_BURN_LIGHTRAD
+	internal int BurnLightRadius[];
+	
+	// If [Flags] has [WFLAG_UPDATE_BURNSPR], Light Offset used is based on burn level,
+	// Otherwise, if [MiscFlags] has [WDATA_GLOW_RAD], index 0 of this array will be applied.
+	//
+	// @index [enum ItemBurnIndex]
+	// @zasm_var WEAPDATA_BURN_LIGHTOFFSET
+	internal int BurnLightOffset[];
+	
+	// The shape of light.
+	//
+	// @value [enum LightShape]
+	// @zasm_var WEAPDATA_LIGHT_SHAPE
+	internal int LightShape;
+	
+	// Bitflags representing all the checkboxes for which sizes to
+	// apply from the weapondata.
+	//
+	// @value [enum SizeOverrideBitflags]
+	// @zasm_var WEAPDATA_SIZE_BITFLAGS
+	internal int SizeFlags;
+
+	// The hitbox offset, in pixels.
+	//
+	// @zasm_var WEAPDATA_HIT_OFFSET_X
+	internal int HitXOffset;
+
+	// The hitbox offset, in pixels.
+	//
+	// @zasm_var WEAPDATA_HIT_OFFSET_Y
+	internal int HitYOffset;
+	
+	// The width of the hitbox, in pixels.
+	//
+	// @zasm_var WEAPDATA_HIT_WIDTH
+	internal int HitWidth;
+
+	// The height of the hitbox, in pixels.
+	//
+	// @zasm_var WEAPDATA_HIT_HEIGHT
+	internal int HitHeight;
+
+	// The height of the hitbox in the Z-axis, in pixels.
+	//
+	// @zasm_var WEAPDATA_HIT_ZHEIGHT
+	internal int HitZHeight;
+	
+	// The visual offset, in pixels.
+	//
+	// @zasm_var WEAPDATA_X_OFFSET
+	internal int DrawXOffset;
+
+	// The visual offset, in pixels.
+	//
+	// @zasm_var WEAPDATA_Y_OFFSET
+	internal int DrawYOffset;
+
+	// The width of the graphic, in tiles. Visual only. The upper-left corner is the first tile.
+	//
+	// Max value is 20.
+	// @zasm_var WEAPDATA_TILE_W
+	internal int TileWidth;
+
+	// The height of the graphic, in tiles. Visual only. The upper-left corner is the first tile.
+	//
+	// Max value is 20.
+	//
+	// @zasm_var WEAPDATA_TILE_H
+	internal int TileHeight;
+	
+	// The step speed, in 100*pixels/second.
+	// Only applies if [WDATA_SET_STEP] is set in [MiscFlags].
+	//
+	// @zasm_var WEAPDATA_STEP
+	internal int Step;
+	
+	// When the weapon lands from the air, it bounces based on this multiplier of it's
+	// downward velocity, and [BounceAdd].
+	// Must be >= 0.
+	//
+	// @zasm_var WEAPDATA_BOUNCE_MULT
+	internal int BounceMult;
+	
+	// When the weapon lands from the air, it bounces based on [BounceMult],
+	// adding this value in px/frame after the multiplier.
+	// Using a negative value will dampen the bounce, and is recommended to prevent
+	// the weapon from bouncing many tiny rapid bounces as it's velocity gets small.
+	//
+	// @zasm_var WEAPDATA_BOUNCE_ADD
+	internal int BounceAdd;
+	
+	// Unblockable bitflags.
+	//
+	// @value [enum UnblockableBitflags]
+	// @zasm_var WEAPDATA_UNBLOCKABLE
+	internal int Unblockable;
+
+	// If > 0, ticks down each frame the weapon is alive.
+	// When ticking down to 0, kills the weapon.
+	//
+	// @zasm_var WEAPDATA_TIMEOUT
+	internal int Timeout;
+	
+	// The [lweapon::Weapon] property for this weapon.
+	//
+	// @zasm_var WEAPDATA_USEWEAPON
+	internal int Weapon;
+
+	// The [lweapon::Defense] property for this weapon.
+	//
+	// The default defense resolution (e.g. OHKO) that the weapon uses
+	// when it strikes an enemy.
+	//
+	// If `> -1`, and the enemy had a defense resolution of `None`, the default
+	// defense resolution is used in place of `None`.
+	//
+	// @zasm_var WEAPDATA_USEDEFENCE
+	internal int Defense;
+	
+	// The required Lift Glove level to lift the weapon.
+	// If 0, the weapon cannot be lifted.
+	// If >0, the weapon can be lifted by gloves >= this level.
+	//
+	// @zasm_var WEAPDATA_LIFTLEVEL
+	internal int LiftLevel;
+
+	// The time it takes to lift the weapon via engine lifting.
+	//
+	// @zasm_var WEAPDATA_LIFTTIME
+	internal int LiftTime;
+
+	// The height to lift the weapon to via engine lifting.
+	//
+	// @zasm_var WEAPDATA_LIFTHEIGHT
+	internal int LiftHeight;
+
+	// The weapon script to run on the weapon.
+	//
+	// @zasm_var WEAPDATA_SCRIPT
+	internal int Script;
+	
+	// The 8 InitD[] arguments for the weapon script.
+	//
+	// @zasm_var WEAPDATA_INITD
+	internal untyped InitD[];
+	
+	// If < 0, the weapon behaves as normal. If == 0, the weapon pierces infinitely.
+	// If > 0, each time the weapon hits an enemy or the player, counts down by 1.
+	// When counting down from '1' to '0', the weapon dies.
+	// Some weapons have special behavior; ex. bomb blasts do not die, but will
+	// have their collision disabled so they cannot hit further targets-
+	// and the PierceCount set on a lit bomb will apply to the bomb's blast.
+	//
+	// @zasm_var WEAPDATA_PIERCE
+	internal int PierceCount;
+	
+	// The [sprite::ViewportSuspendRange] for the weapon.
+	//
+	// @zasm_var WEAPDATA_VIEWPORT_SUSPEND_RANGE
+	internal int ViewportSuspendRange;
+	
+	// The [sprite::ViewportDespawnRange] for the weapon.
+	//
+	// @zasm_var WEAPDATA_VIEWPORT_DESPAWN_RANGE
+	internal int ViewportDespawnRange;
+	
+	// Copies this weapondata to the target.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFWEAPDATA
+	//   WEAPDATA_COPY D2
+	internal void CopyTo(weapondata target);
+	
+	// Applies the weapondata settings to the specified lweapon.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFWEAPDATA
+	//   WEAPDATA_APPLY D2
+	internal void ApplyTo(lweapon weap);
+	
+	// Applies the weapondata settings to the specified eweapon.
+	//
+	// @zasm
+	//   POP D2
+	//   POP REFWEAPDATA
+	//   WEAPDATA_APPLY D2
+	internal void ApplyTo(eweapon weap);
+}
 // @versionadded 3.0
 enum WebsocketState {
     WEBSOCKET_STATE_CONNECTING = 0L,
@@ -41580,156 +42563,42 @@ int CenterLinkY(bool hitoffset, bool drawoffset)
 	return ly;
 }
 
-//Returns center of npc, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(item it, bool usehitbox) 
-{ 
-	return ( (usehitbox) ? (it->X+it->HitWidth/2 + it->HitXOffset) : (it->X+8*it->TileWidth + it->DrawXOffset) );
-}
-
-//Returns center of npc, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(npc n, bool usehitbox) 
-{ 
-	return ( (usehitbox) ? (n->X+n->HitWidth/2 + n->HitXOffset) : (n->X+8*n->TileWidth + n->DrawXOffset) );
-}
-
-//Returns center of eweapon, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(eweapon anEWeapon, bool usehitbox) 
-{ 
-	return ( ( usehitbox ) ? (anEWeapon->X+anEWeapon->HitWidth/2 + anEWeapon->HitXOffset) : (anEWeapon->X+8*anEWeapon->TileWidth + anEWeapon->DrawXOffset) );
-}
-
-//Returns center of lweapon, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(lweapon anLWeapon, bool usehitbox) 
-{ 
-	return ( ( usehitbox ) ? (anLWeapon->X+anLWeapon->HitWidth/2 + anLWeapon->HitXOffset) : (anLWeapon->X+8*anLWeapon->TileWidth + anLWeapon->DrawXOffset) );
-}
-
-//Returns center of lweapon, with option to include its HitXOffset and DrawXOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(lweapon anLWeapon, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int lx = anLWeapon->X;
-	if ( usehitbox ) lx += anLWeapon->HitWidth/2;
-	unless ( usehitbox ) lx += 8*anLWeapon->TileWidth;
-	if ( trueoffset ) lx += anLWeapon->HitXOffset;
-	if ( drawoffset ) lx += anLWeapon->DrawXOffset;
-	return lx;
-}
-
-//Returns center of eweapon, with option to include its HitXOffset and DrawXOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(eweapon anEWeapon, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int ex = anEWeapon->X;
-	if ( usehitbox ) ex += anEWeapon->HitWidth/2;
-	unless ( usehitbox ) ex += 8*anEWeapon->TileWidth;
-	if ( trueoffset ) ex += anEWeapon->HitXOffset;
-	if ( drawoffset ) ex += anEWeapon->DrawXOffset;
-	return ex;
-}
-
-//Returns center of npc, with option to include its HitXOffset and DrawXOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(npc n, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int nx = n->X;
-	if ( usehitbox ) nx += n->HitWidth/2;
-	unless ( usehitbox ) nx += 8*n->TileWidth;
-	if ( trueoffset ) nx += n->HitXOffset;
-	if ( drawoffset ) nx += n->DrawXOffset;
-	return nx;
-}
-
-//Returns center of item, with option to include its HitXOffset and DrawXOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterX(item i, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int ix = i->X;
-	if ( usehitbox ) ix += i->HitWidth/2;
-	unless ( usehitbox ) ix += 8*i->TileWidth;
-	if ( trueoffset ) ix += i->HitXOffset;
-	if ( drawoffset ) ix += i->DrawXOffset;
-	return ix;
-}
-
-//Returns center of lweapon, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(lweapon anLWeapon, bool usehitbox) 
+//Returns the center X of a sprite.
+//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center.
+int CenterX(sprite a, bool usehitbox)
 {
-	return ( (usehitbox) ? (anLWeapon->Y+anLWeapon->HitHeight/2 + anLWeapon->HitYOffset) : (anLWeapon->Y+8*anLWeapon->TileHeight + anLWeapon->DrawYOffset) );
+	return ( (usehitbox) ? (a->X+a->HitWidth/2 + a->HitXOffset) : (a->X+8*a->TileWidth + a->DrawXOffset) );
 }
 
-//Returns center of eweapon, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(eweapon anEWeapon, bool usehitbox) 
+//Returns the center X of a sprite, choosing the hitbox and draw offsets individually.
+//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center.
+int CenterX(sprite a, bool usehitbox, bool trueoffset, bool drawoffset)
 {
-	return ( (usehitbox) ? (anEWeapon->Y+anEWeapon->HitHeight/2 + anEWeapon->HitYOffset) : (anEWeapon->Y+8*anEWeapon->TileHeight + anEWeapon->DrawYOffset) );
+	int x = a->X;
+	if ( usehitbox ) x += a->HitWidth/2;
+	unless ( usehitbox ) x += 8*a->TileWidth;
+	if ( trueoffset ) x += a->HitXOffset;
+	if ( drawoffset ) x += a->DrawXOffset;
+	return x;
 }
 
-//Returns center of npc, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(npc n, bool usehitbox) 
+//Returns the center Y of a sprite.
+//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center.
+int CenterY(sprite a, bool usehitbox)
 {
-	return ( (usehitbox) ? (n->Y+n->HitHeight/2 + n->HitYOffset) : (n->Y+8*n->TileHeight + n->DrawYOffset) );
+	return ( (usehitbox) ? (a->Y+a->HitHeight/2 + a->HitYOffset) : (a->Y+8*a->TileHeight + a->DrawYOffset) );
 }
 
-//Returns center of npc, with option to use either its actual coordinates, or those of its sprite. 
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(item it, bool usehitbox) 
+//Returns the center Y of a sprite, choosing the hitbox and draw offsets individually.
+//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center.
+int CenterY(sprite a, bool usehitbox, bool trueoffset, bool drawoffset)
 {
-	return ( (usehitbox) ? (it->Y+it->HitHeight/2 + it->HitYOffset) : (it->X+8*it->TileHeight + it->DrawYOffset) );
-}
-
-//Returns center of lweapon, with option to include its HitYOffset and DrawYOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(lweapon anLWeapon, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int ly = anLWeapon->Y;
-	if ( usehitbox ) ly += anLWeapon->HitHeight/2;
-	unless ( usehitbox ) ly += 8*anLWeapon->TileHeight;
-	if ( trueoffset ) ly += anLWeapon->HitYOffset;
-	if ( drawoffset ) ly += anLWeapon->DrawYOffset;
-	return ly;
-}
-
-//Returns center of eweapon, with option to include its HitYOffset and DrawYOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(eweapon anEWeapon, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int ey = anEWeapon->Y;
-	if ( usehitbox ) ey += anEWeapon->HitHeight/2;
-	unless ( usehitbox ) ey += 8*anEWeapon->TileHeight;
-	if ( trueoffset ) ey += anEWeapon->HitYOffset;
-	if ( drawoffset ) ey += anEWeapon->DrawYOffset;
-	return ey;
-}
-
-//Returns center of npc, with option to include its HitYOffset and DrawYOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(npc n, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int ny = n->Y;
-	if ( usehitbox ) ny += n->HitHeight/2;
-	unless ( usehitbox ) ny += 8*n->TileHeight;
-	if ( trueoffset ) ny += n->HitYOffset;
-	if ( drawoffset ) ny += n->DrawYOffset;
-	return ny;
-}
-
-//Returns center of item, with option to include its HitYOffset and DrawYOffset (individually).
-//Set 'usehitbox' true to use the hitbox center, or false to use the sprite center. 
-int CenterY(item i, bool usehitbox, bool trueoffset, bool drawoffset) 
-{ 
-	int iy = i->Y;
-	if ( usehitbox ) iy += i->HitHeight/2;
-	unless ( usehitbox ) iy += 8*i->TileHeight;
-	if ( trueoffset ) iy += i->HitYOffset;
-	if ( drawoffset ) iy += i->DrawYOffset;
-	return iy;
+	int y = a->Y;
+	if ( usehitbox ) y += a->HitHeight/2;
+	unless ( usehitbox ) y += 8*a->TileHeight;
+	if ( trueoffset ) y += a->HitYOffset;
+	if ( drawoffset ) y += a->DrawYOffset;
+	return y;
 }
 
 //Check for collision between Link and a combo at location 'cmb'. 
@@ -42538,43 +43407,7 @@ int LeastIndex(int[] arr)
 }
 
 //Returns if Link is facing an object. 
-bool LinkFacing(ffc f)
-{
-	if ( Hero->Dir == DIR_UP && Hero->Y > f->Y ) return true;
-	if ( Hero->Dir == DIR_DOWN && Hero->Y < f->Y ) return true;
-	if ( Hero->Dir == DIR_RIGHT && Hero->X < f->X ) return true;
-	if ( Hero->Dir == DIR_LEFT && Hero->X > f->X ) return true;
-	return false;
-}
-
-bool LinkFacing(npc f)
-{
-	if ( Hero->Dir == DIR_UP && Hero->Y > f->Y ) return true;
-	if ( Hero->Dir == DIR_DOWN && Hero->Y < f->Y ) return true;
-	if ( Hero->Dir == DIR_RIGHT && Hero->X < f->X ) return true;
-	if ( Hero->Dir == DIR_LEFT && Hero->X > f->X ) return true;
-	return false;
-}
-
-bool LinkFacing(lweapon f)
-{
-	if ( Hero->Dir == DIR_UP && Hero->Y > f->Y ) return true;
-	if ( Hero->Dir == DIR_DOWN && Hero->Y < f->Y ) return true;
-	if ( Hero->Dir == DIR_RIGHT && Hero->X < f->X ) return true;
-	if ( Hero->Dir == DIR_LEFT && Hero->X > f->X ) return true;
-	return false;
-}
-
-bool LinkFacing(eweapon f)
-{
-	if ( Hero->Dir == DIR_UP && Hero->Y > f->Y ) return true;
-	if ( Hero->Dir == DIR_DOWN && Hero->Y < f->Y ) return true;
-	if ( Hero->Dir == DIR_RIGHT && Hero->X < f->X ) return true;
-	if ( Hero->Dir == DIR_LEFT && Hero->X > f->X ) return true;
-	return false;
-}
-
-bool LinkFacing(item f)
+bool LinkFacing(sprite f)
 {
 	if ( Hero->Dir == DIR_UP && Hero->Y > f->Y ) return true;
 	if ( Hero->Dir == DIR_DOWN && Hero->Y < f->Y ) return true;
@@ -43059,196 +43892,18 @@ void NoPress(bool stick)
 	}
 }
 
-//O
-
-//P
-
-//Proximinity between Link and object, or two objects.
-int ProximityX(ffc a, ffc b) 
+// Proximity between two sprites along X axis.
+int ProximityX(sprite a, sprite b) 
 {
 	return ( Abs(a->X - b->X) );
 }
 
-
-int ProximityX(ffc a, lweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-
-int ProximityX(ffc a, eweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-	
-
-int ProximityX(ffc a, npc b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-
-int ProximityX(ffc a, item b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-
-int ProximityX(lweapon a, ffc b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(lweapon a, lweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(lweapon a, eweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(lweapon a, npc b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(lweapon a, item b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(eweapon a, ffc b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(eweapon a, lweapon b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(eweapon a, eweapon b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(eweapon a, npc b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(eweapon a, item b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(npc a, ffc b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(npc a, lweapon b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(npc a, eweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(npc a, npc b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(npc a, item b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-
-int ProximityX(item a, ffc b)
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(item a, lweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(item a, eweapon b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(item a, npc b) 
-{
-	return ( Abs(a->X - b->X) );
-}
-
-int ProximityX(item a, item b) 
-{
-	return (Abs(b->X - a->X));
-}
-
-int ProximityX(int b, ffc a) 
+int ProximityX(int b, sprite a) 
 {
 	return (Abs(ComboX(b) - a->X));
 }
 
-
-int ProximityX(int b, lweapon a) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-
-
-int ProximityX(int b, eweapon a) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-	
-
-int ProximityX(int b, npc a) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-
-
-int ProximityX(int b, item a) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-
-int ProximityX(ffc a, int b) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-
-
-int ProximityX(lweapon a, int b) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-
-
-int ProximityX(eweapon a, int b) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-	
-
-int ProximityX(npc a, int b) 
-{
-	return (Abs(ComboX(b) - a->X));
-}
-
-
-int ProximityX(item a, int b) 
+int ProximityX(sprite a, int b) 
 {
 	return (Abs(ComboX(b) - a->X));
 }
@@ -43258,31 +43913,15 @@ int ProximityX(int b, int a)
 	return ( Abs(ComboX(a) - ComboX(b)) );
 }
 
-int ProximityX(ffc a) 
+int ProximityX(sprite a) 
 {
 	return ( Abs(Hero->X - a->X) );
 }
 
-int ProximityX(lweapon a) 
+int ProximityX(int a) 
 {
-	return ( Abs(Hero->X - a->X) );
+	return ( Abs(Hero->X - ComboX(a)) );
 }
-
-int ProximityX(eweapon a) 
-{
-	return ( Abs(Hero->X - a->X) );
-}
-
-int ProximityX(npc a) 
-{
-	return ( Abs(Hero->X - a->X) );
-}
-
-int ProximityX(item a) 
-{
-	return ( Abs(Hero->X - a->X) );
-}
-
 
 //Proximity from center of object's hitbox:
 int ProximityX(ffc a, ffc b, bool fromcentre ) 
@@ -43482,197 +44121,18 @@ int ProximityX(int b, int a, bool center)
 
 //ProximityY Functions
 
-int ProximityX(int a) 
-{
-	return ( Abs(Hero->X - ComboX(a)) );
-}
-
-
-int ProximityY(ffc a, ffc b) 
+// Proximity between two sprites along Y axis.
+int ProximityY(sprite a, sprite b) 
 {
 	return ( Abs(a->Y - b->Y) );
 }
 
-
-int ProximityY(ffc a, lweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-
-int ProximityY(ffc a, eweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-	
-
-int ProximityY(ffc a, npc b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-
-int ProximityY(ffc a, item b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-
-int ProximityY(lweapon a, ffc b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(lweapon a, lweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(lweapon a, eweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(lweapon a, npc b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(lweapon a, item b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(eweapon a, ffc b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(eweapon a, lweapon b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(eweapon a, eweapon b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(eweapon a, npc b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(eweapon a, item b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(npc a, ffc b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(npc a, lweapon b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(npc a, eweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(npc a, npc b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(npc a, item b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-
-int ProximityY(item a, ffc b)
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(item a, lweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(item a, eweapon b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(item a, npc b) 
-{
-	return ( Abs(a->Y - b->Y) );
-}
-
-int ProximityY(item a, item b) 
-{
-	return (Abs(b->Y - a->Y));
-}
-
-int ProximityY(int b, ffc a) 
+int ProximityY(int b, sprite a) 
 {
 	return (Abs(ComboY(b) - a->Y));
 }
 
-
-int ProximityY(int b, lweapon a) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-
-
-int ProximityY(int b, eweapon a) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-	
-
-int ProximityY(int b, npc a) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-
-
-int ProximityY(int b, item a) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-
-int ProximityY(ffc a, int b) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-
-
-int ProximityY(lweapon a, int b) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-
-
-int ProximityY(eweapon a, int b) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-	
-
-int ProximityY(npc a, int b) 
-{
-	return (Abs(ComboY(b) - a->Y));
-}
-
-
-int ProximityY(item a, int b) 
+int ProximityY(sprite a, int b) 
 {
 	return (Abs(ComboY(b) - a->Y));
 }
@@ -43682,32 +44142,12 @@ int ProximityY(int b, int a)
 	return ( Abs(ComboY(a) - ComboY(b)) );
 }
 
-int ProximityY(ffc a) 
+int ProximityY(sprite a)
 {
 	return ( Abs(Hero->Y - a->Y) );
 }
 
-int ProximityY(lweapon a) 
-{
-	return ( Abs(Hero->Y - a->Y) );
-}
-
-int ProximityY(eweapon a) 
-{
-	return ( Abs(Hero->Y - a->Y) );
-}
-
-int ProximityY(npc a) 
-{
-	return ( Abs(Hero->Y - a->Y) );
-}
-
-int ProximityY(item a) 
-{
-	return ( Abs(Hero->Y - a->Y) );
-}
-
-int ProximityY(int a) 
+int ProximityY(int a)
 {
 	return ( Abs(Hero->Y - ComboY(a)) );
 }
@@ -45512,50 +45952,21 @@ int HitboxLeft(ffc a)
 }
 
 // Returns the X coordinate of the right edge of the hitbox.
-int HitboxRight(eweapon a)
+int HitboxRight(sprite s)
 {
-	return (a->X + a->HitXOffset + a->HitWidth - 1);
+	return (s->X + s->HitXOffset + s->HitWidth - 1);
 }
 
-int HitboxRight(lweapon a)
-{
-	return (a->X + a->HitXOffset + a->HitWidth - 1);
-}
-
-int HitboxRight(item a)
-{
-	return (a->X + a->HitXOffset + a->HitWidth - 1);
-}
-
-int HitboxRight(npc a)
-{
-	return (a->X + a->HitXOffset + a->HitWidth - 1);
-}
-
+//Uses TileWidth for the FFC's bounding box.
 int HitboxRight(ffc a)
 {
 	return a->X + a->TileWidth*16 - 1;
 }
 
 // Returns the Y coordinate of the top edge of the hitbox.
-int HitboxTop(eweapon a)
+int HitboxTop(sprite s)
 {
-	return (a->Y + a->HitYOffset);
-}
-
-int HitboxTop(lweapon a)
-{
-	return (a->Y + a->HitYOffset);
-}
-
-int HitboxTop(item a)
-{
-	return (a->Y + a->HitYOffset);
-}
-
-int HitboxTop(npc a)
-{
-	return (a->Y + a->HitYOffset);
+	return (s->Y + s->HitYOffset);
 }
 
 int HitboxTop(ffc a)
@@ -46175,14 +46586,8 @@ void Remove(npc n)
 	n->HP = -1000;
 }
 
-//Returns if Link is right of an npc.
-bool RightOf(npc n){ return Hero->X > n->X; }
-//Returns if Link is above, below, left of, or right of an ffc.
-bool RightOf(ffc n){ return Hero->X > n->X; }
-//Returns if Link is above, below, left of, or right of an eweapon.
-bool RightOf(eweapon n){ return Hero->X > n->X; }
-//Returns if Link is above, below, left of, or right of an lweapon.
-bool RightOf(lweapon n){ return Hero->X > n->X; }
+//Returns if Link is right of a sprite.
+bool RightOf(sprite n){ return Hero->X > n->X; }
 
 //rotates and scales X about a center point by an amount of degrees
 float RotateScalePointX(float x, float y, float centerX, float centerY, float degrees, float scaleX, float scaleY)
@@ -46783,22 +47188,10 @@ bool VisibleOnDungeonMap(int x, int y)
 	return (dm->Grid[y]&(128>>x));
 }
 
-//Returns if a screen is visible on the passive subscreen minimap.
-//Uses the current screen.
-bool VisibleOnDungeonMap()
-{
-	dmapdata dm = Game->LoadDMapData(Game->CurDMap);
-	int scr = Game->CurScreen;
-	int col = (scr % 0x10)-dm->Offset;
-	int row = (scr>>4);
-	//screen-dm->Offset;
-	//could get screen X and Y from curscreen and dmapoffset in a separate function
-	return (dm->Grid[row]&((128>>col)));
-}
-
-//Returns if a screen is visible on the passive subscreen minimap.
-//Accepts a specific screen ID for the current dmap.
-bool VisibleOnDungeonMap(int scr)
+// Returns true if a screen is visible on the passive subscreen minimap.
+//
+// @param scr - If no screen given, defaults to [Game->CurScreen].
+bool VisibleOnDungeonMap(int scr = Game->CurScreen)
 {
 	dmapdata dm = Game->LoadDMapData(Game->CurDMap);
 	int col = (scr % 0x10)-dm->Offset;
@@ -46806,19 +47199,11 @@ bool VisibleOnDungeonMap(int scr)
 	return (dm->Grid[row]&((128>>col)));
 }
 
-//Returns if a screen is visible on the passive subscreen minimap.
-//Uses the current screen on a dmapdata pointer.
-bool VisibleOnDungeonMap(dmapdata dm)
-{
-	int scr = Game->CurScreen;
-	int col = (scr % 0x10)-dm->Offset;
-	int row = (scr>>4);
-	return (dm->Grid[row]&((128>>col)));
-}
-
-//Returns if a screen is visible on the passive subscreen minimap.
-//Accepts a specific screen ID on a specified dmapdata pointer.
-bool VisibleOnDungeonMap(dmapdata dm, int scr)
+// Returns if a screen is visible on the passive subscreen minimap.
+//
+// @param [dmapdata] dm
+// @param scr - If no screen given, defaults to [Game->CurScreen].
+bool VisibleOnDungeonMap(dmapdata dm, int scr = Game->CurScreen)
 {
 	int col = (scr % 0x10)-dm->Offset;
 	int row = (scr>>4);

@@ -247,6 +247,18 @@ class combodata {
 	// @zasm_var COMBODGENFLAGARR
 	internal bool GenFlags[];
 
+	// Certain features, such as [LF_LARGE_LIFTABLE], use this directions to connect to
+	// other combos forming a 'Large Combo'.
+	// If a direction is set on this combo, and the combo on the same layer in that direction
+	// has the opposite direction set, the combos will be connected for features that use
+	// large combos.
+	//
+	// @index [enum Direction]
+	// @length 4
+	// @versionadded 3.0
+	// @zasm_var COMBOD_LARGECOMBO_DIRS
+	internal bool LargeComboDirs[];
+
 	// The GFX combo/cset used to display the object, if 'Other Combo GFX' is
 	// the GFX mode.
 	//
@@ -329,12 +341,14 @@ class combodata {
 	// The radius of light that will be emitted by the lifted weapon.
 	//
 	// @versionadded 3.0
+	// @deprecated use [LiftWeaponData] / [weapondata::BurnLightRadius] instead!
 	// @zasm_var COMBODLIFTLIGHTRAD
 	internal int LiftLightRadius;
 	
 	// The [LightShape] the lifted weapon will use, if light is emitted.
 	//
 	// @versionadded 3.0
+	// @deprecated use [LiftWeaponData] / [weapondata::LightShape] instead!
 	// @zasm_var COMBODLIFTLIGHTSHAPE
 	internal int LiftLightShape;
 
@@ -701,4 +715,14 @@ class combodata {
 	// @versionadded 3.0
 	// @zasm_var COMBODTRIGPUSHTIME
 	internal int TrigPushTime;
+	
+	// The [weapondata] for this combo's lift weapon.
+	// @versionadded 3.0
+	// @zasm_var COMBODATA_LIFT_WEAPONDATA
+	internal const weapondata LiftWeaponData;
+	
+	// The [weapondata] for this combo's misc weapon.
+	// @versionadded 3.0
+	// @zasm_var COMBODATA_MISC_WEAPONDATA
+	internal const weapondata MiscWeaponData;
 }

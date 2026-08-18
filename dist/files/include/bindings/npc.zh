@@ -560,13 +560,15 @@ class npc {
 	// @zasm_var NPCKNOCKBACKSPEED
 	internal int SlideSpeed;
 
-	// The spawn sprite used by the npc, 0-255
+	// The spawn sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCSPAWNSPR
 	internal int SpawnSprite;
 
-	// The death sprite used by the npc, 0-255
+	// The death sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDEATHSPR
 	internal int DeathSprite;
 
@@ -612,7 +614,11 @@ class npc {
 	// @zasm_var NPCSCRIPTUID
 	internal const int UID;
 
-	// @deprecated
+	// @versionadded 3.0
+	// @zasm_var NPCPARENTUID
+	internal npc Parent;
+
+	// @deprecated - use [Parent] or [Parent->UID] instead.
 	// @zasm_var NPCPARENTUID
 	internal int ParentUID;
 
@@ -1097,4 +1103,9 @@ class npc {
 	//   POP REFNPC
 	//   NPC_SUMMON_MINION_LAYER D2
 	internal npc SummonMinionFromLayer(int summon_limit);
+	
+	// The [weapondata] for this enemy's weapon.
+	// @versionadded 3.0
+	// @zasm_var NPC_WEAPONDATA
+	internal const weapondata WeaponData;
 }

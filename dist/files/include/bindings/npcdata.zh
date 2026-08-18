@@ -496,26 +496,31 @@ class npcdata {
 
 	// The weapon action script assigned to this npc.
 	//
+	// @deprecated use [WeaponData] / [weapondata::Script] instead!
 	// @zasm_var NPCDATAWEAPONSCRIPT
 	internal int WeaponScript;
 
 	// The eight InitD args assigned to the weapon script used by this npc.
 	//
+	// @deprecated use [WeaponData] / [weapondata::InitD] instead!
 	// @zasm_var NPCDATAWEAPONINITD
 	internal int WeaponInitD[];
 
-	// The shadow sprite used by the npc, 0-255
+	// The shadow sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDSHADOWSPR
 	internal int ShadowSprite;
 
-	// The spawn sprite used by the npc, 0-255
+	// The spawn sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDSPAWNSPR
 	internal int SpawnSprite;
 
-	// The death sprite used by the npc, 0-255
+	// The death sprite used by the npc, 0-8191
 	//
+	// @versionchanged 3.0 Max sprite expanded from 255 to 8191
 	// @zasm_var NPCDDEATHSPR
 	internal int DeathSprite;
 	
@@ -529,6 +534,7 @@ class npcdata {
 	// The fired [eweapon]'s default movement flags.
 	//
 	// @value [enum MoveFlag]
+	// @deprecated use [WeaponData] / [weapondata::MoveFlags] instead!
 	// @versionadded 3.0
 	// @zasm_var NPCDATAWMOVEFLAGS
 	internal bool WeaponMoveFlags[];
@@ -545,4 +551,9 @@ class npcdata {
 	// @value [enum NPCType]
 	// @zasm_var NPCDATATYPE
 	internal int Family;
+	
+	// The [weapondata] for this enemy's weapon.
+	// @versionadded 3.0
+	// @zasm_var NPCDATA_WEAPONDATA
+	internal const weapondata WeaponData;
 }

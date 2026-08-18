@@ -132,6 +132,15 @@ enum WeaponFlag
 	//
 	// @versionadded 3.0
 	WFLAG_TEMP_IGNORE_SOLID,
+	// The weapon will be carried by conveyor combos.
+	//
+	// @versionadded 3.0
+	WFLAG_OBEY_CONVEYORS,
+	// If carried by the [Hero], the weapon can be carried across screen boundaries,
+	// even when QRs would normally prevent this.
+	//
+	// @versionadded 3.0
+	WFLAG_CARRYABLE_CROSS_SCREEN,
 	WFLAG_MAX
 };
 
@@ -885,7 +894,12 @@ enum ComboLiftFlag
 	LF_SPECIALITEM,
 	LF_NOUCSET,
 	LF_NOWPNCMBCSET,
-	LF_BREAKONSOLID, // TODO: Deprecate this with new weapon_data access
+	// @deprecated use [combodata::LiftWeaponData] / [weapondata::Flags] / [WFLAG_BREAKS_ON_SOLID] instead!
+	LF_BREAKONSOLID,
+	// If this combo is part of a larger liftable object, as
+	// defined via [combodata::LargeComboDirs].
+	// @versionadded 3.0
+	LF_LARGE_LIFTABLE,
 };
 
 // Used with [Hero->LiftFlags].
@@ -997,6 +1011,12 @@ enum SpecialDrawLayer
 	// This is just after the Hero's draw and the [Hero->LiftedWeapon] is drawn.
 	// @versionadded 3.0
 	SPLAYER_OVER_PROMPT_COMBO,
+	// Just under the [Graphics->SpriteLayerTarget] sprite, if it exists.
+	// @versionadded 3.0
+	SPLAYER_SPRITE_TARGET_UNDER,
+	// Just over the [Graphics->SpriteLayerTarget] sprite, if it exists.
+	// @versionadded 3.0
+	SPLAYER_SPRITE_TARGET_OVER,
 };
 
 // Used with [itemdata::SizeFlags], [itemdata::WeaponSizeFlags], [npcdata::SizeFlags].
