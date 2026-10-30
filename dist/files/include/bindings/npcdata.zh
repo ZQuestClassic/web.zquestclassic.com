@@ -152,7 +152,13 @@ enum NPCDefenseType
 	NPCDT_HEAL,
 	NPCDT_TRIGGERSECRETS,
 
-	NPCDT_SWITCH = 50
+	NPCDT_SPLIT = 26,
+	NPCDT_TRANSFORM = 27,
+	NPCDT_BOMBEXPLOSION = 33,
+	NPCDT_SUPERBOMBEXPLOSION = 34,
+	NPCDT_HARMLESSEXPLOSION = 41,
+	NPCDT_SUMMON = 46,
+	NPCDT_SWITCH = 51
 };
 
 // Enemy projectile weapon selections. Use with npc->Weapon.
@@ -440,6 +446,15 @@ class npcdata {
 	// @zasm_var NPCDATAFIRESFX
 	internal int WeaponSFX;
 
+	// The sfx used when the npc fires a weapon other than [npcdata::Weapon].
+	// Only the 'Fire Octo' death effect does so, and the weapon it fires is
+	// [npcdata::Weapon] plus the 'Weapon Offset' attribute.
+	// If 0 or less, no sound will be played.
+	//
+	// @versionadded 3.0
+	// @zasm_var NPCDATAFIRESFXSECONDARY
+	internal int WeaponSecondarySFX;
+
 	// The defense categories for the npc.
 	//
 	// @index [enum NPCDefenseIndex]
@@ -541,6 +556,9 @@ class npcdata {
 
 	// Puts the text of the npc name into string 'ptr'.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFNPCDATA

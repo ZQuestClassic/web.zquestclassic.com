@@ -840,6 +840,9 @@ class mapdata {
 	// Resizable array of data for scripts to use. All changes are saved to the
 	// save file.
 	//
+	// Belongs to the map screen, so it is the same array as [screendata::Data]
+	// for this screen, on any DMap.
+	//
 	// @zasm_var MAPDATASCRDATA
 	internal untyped Data[];
 
@@ -877,7 +880,10 @@ class mapdata {
 	//
 	// Screen->D is not bound to layermap.
 	//
+	// It can only hold numbers: storing an object in it is an error.
+	//
 	// @deprecated mapdata->D[] has never worked!
+	// @no_objects
 	// @zasm_var MAPDATAMISCD
 	internal untyped D[];
 

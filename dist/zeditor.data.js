@@ -1,7 +1,7 @@
 
   var Module = typeof Module != 'undefined' ? Module : {};
 
-  Module['expectedDataFileDownloads'] ??= 0;
+  if (!Module['expectedDataFileDownloads']) Module['expectedDataFileDownloads'] = 0;
   Module['expectedDataFileDownloads']++;
   (() => {
     // Do not attempt to redownload the virtual filesystem data when in a pthread or a Wasm Worker context.
@@ -19,12 +19,12 @@
       }
       var PACKAGE_NAME = '/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data';
       var REMOTE_PACKAGE_BASE = 'zeditor.data';
-      var REMOTE_PACKAGE_NAME = Module['locateFile']?.(REMOTE_PACKAGE_BASE, '') ?? REMOTE_PACKAGE_BASE;
+      var REMOTE_PACKAGE_NAME = Module['locateFile'] ? Module['locateFile'](REMOTE_PACKAGE_BASE, '') : REMOTE_PACKAGE_BASE;
       var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
 
       async function fetchRemotePackage(packageName, packageSize) {
         
-        Module['dataFileDownloads'] ??= {};
+        if (!Module['dataFileDownloads']) Module['dataFileDownloads'] = {};
         try {
           var response = await fetch(packageName);
         } catch (e) {
@@ -36,10 +36,10 @@
 
         const chunks = [];
         const headers = response.headers;
-        const total = Number(headers.get('Content-Length') ?? packageSize);
+        const total = Number(headers.get('Content-Length') || packageSize);
         let loaded = 0;
 
-        Module['setStatus']?.('Downloading data...');
+        Module['setStatus'] && Module['setStatus']('Downloading data...');
         const reader = response.body.getReader();
 
         while (1) {
@@ -57,7 +57,7 @@
             totalSize += download.total;
           }
 
-          Module['setStatus']?.(`Downloading data... (${totalLoaded}/${totalSize})`);
+          Module['setStatus'] && Module['setStatus'](`Downloading data... (${totalLoaded}/${totalSize})`);
         }
 
         const packageData = new Uint8Array(chunks.map((c) => c.length).reduce((a, b) => a + b, 0));
@@ -78,38 +78,6 @@ Module['FS_createPath']("/", "assets", true, true);
 Module['FS_createPath']("/assets", "editor", true, true);
 Module['FS_createPath']("/assets", "zc", true, true);
 Module['FS_createPath']("/", "docs", true, true);
-
-      /** @constructor */
-      function DataRequest(start, end, audio) {
-        this.start = start;
-        this.end = end;
-        this.audio = audio;
-      }
-      DataRequest.prototype = {
-        requests: {},
-        open: function(mode, name) {
-          this.name = name;
-          this.requests[name] = this;
-          Module['addRunDependency'](`fp ${this.name}`);
-        },
-        send: function() {},
-        onload: function() {
-          var byteArray = this.byteArray.subarray(this.start, this.end);
-          this.finish(byteArray);
-        },
-        finish: async function(byteArray) {
-          var that = this;
-          // canOwn this data in the filesystem, it is a slice into the heap that will never change
-          Module['FS_createDataFile'](this.name, null, byteArray, true, true, true);
-          Module['removeRunDependency'](`fp ${that.name}`);
-          this.requests[this.name] = null;
-        }
-      };
-
-      var files = metadata['files'];
-      for (var i = 0; i < files.length; ++i) {
-        new DataRequest(files[i]['start'], files[i]['end'], files[i]['audio'] || 0).open('GET', files[i]['filename']);
-      }
 
         var PACKAGE_UUID = metadata['package_uuid'];
         var IDB_RO = "readonly";
@@ -261,27 +229,28 @@ Module['FS_createPath']("/", "docs", true, true);
           });
         }
 
-      function processPackageData(arrayBuffer) {
+      async function processPackageData(arrayBuffer) {
         assert(arrayBuffer, 'Loading data file failed.');
-        assert(arrayBuffer.constructor.name === ArrayBuffer.name, 'bad input to processPackageData');
+        assert(arrayBuffer.constructor.name === ArrayBuffer.name, 'bad input to processPackageData ' + arrayBuffer.constructor.name);
         var byteArray = new Uint8Array(arrayBuffer);
         var curr;
         // Reuse the bytearray from the XHR as the source for file reads.
-          DataRequest.prototype.byteArray = byteArray;
-          var files = metadata['files'];
-          for (var i = 0; i < files.length; ++i) {
-            DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data');
-
+          for (var file of metadata['files']) {
+            var name = file['filename'];
+            var data = byteArray.subarray(file['start'], file['end']);
+            // canOwn this data in the filesystem, it is a slice into the heap that will never change
+        Module['FS_createDataFile'](name, null, data, true, true, true);
+          }
+          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data');
       }
       Module['addRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zeditor.data');
 
-      Module['preloadResults'] ??= {};
+      if (!Module['preloadResults']) Module['preloadResults'] = {};
 
         async function preloadFallback(error) {
           console.error(error);
           console.error('falling back to default preload behavior');
-          processPackageData(await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE));
+          await processPackageData(await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE));
         }
 
         try {
@@ -290,30 +259,32 @@ Module['FS_createPath']("/", "docs", true, true);
           var useCached = !!pkgMetadata;
           Module['preloadResults'][PACKAGE_NAME] = {fromCache: useCached};
           if (useCached) {
-            processPackageData(await fetchCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME, pkgMetadata));
+            await processPackageData(await fetchCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME, pkgMetadata));
           } else {
             var packageData = await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE);
             try {
-              processPackageData(await cacheRemotePackage(db, PACKAGE_PATH + PACKAGE_NAME, packageData, {uuid:PACKAGE_UUID}))
+              await processPackageData(await cacheRemotePackage(db, PACKAGE_PATH + PACKAGE_NAME, packageData, {uuid:PACKAGE_UUID}))
             } catch (error) {
               console.error(error);
-              processPackageData(packageData);
+              await processPackageData(packageData);
             }
           }
         } catch(e) {
           await preloadFallback(e);
         }
 
-        Module['setStatus']?.('Downloading...');
+        Module['setStatus'] && Module['setStatus']('Downloading...');
 
     }
-    if (Module['calledRun']) {
+    // Detect whether the module JS file has already been loaded.
+    if (Module['FS_createPath']) {
       runWithFS(Module);
     } else {
-      (Module['preRun'] ??= []).push(runWithFS); // FS is not initialized yet, wait for it
+      if (!Module['preRun']) Module['preRun'] = [];
+      Module['preRun'].push(runWithFS); // FS is not initialized yet, wait for it
     }
 
     }
-    loadPackage({"files": [{"filename": "/assets/editor/arrows.bmp", "start": 0, "end": 3598}, {"filename": "/assets/editor/engravings.bmp", "start": 3598, "end": 155096}, {"filename": "/assets/editor/icons.bmp", "start": 155096, "end": 165834}, {"filename": "/assets/editor/mouse.bmp", "start": 165834, "end": 181264}, {"filename": "/assets/editor/pal.bmp", "start": 181264, "end": 182598}, {"filename": "/assets/editor/select.bmp", "start": 182598, "end": 184324}, {"filename": "/assets/editor/tunes.mid", "start": 184324, "end": 382948}, {"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 382948, "end": 390960}, {"filename": "/docs/zquest.txt", "start": 390960, "end": 580508}, {"filename": "/docs/zstrings.txt", "start": 580508, "end": 588458}], "remote_package_size": 588458, "package_uuid": "sha256-03483efc87399fd6fedb3858ee96f75c2b0b14e19935be4396de6261a538486d"});
+    loadPackage({"files": [{"filename": "/assets/editor/arrows.bmp", "start": 0, "end": 3598}, {"filename": "/assets/editor/engravings.bmp", "start": 3598, "end": 155096}, {"filename": "/assets/editor/icons.bmp", "start": 155096, "end": 165834}, {"filename": "/assets/editor/mouse.bmp", "start": 165834, "end": 181264}, {"filename": "/assets/editor/pal.bmp", "start": 181264, "end": 182598}, {"filename": "/assets/editor/select.bmp", "start": 182598, "end": 184324}, {"filename": "/assets/editor/tunes.mid", "start": 184324, "end": 382948}, {"filename": "/assets/zc/ZC_Icon_Medium_Editor.png", "start": 382948, "end": 390960}, {"filename": "/docs/zquest.txt", "start": 390960, "end": 580667}, {"filename": "/docs/zstrings.txt", "start": 580667, "end": 588617}], "remote_package_size": 588617, "package_uuid": "sha256-01147959aaab8d8b0be16690bb9f2a10c7a97f278e29e448468af9841c354f5e"});
 
   })();

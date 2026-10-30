@@ -16043,8 +16043,13 @@ class Audio {
 internal const Audio Audio;
 // A 2D canvas of pixels for drawing to.
 //
+// Create a new bitmap with `new bitmap(width, height)` or [Game->CreateBitmap].
+//
+// Load an internal bitmap with [Game->LoadBitmapID].
+//
 // @zasm_ref REFBITMAP
 class bitmap {
+	// @versionadded 3.0
 	// @zasm
 	//   POP D1
 	//   POP D0
@@ -16768,6 +16773,9 @@ class bottledata {
 
 	// Loads the name of the bottledata into the provided string buffer.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFBOTTLETYPE
@@ -16816,6 +16824,9 @@ class bottleshopdata {
 
 	// Loads the name of the bottleshopdata into the provided string buffer.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFBOTTLESHOP
@@ -18948,9 +18959,18 @@ enum ComboType
 	CT_GLASS              = 171,
 	CT_LIGHT_TARGET       = 172,
 	CT_SWITCHHOOK_BLOCK   = 173,
-	CT_CUSTOM_BLOCKER     = 174,
-	CT_SHOOTER            = 175,
-	CT_MAX                = 176
+	CT_BUTTON_PROMPT      = 174,
+	CT_CUSTOM_BLOCKER     = 175,
+	CT_SHOOTER            = 176,
+	CT_SLOPE              = 177,
+	CT_CUTSCENE_TRIGGER   = 178,
+	CT_PUSH_GENERIC       = 179,
+	CT_ICY                = 180,
+	CT_MIRROR_CUSTOM      = 181,
+	CT_CRUMBLE            = 182,
+	// @versionadded 3.0
+	CT_CUTSCENE_EFFECT    = 183,
+	CT_MAX                = 184
 };
 
 enum TileWarpIndex
@@ -19620,6 +19640,19 @@ enum CornerIndex
 	CORNER_BL,
 	CORNER_BR,
 };
+
+// @versionadded 3.0
+@Bitflags("long")
+enum EnumExportDisplayFlags
+{
+	EXPDISP_RAW = 0x00L, // display the constant as-is (ex. `EXPDISP_RAW`)
+	EXPDISP_UNDERSCORE_SPACES = 0x01L, // change underscores to spaces (ex. `EXPDISP UNDERSCORE SPACES`)
+	EXPDISP_PROPER_CASE = 0x02L, // proper-case the name (ex. `Expdisp_Proper_Case`)
+	EXPDISP_TRIM_PREFIXES = 0x04L, // remove prefixes that are common to every constant (ex. `TRIM_PREFIXES`)
+	
+	EXPDISP_DEFAULT = EXPDISP_UNDERSCORE_SPACES | EXPDISP_PROPER_CASE | EXPDISP_TRIM_PREFIXES, // the default export display settings
+};
+
 // Contains various debug-only functionality.
 //
 // Access with `Debug->`.
@@ -19638,8 +19671,11 @@ class Debug {
 }
 
 internal const Debug Debug;
+// Load a directory with `new directory(path)` or [FileSystem->LoadDirectory()].
+//
 // @zasm_ref REFDIRECTORY
 class directory {
+	// @versionadded 3.0
 	// @zasm
 	//   POP D2
 	//   LOADDIRECTORYR D2
@@ -19652,6 +19688,9 @@ class directory {
 
 	// Loads the name of the [index] file (0 <= [index] < [Size])
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D3
 	//   POP D2
@@ -19729,6 +19768,11 @@ enum DMapFlag
 	//
 	// @versionadded 3.0
 	DMFS_CUSTOM_GRAVITY,
+	// Use the dmap's own viewport follow settings ([dmapdata::ViewportDeadzoneWidth] and the
+	// other `Viewport*` properties) instead of the ones in Init Data. See [Viewport->DeadzoneWidth].
+	//
+	// @versionadded 3.0
+	DMFS_CUSTOM_VIEWPORT_FOLLOW,
 	DMFS_MAX
 };
 
@@ -19929,6 +19973,55 @@ class dmapdata {
 	// @zasm_var DMAPDATA_TERMINAL_VELOCITY
 	internal int TerminalVelocity;
 
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the width of the viewport deadzone box on this dmap
+	// (0 to 240). See [Viewport->DeadzoneWidth].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_DEADZONE_WIDTH
+	internal int ViewportDeadzoneWidth;
+
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the height of the viewport deadzone box on this dmap
+	// (0 to 160). See [Viewport->DeadzoneHeight].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_DEADZONE_HEIGHT
+	internal int ViewportDeadzoneHeight;
+
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the horizontal viewport lookahead distance on this
+	// dmap (-128 to 127). See [Viewport->LookaheadX].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_LOOKAHEAD_X
+	internal int ViewportLookaheadX;
+
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the vertical viewport lookahead distance on this
+	// dmap (-128 to 127). See [Viewport->LookaheadY].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_LOOKAHEAD_Y
+	internal int ViewportLookaheadY;
+
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the viewport lookahead speed on this dmap (0 to
+	// 240). See [Viewport->LookaheadSpeed].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_LOOKAHEAD_SPEED
+	internal int ViewportLookaheadSpeed;
+
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the viewport idle recentering speed on this dmap
+	// (0 to 240). See [Viewport->RecenterSpeed].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_RECENTER_SPEED
+	internal int ViewportRecenterSpeed;
+
+	// If [DMFS_CUSTOM_VIEWPORT_FOLLOW] is set, the viewport idle recentering delay on this dmap, in
+	// frames (0 to 65535). See [Viewport->RecenterDelay].
+	//
+	// @versionadded 3.0
+	// @zasm_var DMAPDATA_VIEWPORT_RECENTER_DELAY
+	internal int ViewportRecenterDelay;
+
 	// If true, the dmap is treated as sideview by default; screens with the
 	// sideview flag enabled will toggle sideview back *off*.
 	//
@@ -20023,6 +20116,9 @@ class dmapdata {
 
 	// Fills the buffer with the dmap's name.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFDMAPDATA
@@ -20039,6 +20135,9 @@ class dmapdata {
 
 	// Fills the buffer with the dmap's title.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFDMAPDATA
@@ -20055,6 +20154,9 @@ class dmapdata {
 
 	// Fills the buffer with the dmap's intro.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFDMAPDATA
@@ -20072,7 +20174,10 @@ class dmapdata {
 	// Fills the buffer with the dmap's enhanced music filename. See
 	// [MusicTrack].
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
 	// @deprecated Use [Music] / [musicdata::GetPath()] instead!
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFDMAPDATA
@@ -20697,6 +20802,12 @@ class ffc {
 	//   FFCTRIGGER D2
 	internal bool Trigger(int trig_index = 0);
 }
+// Load a file with `new file(path, mode)` or [FileSystem->LoadFile()].
+//
+// You can also use [file::Open] or [file::Create].
+//
+// # File modes
+//
 // Valid modes (details taken from http://www.cplusplus.com/reference/cstdio/fopen/):
 //
 // - "r" (read): Open file for input operations. The file must exist.
@@ -20727,6 +20838,7 @@ class ffc {
 // @zasm_ref REFFILE
 class file {
 	// @param mode - See [file] for details.
+	// @versionadded 3.0
 	// @zasm
 	//   POP D3
 	//   POP D2
@@ -20845,6 +20957,10 @@ class file {
 
 	// Reads a section of characters from the file.
 	//
+	// If [count] is given and the buffer has no room for it (starting at [pos]),
+	// the buffer is resized to fit. If [count] is -1, reads as much as fits in the buffer.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit an explicit [count] (it used to be truncated).
 	// @zasm
 	//   POP D0
 	//   POP D3
@@ -20855,6 +20971,10 @@ class file {
 
 	// Reads a section of binary data from the file.
 	//
+	// If [count] is given and the buffer has no room for it (starting at [pos]),
+	// the buffer is resized to fit. If [count] is -1, reads as much as fits in the buffer.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit an explicit [count] (it used to be truncated).
 	// @zasm
 	//   POP D0
 	//   POP D3
@@ -20885,6 +21005,10 @@ class file {
 
 	// Reads a section of characters from the file.
 	//
+	// Reads one line (up to and including the newline, or the end of the file) into the buffer.
+	// If the buffer is too small, it is resized to fit the whole line.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit the whole line (it used to read only as much as fit, leaving the rest for the next call).
 	// @zasm
 	//   POP D2
 	//   POP REFFILE
@@ -20947,6 +21071,9 @@ class file {
 
 	// Stores a string describing the current error into the buffer provided.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFFILE
@@ -20973,6 +21100,10 @@ class file {
 
 	// Reads a section of binary data from the file.
 	//
+	// If [count] is given and the buffer has no room for it (starting at [pos]),
+	// the buffer is resized to fit. If [count] is -1, reads as much as fits in the buffer.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit an explicit [count] (it used to be truncated).
 	// @zasm
 	//   POP D0
 	//   POP D3
@@ -21968,12 +22099,27 @@ class Game {
 	//   SETR SPRITEMAXITEM D2
 	internal void MaxItemsprites(int value);
 
+	// Returns the value at index `register` of [screendata::D] for a screen of
+	// the current DMap.
+	//
+	// `screen` is the screen's index within the DMap: for DMaps that are not
+	// overworlds, that is the map screen minus the DMap's [dmapdata::Offset].
+	//
 	// @zasm
 	//   POP D1
 	//   POP D0
 	//   SETR D2 SDDD
 	internal untyped GetScreenD(int screen, int register);
 
+	// Sets the value at index `register` of [screendata::D] for a screen of
+	// the current DMap.
+	//
+	// `screen` is the screen's index within the DMap: for DMaps that are not
+	// overworlds, that is the map screen minus the DMap's [dmapdata::Offset].
+	//
+	// `value` is stored as a number: unlike assigning to [screendata::D], this doesn't
+	// keep an object alive.
+	//
 	// @zasm
 	//   POP D6
 	//   POP D1
@@ -21981,6 +22127,12 @@ class Game {
 	//   SETR SDDD D6
 	internal void SetScreenD(int screen, int register, untyped value);
 
+	// Returns the value at index `register` of [screendata::D] for a screen of
+	// the given DMap.
+	//
+	// `screen` is the screen's index within the DMap: for DMaps that are not
+	// overworlds, that is the map screen minus the DMap's [dmapdata::Offset].
+	//
 	// @zasm
 	//   POP D2
 	//   POP D1
@@ -21988,6 +22140,15 @@ class Game {
 	//   SETR D2 SDDDD
 	internal untyped GetDMapScreenD(int dmap, int screen, int register);
 
+	// Sets the value at index `register` of [screendata::D] for a screen of
+	// the given DMap.
+	//
+	// `screen` is the screen's index within the DMap: for DMaps that are not
+	// overworlds, that is the map screen minus the DMap's [dmapdata::Offset].
+	//
+	// `value` is stored as a number: unlike assigning to [screendata::D], this doesn't
+	// keep an object alive.
+	//
 	// @zasm
 	//   POP D6
 	//   POP D2
@@ -22064,6 +22225,9 @@ class Game {
 
 	// Loads the save file name into the buffer.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   GETSAVENAME D2
@@ -22566,6 +22730,10 @@ class Game {
 	//   POPARGS D5 0.0002
 	internal int SwapOverlaySubscreens(int sub_id_1, int sub_id_2);
 
+	// Loads the raw data of ZQ Message [string] into the buffer.
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP D3
@@ -22831,6 +22999,7 @@ class Game {
 	internal int GetSubscreenScript(char32[] name);
 
 	// @deprecated Use [dmapdata::GetMusic] instead!
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP D3
@@ -22850,6 +23019,7 @@ class Game {
 	internal void SetDMapEnhancedMusic(int dmap, char32[] filename, int track);
 
 	// @deprecated Use [dmapdata::GetName] instead!
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP D3
@@ -22864,6 +23034,7 @@ class Game {
 	internal void SetDMapName(int DMap, char32[] buffer);
 
 	// @deprecated Use [dmapdata::GetTitle] instead!
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP D3
@@ -22878,6 +23049,7 @@ class Game {
 	internal void SetDMapTitle(int DMap, char32[] buffer);
 
 	// @deprecated Use [dmapdata::GetIntro] instead!
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP D3
@@ -23017,6 +23189,7 @@ enum GenericScriptEvent
 	GENSCR_NUMEVENT //N/A (max value)
 };
 
+// See: https://docs.zquestclassic.com/zscript/lang/frame_timings
 enum ScriptTiming
 {
 	SCR_TIMING_INIT = -1,
@@ -23080,9 +23253,15 @@ internal void Waitframe();
 //   WAITFRAMESR D2
 internal void Waitframes(int count);
 
-// When called the first time in a frame, the script ends running for a portion
-// of time. The engine will proceed with part of a frame of gameplay, allowing
-// other engine activities to occur, before resuming this script.
+// Pauses the script for a portion of the frame. The engine will proceed with
+// part of a frame of gameplay (updating the Hero, enemies, weapons, and
+// collisions), before resuming this script just before the screen is drawn.
+//
+// Supported by global, hero, dmapdata, screendata, combodata, npc, lweapon,
+// eweapon, and itemsprite scripts. FFC scripts support it unless the QR
+// [qr_NOFFCWAITDRAW] is on, and itemdata scripts unless [qr_NOITEMWAITDRAW] is
+// on. Generic and subscreen scripts do not support it (the call does nothing);
+// passive generic scripts should use [WaitTo] instead.
 //
 // @zasm
 //   WAITDRAW
@@ -23378,6 +23557,9 @@ internal void DestroyArray(untyped[] arr);
 // Takes an Object parameter. Grants ownership of the object to the currently
 // running script.
 //
+// This can only be used on custom user objects (not builtin objects like [bitmap]).
+// For builin objects, use `->Own()` instead.
+//
 // @zasm
 //   POP D2
 //   ZCLASS_OWN D2
@@ -23389,6 +23571,8 @@ internal void OwnObject(untyped obj);
 // 
 // Objects that are stored in global variables (or other global objects)
 // are also considered to be global.
+//
+// This can only be used on custom user objects (not builtin objects like [bitmap]).
 //
 // @zasm
 //   POP D2
@@ -23539,6 +23723,9 @@ internal int strnicmp(char32[] str1, char32[] str2, int num_chars);
 
 // Copies the string [src] to [dest].
 //
+// If [dest] is too small, it is resized to fit.
+//
+// @versionchanged 2.55.17 [dest] is now resized to fit if it is too small (it used to be truncated, with an error).
 // @zasm
 //   POP D3
 //   POP D2
@@ -23548,6 +23735,9 @@ internal void strcpy(char32[] dest, char32[] src);
 // Appends the value [val] on the end of the [dest] string; combining [itoa]
 // with [strcat].
 //
+// If [dest] is too small, it is resized to fit.
+//
+// @versionchanged 2.55.17 [dest] is now resized to fit if it is too small (it used to be truncated, with an error).
 // @zasm
 //   POP D3
 //   POP D2
@@ -23617,6 +23807,9 @@ internal void convcase(char32[] string);
 // Converts the value [val] to a string, and writes to [dest].
 // Returns the number of characters used.
 //
+// If [dest] is too small, it is resized to fit.
+//
+// @versionchanged 2.55.17 [dest] is now resized to fit if it is too small (it used to be truncated, with an error).
 // @zasm
 //   POP D3
 //   POP D2
@@ -23626,6 +23819,9 @@ internal int itoa(char32[] dest, int val);
 // Converts [val] to a string, as hexadecimal, and writes to [dest].
 // Returns the number of characters used.
 //
+// If [dest] is too small, it is resized to fit.
+//
+// @versionchanged 2.55.17 [dest] is now resized to fit if it is too small (it used to be truncated, with an error).
 // @zasm
 //   POP D3
 //   POP D2
@@ -23641,6 +23837,9 @@ internal int xtoi(char32[] str);
 
 // Appends [src] to the end of [dest]. Returns [dest].
 //
+// If [dest] is too small, it is resized to fit.
+//
+// @versionchanged 2.55.17 [dest] is now resized to fit if it is too small (it used to be truncated, with an error).
 // @zasm
 //   POP D1
 //   POP D0
@@ -23750,6 +23949,40 @@ internal constexpr int WrapDegrees(int degrees);
 // Prints the specified format_string to the output console, using the given
 // args to fill in parts of the string that are specially marked. Does not
 // include a newline character after the string.
+//
+// Each `%` in the format string, followed by a letter, is replaced by the next
+// argument, formatted according to that letter:
+//
+// - `%d`: A number. Decimal places are only printed if the value has any.
+// - `%f`: A number, always printed with decimal places (trailing zeros trimmed).
+// - `%i`: A number, printed as an integer (the decimal portion is dropped).
+// - `%l`: A `long`. Prints the raw 32-bit value, so `1` prints as `10000`.
+// - `%s`: A string. Prints `<NULL>` for a null pointer.
+// - `%c`: A single character.
+// - `%p`: A pointer. Identical to `%i`.
+// - `%x` / `%X`: The integer portion in hexadecimal, lowercase / uppercase.
+//   Always prefixed with `0x`.
+// - `%b`: The integer portion in binary.
+// - `%B`: The raw 32-bit (`long`) value in binary.
+// - `%a` followed by any of the above letters: An array, printed as
+//   `{ a, b, c }`, with each element formatted per the second letter.
+//   Ex. `%ad` prints an array of numbers, `%as` an array of strings.
+// - `%%`: A literal `%` character.
+//
+// A minimum number of digits may be given between the `%` and the letter, for
+// the numeric formats (`d f i l p x X b B`, and `%a` of these): `%5d` pads the
+// integer portion with spaces to at least 5 digits, and `%05d` pads it with
+// zeros instead. The maximum is 10 digits (32 for `%b` / `%B`).
+//
+// Any other letter after a `%` is an error. If the format string uses more
+// arguments than were passed, the missing arguments are read as `0` (or, if
+// the QR `qr_PRINTF_NO_0FILL` is on, the rest of the format string is printed
+// as-is).
+//
+// ```
+// printf("%d %f %i %x %02d %s %ad\n", 5, 5, 2.5, 255, 7, "hi", {1, 2});
+// // prints: 5 5.0 2 0xff 07 hi { 1, 2 }
+// ```
 //
 // @zasm
 //   PRINTFVARG
@@ -24109,6 +24342,10 @@ class Graphics {
 	//   POPARGS D5 0.0003
 	internal rgb CreateRGB(int r, int g, int b);
 
+	// Writes the components of [color] in the given [color_space] into [buf] (3 values, or 4 for [CSPACE_CMYK]).
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   CONVERTFROMRGB
 	//   POPARGS D5 0.0003
@@ -25117,12 +25354,6 @@ class hero {
 	//   SETR D2 LINKOTILE
 	internal int GetOriginalTile(int hero_sprite_id, int dir);
 
-	// @zasm
-	//   POP D1
-	//   POP D0
-	//   SETR D2 LINKOFLIP
-	internal int GetOriginalFlip(int hero_sprite_id, int dir);
-
 	// @deprecated_future Use [Input->Button] instead!
 	// @zasm_var INPUTSTART
 	internal bool InputStart;
@@ -25499,13 +25730,22 @@ class Input {
 	// @delete
 	internal Input();
 
-	// Whether the given button is down (or 'pressed').
+	// Whether the given button was newly pressed this frame. This is true for
+	// exactly one frame per physical press, on the first frame the button is
+	// held down.
+	//
+	// Writing to this only affects the current frame; the engine resets it from
+	// the real controller state next frame.
 	//
 	// @index [enum Button]
 	// @zasm_var BUTTONPRESS
 	internal bool Press[];
 
-	// Whether the given button is down (or 'pressed').
+	// Whether the given button is currently held down.
+	//
+	// Writing to this only affects the current frame (ex. writing `false` "eats"
+	// the input for the rest of the frame); the engine resets it from the real
+	// controller state next frame.
 	//
 	// @index [enum Button]
 	// @zasm_var BUTTONINPUT
@@ -26542,6 +26782,9 @@ class itemdata {
 
 	// Fills the buffer with the item's Name.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFITEMDATA
@@ -26550,6 +26793,9 @@ class itemdata {
 
 	// Fills the buffer with the item's Display Name.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFITEMDATA
@@ -26568,6 +26814,9 @@ class itemdata {
 	// This automatically handles display names, including special instances
 	// such as the contents of Bottles.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFITEMDATA
@@ -28054,6 +28303,9 @@ class mapdata {
 	// Resizable array of data for scripts to use. All changes are saved to the
 	// save file.
 	//
+	// Belongs to the map screen, so it is the same array as [screendata::Data]
+	// for this screen, on any DMap.
+	//
 	// @zasm_var MAPDATASCRDATA
 	internal untyped Data[];
 
@@ -28091,7 +28343,10 @@ class mapdata {
 	//
 	// Screen->D is not bound to layermap.
 	//
+	// It can only hold numbers: storing an object in it is an error.
+	//
 	// @deprecated mapdata->D[] has never worked!
+	// @no_objects
 	// @zasm_var MAPDATAMISCD
 	internal untyped D[];
 
@@ -28527,6 +28782,9 @@ class messagedata {
 
 	// Loads the raw message data into the provided string buffer.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D3
 	//   POP REFMSGDATA
@@ -28541,6 +28799,10 @@ class messagedata {
 	//   MESSAGEDATASETSTRINGR D3
 	internal void Set(char32[] str);
 }
+// Load with [Audio->LoadMusicData] or [Audio->GetMusicData].
+//
+// See: [Screen->Music], [dmapdata::Music], [mapdata::Music], [save_menu::Music].
+//
 // @versionadded 3.0
 // @zasm_ref REFMUSIC
 class musicdata {
@@ -28607,6 +28869,8 @@ class musicdata {
 	// Fills the buffer with the music path to the enhanced music file being used.
 	// Empty string indicates enhanced music will not be used, and only the [MIDI] will be played.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
 	// @zasm
 	//   POP D2
 	//   POP REFMUSIC
@@ -28623,6 +28887,8 @@ class musicdata {
 	internal void SetPath(char32[] filename);
 	
 	// Fills the buffer with the name of this musicdata.
+	//
+	// If the buffer is too small, it is resized to fit.
 	//
 	// @zasm
 	//   POP D2
@@ -29161,6 +29427,15 @@ class npc {
 	// @zasm_var NPCFIRESFX
 	internal int WeaponSFX;
 
+	// The sfx (Quest->Audio->SFXData) used whenever the npc fires a weapon
+	// other than [npc::Weapon]. Only the 'Fire Octo' death effect does so, and
+	// the weapon it fires is [npc::Weapon] plus the 'Weapon Offset' attribute.
+	// If WeaponSecondarySFX <= 0 no sound will be played.
+	//
+	// @versionadded 3.0
+	// @zasm_var NPCFIRESFXSECONDARY
+	internal int WeaponSecondarySFX;
+
 	// @zasm_var NPCSCRDEFENSED
 	internal int ScriptDefense[];
 
@@ -29330,6 +29605,10 @@ class npc {
 	//   SETR D2 NPCSUBMERGED
 	internal bool Submerged();
 
+	// Fills the buffer with the npc's name.
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFNPC
@@ -29939,7 +30218,13 @@ enum NPCDefenseType
 	NPCDT_HEAL,
 	NPCDT_TRIGGERSECRETS,
 
-	NPCDT_SWITCH = 50
+	NPCDT_SPLIT = 26,
+	NPCDT_TRANSFORM = 27,
+	NPCDT_BOMBEXPLOSION = 33,
+	NPCDT_SUPERBOMBEXPLOSION = 34,
+	NPCDT_HARMLESSEXPLOSION = 41,
+	NPCDT_SUMMON = 46,
+	NPCDT_SWITCH = 51
 };
 
 // Enemy projectile weapon selections. Use with npc->Weapon.
@@ -30227,6 +30512,15 @@ class npcdata {
 	// @zasm_var NPCDATAFIRESFX
 	internal int WeaponSFX;
 
+	// The sfx used when the npc fires a weapon other than [npcdata::Weapon].
+	// Only the 'Fire Octo' death effect does so, and the weapon it fires is
+	// [npcdata::Weapon] plus the 'Weapon Offset' attribute.
+	// If 0 or less, no sound will be played.
+	//
+	// @versionadded 3.0
+	// @zasm_var NPCDATAFIRESFXSECONDARY
+	internal int WeaponSecondarySFX;
+
 	// The defense categories for the npc.
 	//
 	// @index [enum NPCDefenseIndex]
@@ -30328,6 +30622,9 @@ class npcdata {
 
 	// Puts the text of the npc name into string 'ptr'.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error).
 	// @zasm
 	//   POP D2
 	//   POP REFNPCDATA
@@ -30348,8 +30645,11 @@ const rgb INVALID_COLOR = <rgb>(-1);
 
 // Represents a set of palette colors. 256 `rgb` colors divided into 16 csets.
 //
+// Create a new paldata with `new paldata()` or [Graphics->CreatePalData].
+//
 // @zasm_ref REFPALDATA
 class paldata {
+	// @versionadded 3.0
 	// @zasm
 	//   CREATEPALDATA
 	internal paldata();
@@ -33264,6 +33564,24 @@ enum QR
 	// @versionadded 3.0
 	qr_OLD_SCRIPTS_MESSAGE_DATA_BINARY_ENCODING,
 
+	// 'Wrapping FFCs check for changers across the whole screen'
+	//
+	// If checked, on the frame after an FFC wraps around the screen (via the 'Wrap-Around FFCs' screen flag), it checks for changers along the
+	// whole line from where it left the screen to where it re-entered, so it hits (and jumps to) the lowest-numbered changer in that line -
+	// usually the one it just left.
+	//
+	// If unchecked, the FFC only checks for changers from where it re-entered the screen.
+	//
+	// @versionadded 3.0
+	qr_BROKEN_FFC_WRAP_CHANGERS,
+
+	// 'Can Turn While Charging Quake Hammer'
+	//
+	// If enabled, the player can change direction while charging the Quake Hammer, as in 2.50.0 and 2.50.1.
+	//
+	// @versionadded 3.0
+	qr_TURN_WHILE_CHARGING_HAMMER,
+
 	// 'Old (Buggy) ZScript Volume Access'
 	//
 	// If enabled, Audio->AdjustMusicVolume() and Audio->AdjustSFXVolume() will use their old behavior, which was bugged and wrote directly to the
@@ -33615,6 +33933,23 @@ enum QR
 	//
 	// @versionadded 3.0
 	qr_STRING_SEGMENTED_SCROLL,
+
+	// 'Writing to some ->InitD[] affects others'
+	//
+	// If checked, writes to 'itemdata->InitD[]' also modify 'itemdata->PickupInitD[]' and 'itemdata->SpriteInitD[]', and writes to
+	// 'dmapdata->SubInitD[]' also modify 'dmapdata->PassiveSubInitD[]'.
+	//
+	// @versionadded 3.0
+	qr_SCRIPTS_SHARE_INITD,
+
+	// 'Hammer pounds facing up use 2.10 reach'
+	//
+	// If enabled, a hammer pound while facing up affects the combos at 2.10's fixed offsets from the player, 6 pixels higher than later versions.
+	// This reaches one tile further when the player is standing halfway between two tiles vertically, such as after walking up as far as possible
+	// against solid water. Some 2.10 quests require this to pound a post across a gap.
+	//
+	// @versionadded 3.0
+	qr_OLD_210_HAMMER_POUND_REACH,
 	qr_PARSER_250DIVISION = 80 * 8, // @deprecated
 
 	// 'Disable Tracing'
@@ -33742,8 +34077,11 @@ enum QR
 // Old names for old script compat
 const QR qr_WEAPONS_EXTRA_FRAME = qr_WEAPONS_EXTRA_DEATH_FRAME;
 
+// Create a new randgen with `new randgen()` or [Game->LoadRNG].
+//
 // @zasm_ref REFRNG
 class randgen {
+	// @versionadded 3.0
 	// @zasm
 	//   LOADRNG
 	internal randgen();
@@ -34046,6 +34384,8 @@ class save_menu
 
 	// Fills the buffer with the name of this save menu
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
 	// @zasm
 	//   POP D2
 	//   POP REFSAVEMENU
@@ -34199,6 +34539,8 @@ class save_menu
 
 	// Fills the buffer with the string for option [index]
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
 	// @zasm
 	//   POP D3
 	//   POP D2
@@ -34292,6 +34634,8 @@ class save_menu
 	internal void SwapMiscTexts(int index_1, int index_2);
 
 	// Fills the buffer with the string for misc text [index]
+	//
+	// If the buffer is too small, it is resized to fit.
 	//
 	// @zasm
 	//   POP D3
@@ -34838,7 +35182,12 @@ class screendata {
 	// @zasm_var SCREEN_INDEX
 	internal const int Index;
 
-	// A set of 8 misc values for each screen.
+	// 8 misc values for scripts to use, for each screen of each DMap: DMaps that
+	// show the same map screen each have their own D[] (unlike [Data], which
+	// belongs to the map screen). Changes save to the save file.
+	//
+	// These are the values for this screen (see [Index]) on the current DMap. Use
+	// [Game->GetDMapScreenD] and [Game->SetDMapScreenD] for other screens or DMaps.
 	//
 	// @zasm_var SDD
 	internal untyped D[];
@@ -35461,6 +35810,10 @@ class screendata {
 	internal int DataSize;
 
 	// Resizable array of data for scripts to use.
+	//
+	// Belongs to the map screen: every DMap that shows this screen shares it
+	// (unlike [D], which is per DMap). It is the same array as [mapdata::Data]
+	// for this screen.
 	//
 	// Changes save to the save file.
 	//
@@ -36898,8 +37251,11 @@ class spritedata {
 	// @zasm_var SPRITEDATAMISC
 	internal int Misc;
 }
+// Create a new stack with `new stack()` or [Game->LoadStack].
+//
 // @zasm_ref REFSTACK
 class stack<T> {
+	// @versionadded 3.0
 	// @zasm
 	//   LOADSTACK
 	internal stack();
@@ -37443,8 +37799,10 @@ enum // Flags for SUBWIDG_COUNTERPERCBAR
 };
 
 // Data for a specific subscreen. Use to read and modify engine subscreens.
-// Load for a subscreen of a specified type, via [Game->LoadASubData], [Game->LoadPSubData], [Game->LoadOSubData], or [Game->LoadMSubData]
-// Also loadable via [subscreenpage::SubData]
+//
+// Load for a subscreen of a specified type, via [Game->LoadASubData], [Game->LoadPSubData], [Game->LoadOSubData], or [Game->LoadMSubData].
+//
+// Also loadable via [subscreenpage::SubData].
 //
 // @zasm_ref REFSUBSCREENDATA
 class subscreendata {
@@ -39021,6 +39379,16 @@ enum ViewportMode
 //
 // For an example usage, see: https://github.com/ZQuestClassic/ZQuestClassic/blob/main/tests/scripts/playground/auto/viewport.zs
 //
+// Access with `Viewport->`.
+//
+// The *follow settings* ([DeadzoneWidth], [DeadzoneHeight], [LookaheadX], [LookaheadY],
+// [LookaheadSpeed], [RecenterSpeed] and [RecenterDelay]) control how the viewport follows its
+// [Target] in scrolling regions. Each defaults to the value configured for the current dmap (if
+// it has [DMFS_CUSTOM_VIEWPORT_FOLLOW]) or in the editor's Init Data, on the Vars > Regions tab;
+// writing to one overrides that until [ResetFollowSettings] is called or the game is restarted
+// or continued. Unlike [Mode] and [Target], they are NOT reset by scrolling or by camera
+// cutscene effects.
+//
 // @versionadded 2.55.9 Basic, read-only access
 // @versionchanged 3.0 Full access via [Viewport->Mode]
 class Viewport {
@@ -39042,6 +39410,97 @@ class Viewport {
 	// @zasm_var VIEWPORT_TARGET
 	internal sprite Target;
 
+	// Width of the viewport deadzone box, in pixels (0 to 240). While the [Target]'s center
+	// (shifted by any [LookaheadX]/[LookaheadY] offset) stays within this box, which is centered
+	// on the viewport's focus point (its center, except where a region edge stops the viewport),
+	// the viewport does not move horizontally; once it pushes past an edge of the box, the
+	// viewport moves just enough to keep it on the edge.
+	//
+	// 0 keeps the viewport locked to the target, which is the default for quests made before
+	// this setting existed; new quests start with a 32 by 32 box. Only observable in scrolling
+	// regions. One of the follow settings; see the class notes for how it is configured and
+	// reset.
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_DEADZONE_WIDTH
+	internal int DeadzoneWidth;
+
+	// Height of the viewport deadzone box, in pixels (0 to 160). See [DeadzoneWidth].
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_DEADZONE_HEIGHT
+	internal int DeadzoneHeight;
+
+	// How far the viewport aims ahead of the direction the [Target] is moving horizontally, in
+	// pixels (-128 to 127). Positive values lead in front of the target (more frontal view);
+	// negative values trail behind it. Each axis has its own distance (see [LookaheadY]), so
+	// diagonal movement leads by both.
+	//
+	// While the target moves, the offset shifts toward the lead at [LookaheadSpeed] pixels
+	// per frame (easing out on an axis it isn't moving along). Movement against the direction
+	// the target faces is ignored, so being knocked back, or pushed backward by a conveyor or a
+	// script, doesn't swing the viewport; sideways movement still counts. While it stands still,
+	// the offset holds, so the viewport never drifts or reacts to turning in place. Warps
+	// (whistle warps included), camera cutscene effects and setting [Mode] back from
+	// [VIEW_MODE_SCRIPT] drop the offset (it rebuilds as the target moves); scroll transitions
+	// carry it. Only observable in scrolling regions.
+	//
+	// The offset the viewport actually holds is capped on each axis so the viewport can
+	// still reach the region edges: 120 - [DeadzoneWidth]/2 horizontally, and
+	// 80 - [DeadzoneHeight]/2 vertically.
+	//
+	// One of the follow settings; see the class notes for how it is configured and reset.
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_LOOKAHEAD_X
+	internal int LookaheadX;
+
+	// How far the viewport aims ahead of the direction the [Target] is moving vertically, in
+	// pixels (-128 to 127). See [LookaheadX]. Since the viewport is shorter than it is wide, a
+	// smaller distance usually feels right here.
+	//
+	// In sideview, jumping and falling count as vertical movement, so a jump shifts the
+	// viewport too. To keep jumps from moving it, set this to 0 on sideview dmaps (see
+	// [DMFS_CUSTOM_VIEWPORT_FOLLOW]).
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_LOOKAHEAD_Y
+	internal int LookaheadY;
+
+	// How fast the [LookaheadX]/[LookaheadY] offset shifts, in pixels per frame (0 to 240; 0
+	// freezes the current offset in place). Fractional values are allowed, and values between 0
+	// and 1 are recommended: while the target moves this speed is added to their own, so
+	// anything higher makes the viewport visibly outrun them.
+	//
+	// 1 unless changed. One of the follow settings; see the class notes for how it is
+	// configured and reset.
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_LOOKAHEAD_SPEED
+	internal int LookaheadSpeed;
+
+	// Idle recentering: once the [Target] has stood still for [RecenterDelay] frames, the
+	// viewport eases back toward it at this many pixels per frame (0 to 240, fractional) until
+	// it is centered again. A held [LookaheadX]/[LookaheadY] offset still applies: the viewport
+	// moves toward the target only as far as the deadzone box allows, and never further ahead.
+	// 0 (the default) disables it; any movement cancels it. Only observable in scrolling
+	// regions with a deadzone.
+	//
+	// One of the follow settings; see the class notes for how it is configured and reset.
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_RECENTER_SPEED
+	internal int RecenterSpeed;
+
+	// How many frames the [Target] must stand still before idle recentering (see
+	// [RecenterSpeed]) begins (0 to 65535; 30 unless changed).
+	//
+	// One of the follow settings; see the class notes for how it is configured and reset.
+	//
+	// @versionadded 3.0
+	// @zasm_var VIEWPORT_RECENTER_DELAY
+	internal int RecenterDelay;
+
 	// Unless [Mode] is [VIEW_MODE_SCRIPT], this is updated every frame by the engine.
 	//
 	// @zasm_var VIEWPORT_X
@@ -39057,6 +39516,15 @@ class Viewport {
 
 	// @zasm_var VIEWPORT_HEIGHT
 	internal const int Height;
+
+	// Restores the follow settings ([DeadzoneWidth], [DeadzoneHeight], [LookaheadX],
+	// [LookaheadY], [LookaheadSpeed], [RecenterSpeed] and [RecenterDelay]) to their configured
+	// values, discarding any values written by scripts.
+	//
+	// @versionadded 3.0
+	// @zasm
+	//   VIEWPORT_RESET_FOLLOW_SETTINGS
+	internal void ResetFollowSettings();
 
 	// Returns true if the given sprite is visible within the viewport.
 	//
@@ -39097,7 +39565,8 @@ enum WeapDataFlag
 	WDATA_SET_STEP,
 };
 
-// Represents settings for [lweapon]s and [eweapon]s.
+// Holds properties for the [lweapon] and [eweapon] classes.
+//
 // See [npcdata::WeaponData], [npc::WeaponData], [itemdata::WeaponData],
 // [combodata::MiscWeaponData], [combodata::LiftWeaponData].
 //
@@ -39350,6 +39819,8 @@ enum WebsocketType {
     WEBSOCKET_MESSAGE_TYPE_BINARY = 2L // send binary data
 };
 
+// Create a new websocket with `new websocket(url)`.
+//
 // @tutorial /tutorials/websockets
 // @versionadded 3.0
 // @zasm_ref REFWEBSOCKET
@@ -39376,6 +39847,8 @@ class websocket {
 	internal const char32[] URL;
 
 	// Gets the current websocket error message (if any).
+	//
+	// If the buffer is too small, it is resized to fit.
 	//
 	// @zasm
 	//   POP D2
@@ -39439,8 +39912,11 @@ class ZInfo {
 
 	// Copies the name of the specified item class into the buffer.
 	//
+	// If the buffer is too small, it is resized to fit.
+	//
 	// @param [ItemType] itemclass_id
 	// @versionadded 3.0
+	// @versionchanged 2.55.17 The buffer is now resized to fit if it is too small (it used to be truncated, with an error). Known as `Module->GetItemClass` in 2.55.
 	// @zasm
 	//   POP D2
 	//   POP D3

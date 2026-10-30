@@ -1,7 +1,7 @@
 
   var Module = typeof Module != 'undefined' ? Module : {};
 
-  Module['expectedDataFileDownloads'] ??= 0;
+  if (!Module['expectedDataFileDownloads']) Module['expectedDataFileDownloads'] = 0;
   Module['expectedDataFileDownloads']++;
   (() => {
     // Do not attempt to redownload the virtual filesystem data when in a pthread or a Wasm Worker context.
@@ -19,12 +19,12 @@
       }
       var PACKAGE_NAME = '/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data';
       var REMOTE_PACKAGE_BASE = 'zplayer.data';
-      var REMOTE_PACKAGE_NAME = Module['locateFile']?.(REMOTE_PACKAGE_BASE, '') ?? REMOTE_PACKAGE_BASE;
+      var REMOTE_PACKAGE_NAME = Module['locateFile'] ? Module['locateFile'](REMOTE_PACKAGE_BASE, '') : REMOTE_PACKAGE_BASE;
       var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
 
       async function fetchRemotePackage(packageName, packageSize) {
         
-        Module['dataFileDownloads'] ??= {};
+        if (!Module['dataFileDownloads']) Module['dataFileDownloads'] = {};
         try {
           var response = await fetch(packageName);
         } catch (e) {
@@ -36,10 +36,10 @@
 
         const chunks = [];
         const headers = response.headers;
-        const total = Number(headers.get('Content-Length') ?? packageSize);
+        const total = Number(headers.get('Content-Length') || packageSize);
         let loaded = 0;
 
-        Module['setStatus']?.('Downloading data...');
+        Module['setStatus'] && Module['setStatus']('Downloading data...');
         const reader = response.body.getReader();
 
         while (1) {
@@ -57,7 +57,7 @@
             totalSize += download.total;
           }
 
-          Module['setStatus']?.(`Downloading data... (${totalLoaded}/${totalSize})`);
+          Module['setStatus'] && Module['setStatus'](`Downloading data... (${totalLoaded}/${totalSize})`);
         }
 
         const packageData = new Uint8Array(chunks.map((c) => c.length).reduce((a, b) => a + b, 0));
@@ -81,38 +81,6 @@ Module['FS_createPath']("/", "etc", true, true);
 Module['FS_createPath']("/", "modules", true, true);
 Module['FS_createPath']("/modules", "classic", true, true);
 Module['FS_createPath']("/", "music", true, true);
-
-      /** @constructor */
-      function DataRequest(start, end, audio) {
-        this.start = start;
-        this.end = end;
-        this.audio = audio;
-      }
-      DataRequest.prototype = {
-        requests: {},
-        open: function(mode, name) {
-          this.name = name;
-          this.requests[name] = this;
-          Module['addRunDependency'](`fp ${this.name}`);
-        },
-        send: function() {},
-        onload: function() {
-          var byteArray = this.byteArray.subarray(this.start, this.end);
-          this.finish(byteArray);
-        },
-        finish: async function(byteArray) {
-          var that = this;
-          // canOwn this data in the filesystem, it is a slice into the heap that will never change
-          Module['FS_createDataFile'](this.name, null, byteArray, true, true, true);
-          Module['removeRunDependency'](`fp ${that.name}`);
-          this.requests[this.name] = null;
-        }
-      };
-
-      var files = metadata['files'];
-      for (var i = 0; i < files.length; ++i) {
-        new DataRequest(files[i]['start'], files[i]['end'], files[i]['audio'] || 0).open('GET', files[i]['filename']);
-      }
 
         var PACKAGE_UUID = metadata['package_uuid'];
         var IDB_RO = "readonly";
@@ -264,27 +232,28 @@ Module['FS_createPath']("/", "music", true, true);
           });
         }
 
-      function processPackageData(arrayBuffer) {
+      async function processPackageData(arrayBuffer) {
         assert(arrayBuffer, 'Loading data file failed.');
-        assert(arrayBuffer.constructor.name === ArrayBuffer.name, 'bad input to processPackageData');
+        assert(arrayBuffer.constructor.name === ArrayBuffer.name, 'bad input to processPackageData ' + arrayBuffer.constructor.name);
         var byteArray = new Uint8Array(arrayBuffer);
         var curr;
         // Reuse the bytearray from the XHR as the source for file reads.
-          DataRequest.prototype.byteArray = byteArray;
-          var files = metadata['files'];
-          for (var i = 0; i < files.length; ++i) {
-            DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
-
+          for (var file of metadata['files']) {
+            var name = file['filename'];
+            var data = byteArray.subarray(file['start'], file['end']);
+            // canOwn this data in the filesystem, it is a slice into the heap that will never change
+        Module['FS_createDataFile'](name, null, data, true, true, true);
+          }
+          Module['removeRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
       }
       Module['addRunDependency']('datafile_/Users/connorclark/code/ZeldaClassic-secondary/build_emscripten/Release/zplayer.data');
 
-      Module['preloadResults'] ??= {};
+      if (!Module['preloadResults']) Module['preloadResults'] = {};
 
         async function preloadFallback(error) {
           console.error(error);
           console.error('falling back to default preload behavior');
-          processPackageData(await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE));
+          await processPackageData(await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE));
         }
 
         try {
@@ -293,30 +262,32 @@ Module['FS_createPath']("/", "music", true, true);
           var useCached = !!pkgMetadata;
           Module['preloadResults'][PACKAGE_NAME] = {fromCache: useCached};
           if (useCached) {
-            processPackageData(await fetchCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME, pkgMetadata));
+            await processPackageData(await fetchCachedPackage(db, PACKAGE_PATH + PACKAGE_NAME, pkgMetadata));
           } else {
             var packageData = await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE);
             try {
-              processPackageData(await cacheRemotePackage(db, PACKAGE_PATH + PACKAGE_NAME, packageData, {uuid:PACKAGE_UUID}))
+              await processPackageData(await cacheRemotePackage(db, PACKAGE_PATH + PACKAGE_NAME, packageData, {uuid:PACKAGE_UUID}))
             } catch (error) {
               console.error(error);
-              processPackageData(packageData);
+              await processPackageData(packageData);
             }
           }
         } catch(e) {
           await preloadFallback(e);
         }
 
-        Module['setStatus']?.('Downloading...');
+        Module['setStatus'] && Module['setStatus']('Downloading...');
 
     }
-    if (Module['calledRun']) {
+    // Detect whether the module JS file has already been loaded.
+    if (Module['FS_createPath']) {
       runWithFS(Module);
     } else {
-      (Module['preRun'] ??= []).push(runWithFS); // FS is not initialized yet, wait for it
+      if (!Module['preRun']) Module['preRun'] = [];
+      Module['preRun'].push(runWithFS); // FS is not initialized yet, wait for it
     }
 
     }
-    loadPackage({"files": [{"filename": "/Classic.nsf", "start": 0, "end": 61568}, {"filename": "/allegro5.cfg", "start": 61568, "end": 69226}, {"filename": "/assets/cursor.bmp", "start": 69226, "end": 70560}, {"filename": "/assets/dungeon.mid", "start": 70560, "end": 73066}, {"filename": "/assets/ending.mid", "start": 73066, "end": 85139}, {"filename": "/assets/gameover.mid", "start": 85139, "end": 85824}, {"filename": "/assets/gui_pal.bmp", "start": 85824, "end": 87158}, {"filename": "/assets/level9.mid", "start": 87158, "end": 90515}, {"filename": "/assets/overworld.mid", "start": 90515, "end": 98919}, {"filename": "/assets/title.mid", "start": 98919, "end": 107520}, {"filename": "/assets/triforce.mid", "start": 107520, "end": 108178}, {"filename": "/assets/zc/ZC_Forever_HD.mp3", "start": 108178, "end": 4097515, "audio": 1}, {"filename": "/assets/zc/ZC_Icon_Medium_Player.png", "start": 4097515, "end": 4105522}, {"filename": "/assets/zc/ZC_Logo.png", "start": 4105522, "end": 4137312}, {"filename": "/base_config/zc.cfg", "start": 4137312, "end": 4141089}, {"filename": "/base_config/zcl.cfg", "start": 4141089, "end": 4141708}, {"filename": "/base_config/zquest.cfg", "start": 4141708, "end": 4145246}, {"filename": "/base_config/zscript.cfg", "start": 4145246, "end": 4145464}, {"filename": "/etc/2MGM.cfg", "start": 4145464, "end": 4152900}, {"filename": "/etc/freepats.cfg", "start": 4152900, "end": 4157421}, {"filename": "/etc/oot.cfg", "start": 4157421, "end": 4159666}, {"filename": "/etc/ppl160.cfg", "start": 4159666, "end": 4163834}, {"filename": "/etc/ultra.cfg", "start": 4163834, "end": 4168257}, {"filename": "/etc/zc.cfg", "start": 4168257, "end": 4173781}, {"filename": "/modules/classic/classic_fonts.dat", "start": 4173781, "end": 4276546}, {"filename": "/modules/classic/default.qst", "start": 4276546, "end": 7453855}, {"filename": "/modules/classic/title_gfx.dat", "start": 7453855, "end": 7592911}, {"filename": "/music/zelda.nsf", "start": 7592911, "end": 7597843}, {"filename": "/sfx.dat", "start": 7597843, "end": 8846976}, {"filename": "/zc.png", "start": 8846976, "end": 8875861}, {"filename": "/zquest_web.cfg", "start": 8875861, "end": 8875915}], "remote_package_size": 8875915, "package_uuid": "sha256-95e35c15b00a9d4ec0af2e533a5d9fef60d2c9d15d77af3cd3d2f0ecbf802e09"});
+    loadPackage({"files": [{"filename": "/Classic.nsf", "start": 0, "end": 61568}, {"filename": "/allegro5.cfg", "start": 61568, "end": 69226}, {"filename": "/assets/cursor.bmp", "start": 69226, "end": 70560}, {"filename": "/assets/dungeon.mid", "start": 70560, "end": 73066}, {"filename": "/assets/ending.mid", "start": 73066, "end": 85139}, {"filename": "/assets/gameover.mid", "start": 85139, "end": 85824}, {"filename": "/assets/gui_pal.bmp", "start": 85824, "end": 87158}, {"filename": "/assets/level9.mid", "start": 87158, "end": 90515}, {"filename": "/assets/overworld.mid", "start": 90515, "end": 98919}, {"filename": "/assets/title.mid", "start": 98919, "end": 107520}, {"filename": "/assets/triforce.mid", "start": 107520, "end": 108178}, {"filename": "/assets/zc/ZC_Forever_HD.mp3", "start": 108178, "end": 4097515}, {"filename": "/assets/zc/ZC_Icon_Medium_Player.png", "start": 4097515, "end": 4105522}, {"filename": "/assets/zc/ZC_Logo.png", "start": 4105522, "end": 4137312}, {"filename": "/base_config/zc.cfg", "start": 4137312, "end": 4141502}, {"filename": "/base_config/zcl.cfg", "start": 4141502, "end": 4142121}, {"filename": "/base_config/zquest.cfg", "start": 4142121, "end": 4145659}, {"filename": "/base_config/zscript.cfg", "start": 4145659, "end": 4145877}, {"filename": "/etc/2MGM.cfg", "start": 4145877, "end": 4153313}, {"filename": "/etc/freepats.cfg", "start": 4153313, "end": 4157834}, {"filename": "/etc/oot.cfg", "start": 4157834, "end": 4160079}, {"filename": "/etc/ppl160.cfg", "start": 4160079, "end": 4164247}, {"filename": "/etc/ultra.cfg", "start": 4164247, "end": 4168670}, {"filename": "/etc/zc.cfg", "start": 4168670, "end": 4174194}, {"filename": "/modules/classic/classic_fonts.dat", "start": 4174194, "end": 4276959}, {"filename": "/modules/classic/default.qst", "start": 4276959, "end": 7454268}, {"filename": "/modules/classic/title_gfx.dat", "start": 7454268, "end": 7593324}, {"filename": "/music/zelda.nsf", "start": 7593324, "end": 7598256}, {"filename": "/sfx.dat", "start": 7598256, "end": 8847389}, {"filename": "/zc.png", "start": 8847389, "end": 8876274}, {"filename": "/zquest_web.cfg", "start": 8876274, "end": 8876328}], "remote_package_size": 8876328, "package_uuid": "sha256-0b2206d1573157a4aa1465036262aeede79eff740777de46fe144164ba7bc16f"});
 
   })();
