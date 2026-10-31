@@ -18,3 +18,4 @@ rsync -r --delete --exclude _headers --exclude _redirects "$ZC_DIR/build_emscrip
 rm dist/index.html
 rm -fr dist/files/allegro.log dist/files/.sentry-native
 echo "$VERSION" > dist/version
+bash scripts/apply_hotfixes.sh
